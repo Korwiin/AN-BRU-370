@@ -5,9 +5,15 @@
 #include "ui.h"
 #include "dcs_bios.h"
 #include "hardware.h"
+#include "encoder.h"
 
 static bool wasDcsConnected = false;
 static bool syncDone        = false;
+
+// MASTER CAUTION state
+static bool s_mcActive    = false;
+static bool s_mcFlash     = false;
+static unsigned long s_mcFlashTimer = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -30,14 +36,40 @@ void setup() {
   }
 
   Hardware::begin();
+  Encoder::begin();
 }
 
 void loop() {
   DcsBios::update();
+  Encoder::readDelta();  // must call every loop to keep button state current
+
+  // MASTER CAUTION — full-screen takeover, blocks all other display/action
+  bool mc = DcsBios::masterCaution();
+  if (mc) {
+    s_mcActive = true;
+    if (millis() - s_mcFlashTimer > 200) {
+      s_mcFlash = !s_mcFlash;
+      s_mcFlashTimer = millis();
+    }
+    UI::showMasterCaution(s_mcFlash);
+
+    if (Encoder::shortPressed()) {
+      DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 1);
+      delay(100);
+      DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 0);
+      Serial.println("MC reset sent");
+    }
+    return;  // skip rest of loop while MC active
+  }
+  if (s_mcActive && !mc) {
+    s_mcActive = false;  // DCS-BIOS confirmed light off
+    Serial.println("MC cleared");
+  }
+
+  // Normal operation
   Hardware::update();
 
   bool nowConnected = DcsBios::isConnected();
-
   if (nowConnected && !wasDcsConnected) {
     UI::showSyncing();
     delay(800);
@@ -50,7 +82,6 @@ void loop() {
   }
   wasDcsConnected = nowConnected;
 
-  // Log sync mismatch (rare AP magnetic disengage scenario)
   if (nowConnected &&
       DcsBios::apPitchSwitch() != 0xFF &&
       DcsBios::apPitchSwitch() != Hardware::sw1Pos()) {

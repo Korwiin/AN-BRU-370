@@ -14,5 +14,9 @@ namespace UI {
   void showSynced();
   void showSyncFailed();
 
+  // Full-screen MASTER CAUTION takeover. Call repeatedly while MC is active.
+  // flashState alternates true/false every ~200 ms to produce flash effect.
+  void showMasterCaution(bool flashState);
+
   void update();  // expanded in later tasks
 }
