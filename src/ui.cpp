@@ -12,6 +12,22 @@ void UI::begin() {
   u8g2.setContrast(20);
 }
 
+void UI::showSplash() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_9x15B_tr);
+  int w1 = u8g2.getStrWidth("BREW370");
+  u8g2.drawStr((128 - w1) / 2, 14, "BREW370");
+  u8g2.setFont(u8g2_font_6x10_tr);
+  char ver[16];
+  snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
+  int w2 = u8g2.getStrWidth(ver);
+  u8g2.drawStr((128 - w2) / 2, 28, ver);
+  u8g2.sendBuffer();
+}
+
+void UI::sleep() { u8g2.setPowerSave(1); }
+void UI::wake()  { u8g2.setPowerSave(0); }
+
 void UI::showWifiConnecting(const char* ssid) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tr);

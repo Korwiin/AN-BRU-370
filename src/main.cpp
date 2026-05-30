@@ -37,6 +37,8 @@ static unsigned long s_mcFlashTimer = 0;
 static bool s_wasDcsConnected     = false;
 static bool s_syncDone            = false;
 static unsigned long s_lastOled   = 0;
+static bool s_oledSleeping        = false;
+static unsigned long s_lastActivity = 0;
 
 static void loadNvs() {
   Preferences prefs;
@@ -127,39 +129,65 @@ static void executeMouseTuneItem() {
 }
 
 void setup() {
+#ifndef RELEASE_BUILD
   Serial.begin(115200);
   while (!Serial && millis() < 2000) {}
   Serial.printf("=== Brew370 v%s boot ===\n", FIRMWARE_VERSION);
+#endif
 
   loadNvs();
 
   HID::begin();
   UI::begin();
   UI::setContrast(s_brightness);
+  UI::showSplash();
+  delay(1500);
+
   UI::showWifiConnecting(WIFI_SSID_DEFAULT);
 
   bool wifiOk = WifiMgr::begin();
   if (wifiOk) {
+#ifndef RELEASE_BUILD
     Serial.printf("WiFi connected: %s\n", WifiMgr::activeSSID());
+#endif
     UI::showWifiConnected(WifiMgr::activeSSID());
     DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
                    "255.255.255.255", DCSBIOS_CMD_PORT);
     UI::showSyncing();
   } else {
+#ifndef RELEASE_BUILD
     Serial.printf("WiFi failed: %s\n", WifiMgr::activeSSID());
+#endif
     UI::showWifiFailed(WifiMgr::activeSSID());
   }
 
   Hardware::begin();
   Encoder::begin();
+  s_lastActivity = millis();
 }
 
 void loop() {
-  DcsBios::update();
+  bool dcsActivity = DcsBios::update();
   int8_t delta = Encoder::readDelta();
+  bool encActivity = (delta != 0) || Encoder::shortPressed() || Encoder::longPressed();
 
-  // MASTER CAUTION — full-screen takeover
+  // Wake OLED on any activity
+  if (s_oledSleeping && encActivity) {
+    UI::wake();
+    s_oledSleeping = false;
+    s_lastActivity = millis();
+  }
+  if (!s_oledSleeping && (encActivity || dcsActivity)) {
+    s_lastActivity = millis();
+  }
+
+  // MASTER CAUTION — full-screen takeover (wakes OLED if sleeping)
   bool mc = DcsBios::masterCaution();
+  if (mc && s_oledSleeping) {
+    UI::wake();
+    s_oledSleeping = false;
+    s_lastActivity = millis();
+  }
   if (mc) {
     s_mcActive = true;
     if (millis() - s_mcFlashTimer > 200) {
@@ -302,8 +330,15 @@ void loop() {
     if (Encoder::longPressed()) { s_wifiSubSel = 0; s_mode = SETTINGS; }
   }
 
-  // OLED update
-  if (millis() - s_lastOled > 200) {
+  // OLED sleep check
+  if (!s_oledSleeping && s_sleepSecs > 0 &&
+      millis() - s_lastActivity > (unsigned long)s_sleepSecs * 1000UL) {
+    UI::sleep();
+    s_oledSleeping = true;
+  }
+
+  // OLED update — skip while display is powered down
+  if (!s_oledSleeping && millis() - s_lastOled > 200) {
     s_lastOled = millis();
     switch (s_mode) {
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;
