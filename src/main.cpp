@@ -30,6 +30,7 @@ static int  s_editParamIdx        = 0;
 static int  s_editDigits[4]       = {0,0,0,0};
 static int  s_editDigitPos        = 0;
 static int  s_prevMouseParams[6];
+static int  s_wifiSubSel          = 0;
 static bool s_mcActive            = false;
 static bool s_mcFlash             = false;
 static unsigned long s_mcFlashTimer = 0;
@@ -257,8 +258,26 @@ void loop() {
     if (Encoder::longPressed()) { s_mode = MOUSE_TUNE_MENU; UI::flashScreen(); }
 
   } else if (s_mode == WIFI_MENU) {
-    // Placeholder — wired in Tasks 9 and 10
-    if (Encoder::shortPressed() || Encoder::longPressed()) s_mode = SETTINGS;
+    s_wifiSubSel = (s_wifiSubSel + delta + 3) % 3;
+    if (Encoder::shortPressed()) {
+      if (s_wifiSubSel == 0) {
+        // Serial Entry
+        bool saved = WifiMgr::runSerialSetup(
+          []() { UI::showSerialActive(); },
+          []() { return Encoder::longPressed(); }
+        );
+        if (saved) UI::showSaved();
+        s_mode = SETTINGS;
+      } else if (s_wifiSubSel == 1) {
+        // Manual Entry — placeholder, wired in Task 10
+        s_mode = SETTINGS;
+      } else {
+        // Back
+        s_mode = SETTINGS;
+      }
+      s_wifiSubSel = 0;
+    }
+    if (Encoder::longPressed()) { s_wifiSubSel = 0; s_mode = SETTINGS; }
   }
 
   // OLED update
@@ -273,7 +292,7 @@ void loop() {
       case MOUSE_TUNE_MENU:   UI::showMouseTuneMenu(s_mouseTuneSel, s_mouseTuneOffset); break;
       case MOUSE_TUNE_EDIT:   UI::showMouseTuneEdit(s_editParamIdx,
                                 s_editDigits, s_editDigitPos); break;
-      case WIFI_MENU:         UI::showSaved(); break;  // placeholder
+      case WIFI_MENU:         UI::showWifiSubMenu(s_wifiSubSel); break;
     }
   }
 }

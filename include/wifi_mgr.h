@@ -11,4 +11,10 @@ namespace WifiMgr {
 
   void saveCredentials(const char* ssid, const char* pass);
   void clearOverride();
+
+  // Runs serial credential entry flow.
+  // oledCb: called repeatedly while waiting (to keep OLED updated).
+  // cancelCb: return true to cancel (long press check).
+  // Returns true if credentials saved successfully.
+  bool runSerialSetup(void (*oledCb)(), bool (*cancelCb)());
 }

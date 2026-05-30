@@ -213,6 +213,27 @@ void UI::showMouseTuneEdit(int paramIdx, int digits[4], int digitPos) {
   u8g2.sendBuffer();
 }
 
+void UI::showSerialActive() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.drawStr(0, 10, "SERIAL ACTIVE");
+  u8g2.drawStr(0, 24, "LP=Cancel");
+  u8g2.sendBuffer();
+}
+
+void UI::showWifiSubMenu(int sel) {
+  static const char* items[] = {"Serial Entry", "Manual Entry", "Back"};
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.drawStr(0, 8, "WIFI SETUP");
+  for (int i = 0; i < 3; i++) {
+    int y = 18 + i * 8;
+    if (i == sel) { u8g2.drawStr(0, y, ">"); u8g2.drawStr(10, y, items[i]); }
+    else            u8g2.drawStr(10, y, items[i]);
+  }
+  u8g2.sendBuffer();
+}
+
 void UI::showSaved() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_9x15B_tr);

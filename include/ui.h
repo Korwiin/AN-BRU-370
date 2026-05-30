@@ -27,6 +27,8 @@ namespace UI {
   void showMouseTuneMenu(int sel, int offset);
   void showMouseTuneEdit(int paramIdx, int digits[4], int digitPos);
   void showSaved();
+  void showSerialActive();
+  void showWifiSubMenu(int sel);
   void setContrast(uint8_t value);
 
   void update();  // expanded in later tasks
