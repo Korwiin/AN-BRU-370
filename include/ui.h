@@ -21,5 +21,13 @@ namespace UI {
   void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED
   void flashScreen();            // brief invert flash for button feedback
 
+  void showSettingsMenu(int sel, int offset, int hand, bool usbReady);
+  void showBrightnessAdjust(int value);
+  void showSleepAdjust(int secs);
+  void showMouseTuneMenu(int sel, int offset);
+  void showMouseTuneEdit(int paramIdx, int digits[4], int digitPos);
+  void showSaved();
+  void setContrast(uint8_t value);
+
   void update();  // expanded in later tasks
 }
