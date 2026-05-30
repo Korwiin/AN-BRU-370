@@ -45,12 +45,13 @@ static void processByte(uint8_t b) {
     case SYNC2: s_parse = (b == 0x55) ? SYNC3 : SYNC0; break;
     case SYNC3: s_parse = (b == 0x55) ? ADDR_LO : SYNC0; break;
     case ADDR_LO: s_addr  = b;          s_parse = ADDR_HI; break;
-    case ADDR_HI: s_addr |= (b << 8);   s_parse = LEN_LO;  break;
-    case LEN_LO:  s_len   = b;          s_parse = LEN_HI;  break;
+    case ADDR_HI: s_addr |= ((uint16_t)b << 8); s_parse = LEN_LO;  break;
+    case LEN_LO:  s_len   = b;                  s_parse = LEN_HI;  break;
     case LEN_HI:
-      s_len |= (b << 8);
+      s_len |= ((uint16_t)b << 8);
+      if (s_len > sizeof(s_buf)) s_len = sizeof(s_buf);
       s_dataIdx = 0;
-      if (s_addr == 0xFEFF || s_len == 0) {
+      if (s_addr == 0xFFFE || s_len == 0) {
         s_parse = ADDR_LO;
       } else {
         s_parse = DATA;
