@@ -55,7 +55,10 @@ int8_t Encoder::readDelta() {
 
   // Button debounce
   bool reading = (digitalRead(PIN_ENC_SW) == LOW);
-  if (reading != s_lastBtnState) s_lastDebounce = millis();
+  if (reading != s_lastBtnState) {
+    s_lastDebounce = millis();
+    s_lastBtnState = reading;
+  }
 
   if (millis() - s_lastDebounce > kDebouncMs) {
     if (reading && !s_btnActive) {
@@ -73,8 +76,6 @@ int8_t Encoder::readDelta() {
     s_longPress = true;
     s_lpFired   = true;
   }
-
-  s_lastBtnState = reading;
   return out;
 }
 
