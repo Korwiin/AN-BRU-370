@@ -81,3 +81,10 @@ int8_t Encoder::readDelta() {
 
 bool Encoder::shortPressed() { return s_shortPress; }
 bool Encoder::longPressed()  { return s_longPress;  }
+
+void Encoder::flush() {
+  s_stepCount  = 0;
+  s_shortPress = false;
+  s_longPress  = false;
+  s_lpFired    = false;
+}

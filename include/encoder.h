@@ -13,4 +13,7 @@ namespace Encoder {
 
   // True on the loop() cycle a long press fires (held > 600 ms).
   bool longPressed();
+
+  // Reset accumulated rotation and button state. Call before entering a blocking input loop.
+  void flush();
 }

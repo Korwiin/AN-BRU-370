@@ -1,4 +1,5 @@
 #include "wifi_mgr.h"
+#include "encoder.h"
 #include "config.h"
 #include <WiFi.h>
 #include <Preferences.h>
@@ -68,6 +69,10 @@ bool WifiMgr::runEncoderEntry(const char* fieldName,
   constexpr int kTotal    = 73;
   constexpr int kIdxDEL   = 71;
   constexpr int kIdxDONE  = 72;
+
+  // Discard any accumulated encoder state from the triggering press
+  // so the blocking inner loop starts with a clean slate.
+  Encoder::flush();
 
   int  charIdx = 0;
   char buf[64] = {0};
