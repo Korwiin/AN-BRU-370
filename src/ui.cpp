@@ -1,4 +1,5 @@
 #include "ui.h"
+#include "macros.h"
 #include "pins.h"
 
 static U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C
@@ -70,6 +71,34 @@ void UI::showMasterCaution(bool flashState) {
   int w2 = u8g2.getStrWidth("CAUTION");
   u8g2.drawStr((128 - w2) / 2, 30, "CAUTION");
   if (flashState) u8g2.setDrawColor(1);
+  u8g2.sendBuffer();
+}
+
+void UI::showMacroMenu(int idx) {
+  Macro* m = &macros[idx];
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_t0_22b_mr);
+  if (m->isTwoLine) {
+    int w1 = u8g2.getStrWidth(m->name);
+    u8g2.drawStr((128 - w1) / 2, 18, m->name);
+    int w2 = u8g2.getStrWidth(m->line2);
+    u8g2.drawStr((128 - w2) / 2, 31, m->line2);
+  } else {
+    int w = u8g2.getStrWidth(m->name);
+    u8g2.drawStr((128 - w) / 2, 22, m->name);
+  }
+  u8g2.sendBuffer();
+}
+
+void UI::flashScreen() {
+  u8g2.setDrawColor(2);
+  u8g2.drawBox(0, 0, 128, 32);
+  u8g2.setDrawColor(1);
+  u8g2.sendBuffer();
+  delay(80);
+  u8g2.setDrawColor(2);
+  u8g2.drawBox(0, 0, 128, 32);
+  u8g2.setDrawColor(1);
   u8g2.sendBuffer();
 }
 

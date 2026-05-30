@@ -6,20 +6,22 @@
 #include "dcs_bios.h"
 #include "hardware.h"
 #include "encoder.h"
+#include "hid.h"
+#include "macros.h"
 
 static bool wasDcsConnected = false;
 static bool syncDone        = false;
-
-// MASTER CAUTION state
-static bool s_mcActive    = false;
-static bool s_mcFlash     = false;
+static bool s_mcActive      = false;
+static bool s_mcFlash       = false;
 static unsigned long s_mcFlashTimer = 0;
+static int  s_currentMacro  = 0;
 
 void setup() {
   Serial.begin(115200);
   while (!Serial && millis() < 2000) {}
   Serial.printf("=== Brew370 v%s boot ===\n", FIRMWARE_VERSION);
 
+  HID::begin();
   UI::begin();
   UI::showWifiConnecting(WIFI_SSID_DEFAULT);
 
@@ -41,9 +43,9 @@ void setup() {
 
 void loop() {
   DcsBios::update();
-  Encoder::readDelta();  // must call every loop to keep button state current
+  int8_t delta = Encoder::readDelta();
 
-  // MASTER CAUTION — full-screen takeover, blocks all other display/action
+  // MASTER CAUTION — full-screen takeover
   bool mc = DcsBios::masterCaution();
   if (mc) {
     s_mcActive = true;
@@ -52,17 +54,16 @@ void loop() {
       s_mcFlashTimer = millis();
     }
     UI::showMasterCaution(s_mcFlash);
-
     if (Encoder::shortPressed()) {
       DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 1);
       delay(100);
       DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 0);
       Serial.println("MC reset sent");
     }
-    return;  // skip rest of loop while MC active
+    return;
   }
   if (s_mcActive && !mc) {
-    s_mcActive = false;  // DCS-BIOS confirmed light off
+    s_mcActive = false;
     Serial.println("MC cleared");
   }
 
@@ -71,9 +72,7 @@ void loop() {
 
   bool nowConnected = DcsBios::isConnected();
   if (nowConnected && !wasDcsConnected) {
-    UI::showSyncing();
-    delay(800);
-    UI::showSynced();
+    UI::showSyncing(); delay(800); UI::showSynced();
     syncDone = true;
   }
   if (!nowConnected && syncDone) {
@@ -82,19 +81,24 @@ void loop() {
   }
   wasDcsConnected = nowConnected;
 
-  if (nowConnected &&
-      DcsBios::apPitchSwitch() != 0xFF &&
+  if (nowConnected && DcsBios::apPitchSwitch() != 0xFF &&
       DcsBios::apPitchSwitch() != Hardware::sw1Pos()) {
     Serial.printf("AP_PITCH mismatch: physical=%d dcs=%d\n",
                   Hardware::sw1Pos(), DcsBios::apPitchSwitch());
   }
 
-  static unsigned long lastStatus = 0;
-  if (millis() - lastStatus > 5000) {
-    lastStatus = millis();
-    Serial.printf("DCS: %s | PITCH=%d ROLL=%d MC=%d | HW: sw1=%d sw2=%d pot=%d\n",
-      DcsBios::isConnected() ? "conn" : "wait",
-      DcsBios::apPitchSwitch(), DcsBios::apRollSwitch(), DcsBios::masterCaution(),
-      Hardware::sw1Pos(), Hardware::sw2Pos(), Hardware::potRaw());
+  // Macro menu
+  s_currentMacro = (s_currentMacro + delta + numMacros) % numMacros;
+
+  if (Encoder::shortPressed()) {
+    UI::flashScreen();
+    executeMacro(s_currentMacro);
+  }
+
+  // OLED update at 200 ms
+  static unsigned long lastOled = 0;
+  if (millis() - lastOled > 200) {
+    lastOled = millis();
+    UI::showMacroMenu(s_currentMacro);
   }
 }

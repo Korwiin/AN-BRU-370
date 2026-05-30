@@ -1,11 +1,6 @@
 #include "hardware.h"
+#include "hid.h"
 #include "pins.h"
-#include <USB.h>
-#include <USBHIDGamepad.h>
-
-// Gamepad is defined here for Task 5. When Task 7 creates hid.cpp,
-// this definition moves there and hardware.cpp will use extern + include hid.h.
-USBHIDGamepad Gamepad;
 
 static uint8_t  s_sw1    = 0xFF;
 static uint8_t  s_sw2    = 0xFF;
@@ -43,7 +38,7 @@ static void pushGamepad(uint8_t sw1, uint8_t sw2, uint16_t potRaw) {
 
   int8_t axis = (int8_t)(((int32_t)potRaw * 254 / 4095) - 127);
 
-  Gamepad.send(axis, 0, 0, 0, 0, 0, HAT_CENTER, btns);
+  HID::Gamepad.send(axis, 0, 0, 0, 0, 0, HAT_CENTER, btns);
 }
 
 void Hardware::begin() {

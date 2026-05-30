@@ -18,5 +18,8 @@ namespace UI {
   // flashState alternates true/false every ~200 ms to produce flash effect.
   void showMasterCaution(bool flashState);
 
+  void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED
+  void flashScreen();            // brief invert flash for button feedback
+
   void update();  // expanded in later tasks
 }
