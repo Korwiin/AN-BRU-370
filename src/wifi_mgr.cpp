@@ -55,6 +55,55 @@ void WifiMgr::clearOverride() {
   prefs.end();
 }
 
+bool WifiMgr::runEncoderEntry(const char* fieldName,
+                               char* result, size_t maxLen,
+                               int8_t (*deltaFn)(),
+                               bool   (*shortFn)(),
+                               bool   (*longFn)(),
+                               void   (*oledFn)(const char*, const char*, const char*)) {
+  // Character set: A-Z, a-z, 0-9, symbols, then DEL and DONE
+  static const char k_chars[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 !@#$%-_.";
+  // k_chars length = 26+26+10+9 = 71 printable, plus DEL(idx 71) and DONE(idx 72)
+  constexpr int kTotal    = 73;
+  constexpr int kIdxDEL   = 71;
+  constexpr int kIdxDONE  = 72;
+
+  int  charIdx = 0;
+  char buf[64] = {0};
+  int  bufLen  = 0;
+
+  while (true) {
+    int8_t d = deltaFn();
+    charIdx = (charIdx + d + kTotal) % kTotal;
+
+    char selLabel[5];
+    if      (charIdx == kIdxDEL)  strlcpy(selLabel, "DEL",  sizeof(selLabel));
+    else if (charIdx == kIdxDONE) strlcpy(selLabel, "OK",   sizeof(selLabel));
+    else                          { selLabel[0] = k_chars[charIdx]; selLabel[1] = 0; }
+
+    oledFn(fieldName, buf, selLabel);
+
+    if (shortFn()) {
+      if (charIdx == kIdxDEL) {
+        if (bufLen > 0) buf[--bufLen] = 0;
+      } else if (charIdx == kIdxDONE) {
+        strlcpy(result, buf, maxLen);
+        return true;
+      } else {
+        if (bufLen < (int)maxLen - 1) {
+          buf[bufLen++] = k_chars[charIdx];
+          buf[bufLen]   = 0;
+        }
+      }
+    }
+
+    if (longFn()) return false;
+
+    delay(5);
+  }
+}
+
 bool WifiMgr::runSerialSetup(void (*oledCb)(), bool (*cancelCb)()) {
   Serial.println("\n--- Brew370 Wi-Fi Setup ---");
   unsigned long deadline = millis() + 120000UL;  // 2-minute timeout

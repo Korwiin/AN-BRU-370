@@ -29,6 +29,11 @@ namespace UI {
   void showSaved();
   void showSerialActive();
   void showWifiSubMenu(int sel);
+  // Shows character entry screen.
+  // field: "SSID" or "Password"
+  // buf: current entered string (null-terminated)
+  // selLabel: label for currently highlighted char: single char, "DEL", or "OK"
+  void showCharEntry(const char* field, const char* buf, const char* selLabel);
   void setContrast(uint8_t value);
 
   void update();  // expanded in later tasks

@@ -234,6 +234,22 @@ void UI::showWifiSubMenu(int sel) {
   u8g2.sendBuffer();
 }
 
+void UI::showCharEntry(const char* field, const char* buf, const char* selLabel) {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.drawStr(0, 8, field);
+
+  // Show current buffer (truncated to ~21 chars @ 6px each)
+  char display[22] = {0};
+  strncpy(display, buf, 21);
+  u8g2.drawStr(0, 19, display);
+
+  // Show selected character in a box at bottom right
+  u8g2.drawFrame(104, 20, 22, 12);
+  u8g2.drawStr(108, 30, selLabel);
+  u8g2.sendBuffer();
+}
+
 void UI::showSaved() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_9x15B_tr);

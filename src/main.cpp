@@ -269,7 +269,29 @@ void loop() {
         if (saved) UI::showSaved();
         s_mode = SETTINGS;
       } else if (s_wifiSubSel == 1) {
-        // Manual Entry — placeholder, wired in Task 10
+        // Manual Entry — encoder character scroll
+        char newSSID[33] = {0};
+        char newPass[64] = {0};
+        bool gotSSID = WifiMgr::runEncoderEntry(
+          "SSID", newSSID, sizeof(newSSID),
+          []() { return Encoder::readDelta(); },
+          []() { return Encoder::shortPressed(); },
+          []() { return Encoder::longPressed(); },
+          [](const char* f, const char* b, const char* s) { UI::showCharEntry(f, b, s); }
+        );
+        if (gotSSID) {
+          bool gotPass = WifiMgr::runEncoderEntry(
+            "Password", newPass, sizeof(newPass),
+            []() { return Encoder::readDelta(); },
+            []() { return Encoder::shortPressed(); },
+            []() { return Encoder::longPressed(); },
+            [](const char* f, const char* b, const char* s) { UI::showCharEntry(f, b, s); }
+          );
+          if (gotPass) {
+            WifiMgr::saveCredentials(newSSID, newPass);
+            UI::showSaved();
+          }
+        }
         s_mode = SETTINGS;
       } else {
         // Back
