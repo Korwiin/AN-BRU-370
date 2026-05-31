@@ -7,6 +7,8 @@ USBHIDGamepad  HID::Gamepad;
 static USBHID s_hid;  // used only for ready() query
 
 void HID::begin() {
+  USB.manufacturerName("E4 Mafia");
+  USB.productName("AN/BRU-370");
   Keyboard.begin();
   Mouse.begin();
   Gamepad.begin();
