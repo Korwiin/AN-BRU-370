@@ -29,6 +29,29 @@ void UI::showSplash() {
   u8g2.sendBuffer();
 }
 
+void UI::showSplashProgress(int fill, bool wifiOk) {
+  static const char* text = "AN/BRU-370";
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_logisoso26_tf);
+  if (u8g2.getStrWidth(text) > 128)
+    u8g2.setFont(u8g2_font_t0_22b_mr);
+  int w = u8g2.getStrWidth(text);
+  int y = (32 + u8g2.getAscent()) / 2;
+  u8g2.drawStr((128 - w) / 2, y, text);
+  if (wifiOk) {
+    u8g2.setDrawColor(0);
+    u8g2.drawBox(0, 25, 128, 7);
+    u8g2.setDrawColor(1);
+    u8g2.setFont(u8g2_font_4x6_tr);
+    const char* msg = "WiFi Connected";
+    int mw = u8g2.getStrWidth(msg);
+    u8g2.drawStr((128 - mw) / 2, 31, msg);
+  } else if (fill > 0) {
+    u8g2.drawBox(0, 31, fill, 1);
+  }
+  u8g2.sendBuffer();
+}
+
 void UI::sleep() { u8g2.setPowerSave(1); }
 void UI::wake()  { u8g2.setPowerSave(0); }
 

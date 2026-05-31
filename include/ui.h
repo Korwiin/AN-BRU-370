@@ -7,6 +7,10 @@ namespace UI {
   void begin();
 
   void showSplash();   // boot splash with centered version string
+  // Redraws splash title with bottom-row WiFi status.
+  // wifiOk=false: draws a 1px progress bar of `fill` pixels (0..128) at y=31.
+  // wifiOk=true:  clears bottom strip and shows "WiFi Connected" centered at y=31.
+  void showSplashProgress(int fill, bool wifiOk);
   void sleep();        // power down OLED (setPowerSave 1)
   void wake();         // power up OLED (setPowerSave 0)
 
