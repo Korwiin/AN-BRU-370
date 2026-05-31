@@ -21,21 +21,24 @@ static uint16_t readPot() {
   return (uint16_t)(sum / 4);  // 0-4095
 }
 
-// Gamepad button mapping:
-//   Bit 0 = SW1 pos 0 (AP PITCH ATT HOLD — held while switch is up)
-//   Bit 1 = SW1 pos 2 (AP PITCH ALT HOLD — held while switch is down)
-//   Bit 2 = SW2 pos 0 (AP ROLL  STRG SEL — held while switch is up)
-//   Bit 3 = SW2 pos 2 (AP ROLL  HDG SEL  — held while switch is down)
-//   Center (pos 1) = no bit set for that switch
+// Gamepad button mapping (one bit held per switch position):
+//   Bit 0 (btn 1) = SW1 pos 0 down   — PITCH ATT HOLD
+//   Bit 1 (btn 2) = SW1 pos 1 center — A/P OFF
+//   Bit 2 (btn 3) = SW1 pos 2 up     — PITCH ALT HOLD
+//   Bit 3 (btn 4) = SW2 pos 0 down   — ROLL STRG SEL
+//   Bit 4 (btn 5) = SW2 pos 1 center — ROLL ATT HOLD
+//   Bit 5 (btn 6) = SW2 pos 2 up     — ROLL HDG SEL
 // x-axis: pot ADC 0-4095 mapped to int8_t -127..127
 // API: Gamepad.send(x, y, z, rz, rx, ry, hat, buttons)
 static void pushGamepad(uint8_t sw1, uint8_t sw2, uint16_t potRaw) {
   if (!HID::isReady()) return;
   uint32_t btns = 0;
   if (sw1 == 0) btns |= (1u << 0);
-  if (sw1 == 2) btns |= (1u << 1);
-  if (sw2 == 0) btns |= (1u << 2);
-  if (sw2 == 2) btns |= (1u << 3);
+  if (sw1 == 1) btns |= (1u << 1);
+  if (sw1 == 2) btns |= (1u << 2);
+  if (sw2 == 0) btns |= (1u << 3);
+  if (sw2 == 1) btns |= (1u << 4);
+  if (sw2 == 2) btns |= (1u << 5);
 
   int8_t axis = (int8_t)(((int32_t)potRaw * 254 / 4095) - 127);
 
