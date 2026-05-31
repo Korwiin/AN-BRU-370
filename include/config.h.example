@@ -13,5 +13,5 @@
 #define DCSBIOS_CMD_PORT    7778
 
 // Device identity
-#define FIRMWARE_VERSION    "0.01"
+#define FIRMWARE_VERSION    "0.02"
 #define DEVICE_NAME         "Brew370"
