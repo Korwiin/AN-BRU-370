@@ -82,7 +82,7 @@ if (s_menuSel >= s_menuOffset + 4) s_menuOffset = s_menuSel - 3;
 | y  | Content    |
 |----|------------|
 | 10 | `SP=Save`  |
-| 24 | `LP=Cncl`  |
+| 24 | `LP=Cancel`  |
 
 ### Right panel (x = 65..127)
 
