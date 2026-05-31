@@ -145,8 +145,10 @@ void UI::showSettingsMenu(int sel, int offset, int hand, bool wifiOk, bool dcsOk
     if (idx >= kNumMenuItems) break;
     int y = 8 + i * 8;
     const char* label;
-    if (idx == 1) label = (hand == 0) ? "Hand:Left" : "Hand:Right";
-    else          label = s_menuItems[idx];
+    if (idx == 1)      label = (hand == 0) ? "Hand:L" : "Hand:R";
+    else if (idx == 2) label = "Bright";
+    else if (idx == 4) label = "M.Tune";
+    else               label = s_menuItems[idx];
     if (idx == sel) {
       u8g2.drawStr(65, y, ">");
       u8g2.drawStr(71, y, label);
