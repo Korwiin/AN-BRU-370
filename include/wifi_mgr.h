@@ -34,6 +34,14 @@ namespace WifiMgr {
   // Returns true if credentials saved successfully.
   bool runSerialSetup(void (*oledCb)(), bool (*cancelCb)());
 
+  // Runs BLE UART (Nordic UART Service) credential entry session.
+  // Disconnects WiFi, starts NimBLE, presents an interactive terminal prompt.
+  // oledActiveCb: called every loop tick while the BLE session is running.
+  // cancelCb: return true to abort (long press check).
+  // Returns true if credentials saved — caller must call ESP.restart().
+  // Returns false if cancelled; WiFi reconnect is handled internally.
+  bool runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)());
+
   // Runs encoder character-scroll entry for a single field.
   // result: filled on success (size maxLen). Returns false if cancelled (long press).
   bool runEncoderEntry(const char* fieldName,
