@@ -63,7 +63,7 @@ Progress bar fill: `fill = (int)((elapsed_ms * 128UL) / kWifiConnectTimeoutMs)` 
 | WiFi connected (setup or background) | Started | WiFi:OK |
 | Splash dismissed early, WiFi pending | Not yet started | WiFi:-- until connected |
 | Long press cancel | Never started | WiFi:-- |
-| 30s timeout | Never started | WiFi:-- |
+| 30s timeout | Background polling continues; starts if AP responds late | WiFi:-- until connected |
 
 ---
 

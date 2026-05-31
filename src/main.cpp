@@ -173,6 +173,8 @@ void setup() {
       delay(10);
     }
     Encoder::flush();
+    // On timeout: s_wifiCancelled stays false so loop() background polling continues.
+    // If the AP responds after 30s the device connects silently — better than never connecting.
   }
 
   Hardware::begin();
