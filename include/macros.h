@@ -2,8 +2,6 @@
 
 struct Macro {
   const char* name;
-  bool        isTwoLine;
-  const char* line2;
   const char* payload;
   void (*execute)();
 };

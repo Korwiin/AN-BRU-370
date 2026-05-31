@@ -7,21 +7,25 @@ static U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C
   u8g2(U8G2_R0, U8X8_PIN_NONE, PIN_OLED_SCL, PIN_OLED_SDA);
 
 void UI::begin() {
-  Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
+  // u8g2.begin() calls Wire.begin(sda, scl) internally using constructor pins.
+  // We must NOT call Wire.begin() here first — double-init leaves Wire broken.
   u8g2.begin();
+  Wire.setClock(400000);
+  Wire.setTimeOut(100);
   u8g2.setContrast(20);
 }
 
 void UI::showSplash() {
+  static const char* text = "AN/BRU-370";
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_9x15B_tr);
-  int w1 = u8g2.getStrWidth("BREW370");
-  u8g2.drawStr((128 - w1) / 2, 14, "BREW370");
-  u8g2.setFont(u8g2_font_6x10_tr);
-  char ver[16];
-  snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
-  int w2 = u8g2.getStrWidth(ver);
-  u8g2.drawStr((128 - w2) / 2, 28, ver);
+  // Try 26px font; fall back if it doesn't fit horizontally
+  u8g2.setFont(u8g2_font_logisoso26_tf);
+  if (u8g2.getStrWidth(text) > 128)
+    u8g2.setFont(u8g2_font_t0_22b_mr);
+  int w = u8g2.getStrWidth(text);
+  // Text is all-caps — center on cap height, ignoring descender space
+  int y = (32 + u8g2.getAscent()) / 2;
+  u8g2.drawStr((128 - w) / 2, y, text);
   u8g2.sendBuffer();
 }
 
@@ -95,15 +99,8 @@ void UI::showMacroMenu(int idx) {
   Macro* m = &macros[idx];
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_t0_22b_mr);
-  if (m->isTwoLine) {
-    int w1 = u8g2.getStrWidth(m->name);
-    u8g2.drawStr((128 - w1) / 2, 18, m->name);
-    int w2 = u8g2.getStrWidth(m->line2);
-    u8g2.drawStr((128 - w2) / 2, 31, m->line2);
-  } else {
-    int w = u8g2.getStrWidth(m->name);
-    u8g2.drawStr((128 - w) / 2, 22, m->name);
-  }
+  int w = u8g2.getStrWidth(m->name);
+  u8g2.drawStr((128 - w) / 2, 22, m->name);
   u8g2.sendBuffer();
 }
 

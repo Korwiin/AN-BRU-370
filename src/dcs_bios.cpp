@@ -22,8 +22,10 @@ static uint8_t    s_buf[512];
 
 static void processWord(uint16_t addr, uint16_t word) {
   if (addr == DCSBIOS_ADDR_AP_SWITCHES) {
-    s_apPitch = (word & DCSBIOS_MASK_AP_PITCH) >> DCSBIOS_SHFT_AP_PITCH;
-    s_apRoll  = (word & DCSBIOS_MASK_AP_ROLL)  >> DCSBIOS_SHFT_AP_ROLL;
+    uint8_t p = (word & DCSBIOS_MASK_AP_PITCH) >> DCSBIOS_SHFT_AP_PITCH;
+    uint8_t r = (word & DCSBIOS_MASK_AP_ROLL)  >> DCSBIOS_SHFT_AP_ROLL;
+    if (p <= 2) s_apPitch = p;
+    if (r <= 2) s_apRoll  = r;
   }
   if (addr == DCSBIOS_ADDR_MC_LIGHT) {
     s_mcLight = (word & DCSBIOS_MASK_MC_LIGHT) != 0;
@@ -81,6 +83,7 @@ bool DcsBios::update() {
   int pktSize = s_udp.parsePacket();
   if (pktSize <= 0) return false;
   s_lastRx = millis();
+  s_parse = SYNC0;  // each UDP packet starts fresh with the 0x55×4 sync header
   while (s_udp.available()) processByte((uint8_t)s_udp.read());
   return true;
 }
@@ -98,3 +101,4 @@ void DcsBios::sendCommand(const char* id, uint16_t value) {
 uint8_t DcsBios::apPitchSwitch() { return s_apPitch; }
 uint8_t DcsBios::apRollSwitch()  { return s_apRoll;  }
 bool    DcsBios::masterCaution() { return s_mcLight; }
+

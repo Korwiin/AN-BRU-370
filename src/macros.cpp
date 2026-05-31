@@ -42,16 +42,16 @@ static void executeCDRPFoxtrot() { executeCDRP(8); }
 static void executeCDRPGamma()   { executeCDRP(9); }
 
 Macro macros[] = {
-  {"AWACS",  false, nullptr,   "magic11",      executeAWACS},
-  {"FCAP",   false, nullptr,   "fcap",         executeFCAP},
-  {"REAPER", false, nullptr,   "1688 reaper",  executeREAPER},
-  {"CDRP",   true,  "ALPHA",   "CDRP-ALPHA",   executeCDRPAlpha},
-  {"CDRP",   true,  "BETA",    "CDRP-BETA",    executeCDRPBravo},
-  {"CDRP",   true,  "CHARLIE", "CDRP-CHARLIE", executeCDRPCharlie},
-  {"CDRP",   true,  "DELTA",   "CDRP-DELTA",   executeCDRPDelta},
-  {"CDRP",   true,  "ECHO",    "CDRP-ECHO",    executeCDRPEcho},
-  {"CDRP",   true,  "FOXTROT", "CDRP-FOXTROT", executeCDRPFoxtrot},
-  {"CDRP",   true,  "GAMMA",   "CDRP-GAMMA",   executeCDRPGamma},
+  {"AWACS",        "magic11",      executeAWACS},
+  {"FCAP",         "fcap",         executeFCAP},
+  {"REAPER",       "1688 reaper",  executeREAPER},
+  {"CDRP ALPHA",   "CDRP-ALPHA",   executeCDRPAlpha},
+  {"CDRP BRAVO",   "CDRP-BETA",    executeCDRPBravo},
+  {"CDRP CHARLIE", "CDRP-CHARLIE", executeCDRPCharlie},
+  {"CDRP DELTA",   "CDRP-DELTA",   executeCDRPDelta},
+  {"CDRP ECHO",    "CDRP-ECHO",    executeCDRPEcho},
+  {"CDRP FOXTROT", "CDRP-FOXTROT", executeCDRPFoxtrot},
+  {"CDRP GAMMA",   "CDRP-GAMMA",   executeCDRPGamma},
 };
 const int numMacros = sizeof(macros) / sizeof(macros[0]);
 

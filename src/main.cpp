@@ -136,12 +136,24 @@ void setup() {
 #endif
 
   loadNvs();
-
   HID::begin();
   UI::begin();
+
+  Encoder::begin();  // init early so splash can be dismissed
+
   UI::setContrast(s_brightness);
   UI::showSplash();
-  delay(1500);
+
+  // Hold splash up to 30 s; any encoder input dismisses it early
+  {
+    unsigned long start = millis();
+    while (millis() - start < 30000UL) {
+      int8_t d = Encoder::readDelta();
+      if (d != 0 || Encoder::shortPressed() || Encoder::longPressed()) break;
+      delay(10);
+    }
+    Encoder::flush();
+  }
 
   UI::showWifiConnecting(WIFI_SSID_DEFAULT);
 
@@ -162,12 +174,13 @@ void setup() {
   }
 
   Hardware::begin();
-  Encoder::begin();
   s_lastActivity = millis();
 }
 
 void loop() {
   bool dcsActivity = DcsBios::update();
+  bool mc          = DcsBios::masterCaution();
+
   int8_t delta = Encoder::readDelta();
   bool encActivity = (delta != 0) || Encoder::shortPressed() || Encoder::longPressed();
 
@@ -181,14 +194,18 @@ void loop() {
     s_lastActivity = millis();
   }
 
-  // MASTER CAUTION — full-screen takeover (wakes OLED if sleeping)
-  bool mc = DcsBios::masterCaution();
-  if (mc && s_oledSleeping) {
+  // MASTER CAUTION — debounce 200ms to reject large-block export transients
+  static unsigned long s_mcHighSince = 0;
+  if (mc && s_mcHighSince == 0)  s_mcHighSince = millis();
+  if (!mc)                        s_mcHighSince = 0;
+  bool mcConfirmed = mc && (millis() - s_mcHighSince >= 200);
+
+  if (mcConfirmed && s_oledSleeping) {
     UI::wake();
     s_oledSleeping = false;
     s_lastActivity = millis();
   }
-  if (mc) {
+  if (mcConfirmed) {
     s_mcActive = true;
     if (millis() - s_mcFlashTimer > 200) {
       s_mcFlash = !s_mcFlash;
@@ -202,7 +219,7 @@ void loop() {
     }
     return;
   }
-  if (s_mcActive && !mc) s_mcActive = false;
+  if (s_mcActive && !mcConfirmed) s_mcActive = false;
 
   // Normal operation
   Hardware::update();

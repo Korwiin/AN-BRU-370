@@ -30,6 +30,7 @@ static uint16_t readPot() {
 // x-axis: pot ADC 0-4095 mapped to int8_t -127..127
 // API: Gamepad.send(x, y, z, rz, rx, ry, hat, buttons)
 static void pushGamepad(uint8_t sw1, uint8_t sw2, uint16_t potRaw) {
+  if (!HID::isReady()) return;
   uint32_t btns = 0;
   if (sw1 == 0) btns |= (1u << 0);
   if (sw1 == 2) btns |= (1u << 1);

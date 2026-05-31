@@ -19,7 +19,7 @@ static bool s_lpFired       = false;
 
 constexpr unsigned long kDebouncMs   = 30;
 constexpr unsigned long kLongPressMs = 600;
-constexpr unsigned long kCooldownMs  = 40;
+constexpr unsigned long kCooldownMs  = 50;
 constexpr int           kDivider     = 4;
 
 void Encoder::begin() {
@@ -33,24 +33,21 @@ int8_t Encoder::readDelta() {
   s_shortPress = false;
   s_longPress  = false;
 
-  // Rotation
+  // Rotation — count all valid transitions freely
   int cur = (digitalRead(PIN_ENC_CLK) << 1) | digitalRead(PIN_ENC_DT);
   if (cur != s_lastState) {
     int8_t d = k_lookup[(s_lastState << 2) | cur];
-    if (d != 0) {
-      unsigned long now = millis();
-      if (now - s_lastEncTime > kCooldownMs) {
-        s_stepCount += d;
-        s_lastEncTime = now;
-      }
-    }
+    if (d != 0) s_stepCount += d;
     s_lastState = cur;
   }
 
+  // Emit one step when threshold met; cooldown limits output rate
   int8_t out = 0;
-  if (abs(s_stepCount) >= kDivider) {
+  unsigned long now = millis();
+  if (abs(s_stepCount) >= kDivider && now - s_lastEncTime > kCooldownMs) {
     out = (s_stepCount > 0) ? 1 : -1;
     s_stepCount = 0;
+    s_lastEncTime = now;
   }
 
   // Button debounce
