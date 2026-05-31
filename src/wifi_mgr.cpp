@@ -33,7 +33,7 @@ bool WifiMgr::begin() {
 }
 
 bool WifiMgr::isConnected() {
-  return WiFi.status() == WL_CONNECTED;
+  return WiFi.localIP() != (uint32_t)0;
 }
 
 const char* WifiMgr::activeSSID() {
