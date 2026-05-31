@@ -6,6 +6,7 @@
 
 static char s_ssid[64] = {0};
 static char s_pass[64] = {0};
+static bool s_connected = false;
 
 bool WifiMgr::begin() {
   Preferences prefs;
@@ -29,11 +30,12 @@ bool WifiMgr::begin() {
   while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
     delay(100);
   }
-  return WiFi.status() == WL_CONNECTED;
+  s_connected = (WiFi.status() == WL_CONNECTED);
+  return s_connected;
 }
 
 bool WifiMgr::isConnected() {
-  return WiFi.localIP() != (uint32_t)0;
+  return s_connected;
 }
 
 const char* WifiMgr::activeSSID() {
