@@ -147,11 +147,11 @@ void UI::update() {
 // ---- Settings menu ----
 
 static const char* s_menuItems[] = {
-  "Reboot","Hand","Brightness","Sleep","Mouse Tune","WiFi","EXIT"
+  "Reboot","Knob","Brightness","Sleep","Mouse Tune","WiFi","EXIT"
 };
 static const int kNumMenuItems = 7;
 
-void UI::showSettingsMenu(int sel, int offset, int hand, bool wifiOk, bool dcsOk) {
+void UI::showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bool dcsOk) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
 
@@ -169,7 +169,7 @@ void UI::showSettingsMenu(int sel, int offset, int hand, bool wifiOk, bool dcsOk
     if (idx >= kNumMenuItems) break;
     int y = 8 + i * 8;
     const char* label;
-    if (idx == 1)      label = (hand == 0) ? "Hand:L" : "Hand:R";
+    if (idx == 1)      label = encReversed ? "Knob:CCW" : "Knob:CW";
     else if (idx == 2) label = "Bright";
     else if (idx == 4) label = "M.Tune";
     else               label = s_menuItems[idx];

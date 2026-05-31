@@ -29,7 +29,7 @@ namespace UI {
   void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED
   void flashScreen();            // brief invert flash for button feedback
 
-  void showSettingsMenu(int sel, int offset, int hand, bool wifiOk, bool dcsOk);
+  void showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bool dcsOk);
   void showBrightnessAdjust(int value);
   void showSleepAdjust(int secs);
   void showMouseTuneMenu(int sel, int offset);

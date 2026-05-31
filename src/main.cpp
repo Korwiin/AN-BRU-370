@@ -19,7 +19,7 @@ static MenuState s_mode           = MACRO_MENU;
 static int  s_currentMacro        = 0;
 static int  s_menuSel             = 0;
 static int  s_menuOffset          = 0;
-static int  s_handedness          = 0;
+static bool s_encReversed         = true;
 static int  s_brightness          = 20;
 static int  s_prevBrightness      = 20;
 static int  s_sleepSecs           = 45;
@@ -46,7 +46,7 @@ static void loadNvs() {
   Preferences prefs;
   prefs.begin("brew", true);
   s_brightness  = prefs.getInt("brightness", 20);
-  s_handedness  = prefs.getInt("hand", 0);
+  s_encReversed = prefs.getInt("encrev", 1);
   s_sleepSecs   = prefs.getInt("sleep", 45);
   mouseParams[0] = prefs.getInt("ptX", 460);
   mouseParams[1] = prefs.getInt("ptY", 8);
@@ -63,9 +63,9 @@ static void executeMenuItem() {
     case 0:  // Reboot
       ESP.restart();
       break;
-    case 1:  // Hand
-      s_handedness = 1 - s_handedness;
-      { Preferences p; p.begin("brew", false); p.putInt("hand", s_handedness); p.end(); }
+    case 1:  // Knob direction
+      s_encReversed = !s_encReversed;
+      { Preferences p; p.begin("brew", false); p.putInt("encrev", s_encReversed); p.end(); }
       return;
     case 2:  // Brightness
       s_prevBrightness = s_brightness;
@@ -211,6 +211,7 @@ void loop() {
   bool mc          = DcsBios::masterCaution();
 
   int8_t delta = Encoder::readDelta();
+  if (s_encReversed) delta = -delta;
   bool encActivity = (delta != 0) || Encoder::shortPressed() || Encoder::longPressed();
 
   // Wake OLED on any activity
@@ -389,7 +390,7 @@ void loop() {
     switch (s_mode) {
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;
       case SETTINGS:          UI::showSettingsMenu(s_menuSel, s_menuOffset,
-                                s_handedness, WifiMgr::isConnected(),
+                                s_encReversed, WifiMgr::isConnected(),
                                 DcsBios::isConnected()); break;
       case BRIGHTNESS_ADJUST: UI::showBrightnessAdjust(s_brightness); break;
       case SLEEP_ADJUST:      UI::showSleepAdjust(s_sleepSecs); break;
