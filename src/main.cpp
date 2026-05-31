@@ -144,7 +144,24 @@ void setup() {
   Encoder::begin();  // init early so splash can be dismissed
 
   UI::setContrast(s_brightness);
-  WifiMgr::startConnect();
+
+  // 3s settle window: show splash at 0 fill while USB-OTG enumeration completes.
+  // ESP32-S3 PMU is shared between USB-OTG and WiFi — starting WiFi during enumeration
+  // causes contention that intermittently prevents association. Long press cancels WiFi.
+  {
+    unsigned long settleStart = millis();
+    while (millis() - settleStart < 3000UL) {
+      UI::showSplashProgress(0, false);
+      int8_t d = Encoder::readDelta();
+      bool   lp = Encoder::longPressed();
+      if (lp) { s_wifiCancelled = true; break; }
+      if (d != 0 || Encoder::shortPressed()) break;
+      delay(10);
+    }
+    Encoder::flush();
+  }
+
+  if (!s_wifiCancelled) WifiMgr::startConnect();
   unsigned long wifiStart = millis();
 
   {

@@ -25,6 +25,8 @@ static void loadCredentials() {
 
 void WifiMgr::startConnect() {
   loadCredentials();
+  WiFi.disconnect(true);  // clear stale hardware state from previous boot
+  delay(100);
   WiFi.setHostname("ANBRU-370");
   WiFi.mode(WIFI_STA);
   WiFi.begin(s_ssid, s_pass);
