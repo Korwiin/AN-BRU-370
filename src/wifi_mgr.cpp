@@ -8,13 +8,12 @@ static char s_ssid[64] = {0};
 static char s_pass[64] = {0};
 static bool s_connected = false;
 
-bool WifiMgr::begin() {
+static void loadCredentials() {
   Preferences prefs;
   prefs.begin("brew_wifi", true);
   String nvsSsid = prefs.getString("ssid", "");
   String nvsPass = prefs.getString("pass", "");
   prefs.end();
-
   if (nvsSsid.length() > 0) {
     nvsSsid.toCharArray(s_ssid, sizeof(s_ssid));
     nvsPass.toCharArray(s_pass, sizeof(s_pass));
@@ -22,7 +21,10 @@ bool WifiMgr::begin() {
     strlcpy(s_ssid, WIFI_SSID_DEFAULT, sizeof(s_ssid));
     strlcpy(s_pass, WIFI_PASS_DEFAULT, sizeof(s_pass));
   }
+}
 
+bool WifiMgr::begin() {
+  loadCredentials();
   WiFi.setHostname("ANBRU-370");
   WiFi.mode(WIFI_STA);
   WiFi.begin(s_ssid, s_pass);
@@ -36,20 +38,7 @@ bool WifiMgr::begin() {
 }
 
 void WifiMgr::startConnect() {
-  Preferences prefs;
-  prefs.begin("brew_wifi", true);
-  String nvsSsid = prefs.getString("ssid", "");
-  String nvsPass = prefs.getString("pass", "");
-  prefs.end();
-
-  if (nvsSsid.length() > 0) {
-    nvsSsid.toCharArray(s_ssid, sizeof(s_ssid));
-    nvsPass.toCharArray(s_pass, sizeof(s_pass));
-  } else {
-    strlcpy(s_ssid, WIFI_SSID_DEFAULT, sizeof(s_ssid));
-    strlcpy(s_pass, WIFI_PASS_DEFAULT, sizeof(s_pass));
-  }
-
+  loadCredentials();
   WiFi.setHostname("ANBRU-370");
   WiFi.mode(WIFI_STA);
   WiFi.begin(s_ssid, s_pass);
@@ -66,6 +55,7 @@ bool WifiMgr::pollConnect() {
 
 void WifiMgr::cancelConnect() {
   WiFi.disconnect(true);
+  s_connected = false;
 }
 
 bool WifiMgr::isConnected() {
