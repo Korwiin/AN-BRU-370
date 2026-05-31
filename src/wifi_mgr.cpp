@@ -23,20 +23,6 @@ static void loadCredentials() {
   }
 }
 
-bool WifiMgr::begin() {
-  loadCredentials();
-  WiFi.setHostname("ANBRU-370");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(s_ssid, s_pass);
-
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
-    delay(100);
-  }
-  s_connected = (WiFi.status() == WL_CONNECTED);
-  return s_connected;
-}
-
 void WifiMgr::startConnect() {
   loadCredentials();
   WiFi.setHostname("ANBRU-370");

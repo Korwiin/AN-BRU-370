@@ -15,10 +15,6 @@ namespace WifiMgr {
   // Abort connection attempt. Clears WiFi credentials from driver.
   void cancelConnect();
 
-  // Call once in setup(). Reads NVS override first, falls back to config.h defaults.
-  // Blocks until connected or 10 s timeout. Returns true if connected.
-  bool begin();
-
   bool isConnected();
   const char* activeSSID();
 

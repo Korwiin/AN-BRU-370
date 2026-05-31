@@ -39,6 +39,8 @@ static bool s_syncDone            = false;
 static unsigned long s_lastOled   = 0;
 static bool s_oledSleeping        = false;
 static unsigned long s_lastActivity = 0;
+static bool s_wifiCancelled  = false;
+static bool s_dcsBiosStarted = false;
 
 static void loadNvs() {
   Preferences prefs;
@@ -142,35 +144,35 @@ void setup() {
   Encoder::begin();  // init early so splash can be dismissed
 
   UI::setContrast(s_brightness);
-  UI::showSplash();
+  WifiMgr::startConnect();
+  unsigned long wifiStart = millis();
 
-  // Hold splash up to 30 s; any encoder input dismisses it early
   {
-    unsigned long start = millis();
-    while (millis() - start < 30000UL) {
-      int8_t d = Encoder::readDelta();
-      if (d != 0 || Encoder::shortPressed() || Encoder::longPressed()) break;
+    while (millis() - wifiStart < WifiMgr::kWifiConnectTimeoutMs) {
+      if (WifiMgr::pollConnect()) {
+        unsigned long showStart = millis();
+        while (millis() - showStart < 1500UL) {
+          UI::showSplashProgress(128, true);
+          if (Encoder::readDelta() || Encoder::shortPressed() || Encoder::longPressed()) break;
+          delay(10);
+        }
+        DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
+                       "255.255.255.255", DCSBIOS_CMD_PORT);
+        s_dcsBiosStarted = true;
+        break;
+      }
+      unsigned long elapsed = millis() - wifiStart;
+      int fill = (int)((elapsed * 128UL) / WifiMgr::kWifiConnectTimeoutMs);
+      if (fill > 128) fill = 128;
+      UI::showSplashProgress(fill, false);
+      int8_t d  = Encoder::readDelta();
+      bool   sp = Encoder::shortPressed();
+      bool   lp = Encoder::longPressed();
+      if (lp) { WifiMgr::cancelConnect(); s_wifiCancelled = true; break; }
+      if (d != 0 || sp) break;
       delay(10);
     }
     Encoder::flush();
-  }
-
-  UI::showWifiConnecting(WIFI_SSID_DEFAULT);
-
-  bool wifiOk = WifiMgr::begin();
-  if (wifiOk) {
-#ifndef RELEASE_BUILD
-    Serial.printf("WiFi connected: %s\n", WifiMgr::activeSSID());
-#endif
-    UI::showWifiConnected(WifiMgr::activeSSID());
-    DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
-                   "255.255.255.255", DCSBIOS_CMD_PORT);
-    UI::showSyncing();
-  } else {
-#ifndef RELEASE_BUILD
-    Serial.printf("WiFi failed: %s\n", WifiMgr::activeSSID());
-#endif
-    UI::showWifiFailed(WifiMgr::activeSSID());
   }
 
   Hardware::begin();
@@ -178,6 +180,14 @@ void setup() {
 }
 
 void loop() {
+  if (!s_dcsBiosStarted && !s_wifiCancelled) {
+    if (WifiMgr::pollConnect()) {
+      DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
+                     "255.255.255.255", DCSBIOS_CMD_PORT);
+      s_dcsBiosStarted = true;
+    }
+  }
+
   bool dcsActivity = DcsBios::update();
   bool mc          = DcsBios::masterCaution();
 
