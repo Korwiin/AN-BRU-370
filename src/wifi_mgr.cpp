@@ -23,8 +23,8 @@ bool WifiMgr::begin() {
     strlcpy(s_pass, WIFI_PASS_DEFAULT, sizeof(s_pass));
   }
 
-  WiFi.mode(WIFI_STA);
   WiFi.setHostname("ANBRU-370");
+  WiFi.mode(WIFI_STA);
   WiFi.begin(s_ssid, s_pass);
 
   unsigned long start = millis();
