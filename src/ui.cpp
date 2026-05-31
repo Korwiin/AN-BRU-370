@@ -161,15 +161,22 @@ void UI::showSettingsMenu(int sel, int offset, int hand, bool wifiOk, bool dcsOk
 
 void UI::showBrightnessAdjust(int value) {
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 8, "BRIGHTNESS");
-  u8g2.drawFrame(0, 10, 128, 8);
-  int fill = (value * 126) / 255;
-  if (fill > 0) u8g2.drawBox(1, 11, fill, 6);
-  char buf[5]; snprintf(buf, sizeof(buf), "%d", value);
+  u8g2.setFont(u8g2_font_5x7_tr);
+
+  // Left panel — actions (x=0..61)
+  u8g2.drawStr(0, 10, "SP=Save");
+  u8g2.drawStr(0, 24, "LP=Cncl");
+
+  // Right panel — title, bar, value (x=65..127)
+  u8g2.drawStr(65, 8, "Brightness");
+  u8g2.drawFrame(65, 11, 62, 8);
+  int fill = (value * 60) / 255;
+  if (fill > 0) u8g2.drawBox(66, 12, fill, 6);
+  char buf[5];
+  snprintf(buf, sizeof(buf), "%d", value);
   int w = u8g2.getStrWidth(buf);
-  u8g2.drawStr((128 - w) / 2, 26, buf);
-  u8g2.drawStr(0, 31, "SP=Save LP=Cancel");
+  u8g2.drawStr(65 + (62 - w) / 2, 28, buf);
+
   u8g2.sendBuffer();
 }
 
