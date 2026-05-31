@@ -15,6 +15,7 @@ void UI::begin() {
   u8g2.setContrast(20);
 }
 
+// Not called from setup() — showSplashProgress() is used during boot. Retained for future use.
 void UI::showSplash() {
   static const char* text = "AN/BRU-370";
   u8g2.clearBuffer();

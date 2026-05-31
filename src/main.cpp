@@ -153,7 +153,7 @@ void setup() {
         unsigned long showStart = millis();
         while (millis() - showStart < 1500UL) {
           UI::showSplashProgress(128, true);
-          if (Encoder::readDelta() || Encoder::shortPressed() || Encoder::longPressed()) break;
+          if (Encoder::readDelta() || Encoder::shortPressed() || Encoder::longPressed()) break;  // shortens animation only; DCS-BIOS init follows regardless
           delay(10);
         }
         DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
