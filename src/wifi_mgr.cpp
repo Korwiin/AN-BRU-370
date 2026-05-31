@@ -54,6 +54,18 @@ const char* WifiMgr::activeSSID() {
   return s_ssid;
 }
 
+const char* WifiMgr::activeIP() {
+  static char buf[16];
+  if (!s_connected) return "--";
+  WiFi.localIP().toString().toCharArray(buf, sizeof(buf));
+  return buf;
+}
+
+void WifiMgr::reconnect() {
+  s_connected = false;
+  startConnect();
+}
+
 void WifiMgr::saveCredentials(const char* ssid, const char* pass) {
   Preferences prefs;
   prefs.begin("brew_wifi", false);

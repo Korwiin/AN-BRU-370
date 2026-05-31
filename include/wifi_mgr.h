@@ -18,6 +18,13 @@ namespace WifiMgr {
   bool isConnected();
   const char* activeSSID();
 
+  // Returns device IP as a dotted-decimal string (e.g. "192.168.1.5"), or "--" if not connected.
+  const char* activeIP();
+
+  // Reset connected state and reconnect with saved credentials (non-blocking start).
+  // startConnect() handles WiFi.disconnect internally — no double-disconnect.
+  void reconnect();
+
   void saveCredentials(const char* ssid, const char* pass);
   void clearOverride();
 
