@@ -35,6 +35,39 @@ bool WifiMgr::begin() {
   return s_connected;
 }
 
+void WifiMgr::startConnect() {
+  Preferences prefs;
+  prefs.begin("brew_wifi", true);
+  String nvsSsid = prefs.getString("ssid", "");
+  String nvsPass = prefs.getString("pass", "");
+  prefs.end();
+
+  if (nvsSsid.length() > 0) {
+    nvsSsid.toCharArray(s_ssid, sizeof(s_ssid));
+    nvsPass.toCharArray(s_pass, sizeof(s_pass));
+  } else {
+    strlcpy(s_ssid, WIFI_SSID_DEFAULT, sizeof(s_ssid));
+    strlcpy(s_pass, WIFI_PASS_DEFAULT, sizeof(s_pass));
+  }
+
+  WiFi.setHostname("ANBRU-370");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(s_ssid, s_pass);
+}
+
+bool WifiMgr::pollConnect() {
+  if (s_connected) return false;
+  if (WiFi.status() == WL_CONNECTED) {
+    s_connected = true;
+    return true;
+  }
+  return false;
+}
+
+void WifiMgr::cancelConnect() {
+  WiFi.disconnect(true);
+}
+
 bool WifiMgr::isConnected() {
   return s_connected;
 }
