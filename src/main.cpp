@@ -247,7 +247,7 @@ void loop() {
   } else if (s_mode == SETTINGS) {
     s_menuSel = (s_menuSel + delta + 7) % 7;
     if (s_menuSel < s_menuOffset) s_menuOffset = s_menuSel;
-    if (s_menuSel >= s_menuOffset + 3) s_menuOffset = s_menuSel - 2;
+    if (s_menuSel >= s_menuOffset + 4) s_menuOffset = s_menuSel - 3;
     if (Encoder::shortPressed()) executeMenuItem();
 
   } else if (s_mode == BRIGHTNESS_ADJUST) {
@@ -360,7 +360,8 @@ void loop() {
     switch (s_mode) {
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;
       case SETTINGS:          UI::showSettingsMenu(s_menuSel, s_menuOffset,
-                                s_handedness, HID::isReady()); break;
+                                s_handedness, WifiMgr::isConnected(),
+                                DcsBios::isConnected()); break;
       case BRIGHTNESS_ADJUST: UI::showBrightnessAdjust(s_brightness); break;
       case SLEEP_ADJUST:      UI::showSleepAdjust(s_sleepSecs); break;
       case MOUSE_TUNE_MENU:   UI::showMouseTuneMenu(s_mouseTuneSel, s_mouseTuneOffset); break;

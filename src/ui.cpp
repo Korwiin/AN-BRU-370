@@ -127,22 +127,32 @@ static const char* s_menuItems[] = {
 };
 static const int kNumMenuItems = 7;
 
-void UI::showSettingsMenu(int sel, int offset, int hand, bool usbReady) {
+void UI::showSettingsMenu(int sel, int offset, int hand, bool wifiOk, bool dcsOk) {
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  char hdr[24];
-  snprintf(hdr, sizeof(hdr), "v%s %s", FIRMWARE_VERSION,
-           usbReady ? "USB:OK" : "USB:--");
-  u8g2.drawStr(0, 8, hdr);
-  for (int i = 0; i < 3; i++) {
+  u8g2.setFont(u8g2_font_5x7_tr);
+
+  // Left panel — status (x=0..63)
+  u8g2.drawStr(0, 8,  "AN/BRU-370");
+  char ver[12];
+  snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
+  u8g2.drawStr(0, 16, ver);
+  u8g2.drawStr(0, 24, wifiOk ? "WiFi:OK" : "WiFi:--");
+  u8g2.drawStr(0, 32, dcsOk  ? "DCS:OK"  : "DCS:--");
+
+  // Right panel — 4-item scrolling menu (x=65..127)
+  for (int i = 0; i < 4; i++) {
     int idx = offset + i;
     if (idx >= kNumMenuItems) break;
-    int y = 18 + i * 8;
+    int y = 8 + i * 8;
     const char* label;
     if (idx == 1) label = (hand == 0) ? "Hand:Left" : "Hand:Right";
     else          label = s_menuItems[idx];
-    if (idx == sel) { u8g2.drawStr(0, y, ">"); u8g2.drawStr(10, y, label); }
-    else              u8g2.drawStr(10, y, label);
+    if (idx == sel) {
+      u8g2.drawStr(65, y, ">");
+      u8g2.drawStr(71, y, label);
+    } else {
+      u8g2.drawStr(71, y, label);
+    }
   }
   u8g2.sendBuffer();
 }
