@@ -160,8 +160,8 @@ void UI::showSettingsMenu(int sel, int offset, int hand, bool wifiOk, bool dcsOk
   char ver[12];
   snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
   u8g2.drawStr(0, 16, ver);
-  u8g2.drawStr(0, 24, wifiOk ? "WiFi:OK" : "WiFi:--");
-  u8g2.drawStr(0, 32, dcsOk  ? "DCS:OK"  : "DCS:--");
+  u8g2.drawStr(0, 24, wifiOk ? "WiFi: OK" : "WiFi: --");
+  u8g2.drawStr(0, 32, dcsOk  ? "DCS: OK"  : "DCS: --");
 
   // Right panel — 4-item scrolling menu (x=65..127)
   for (int i = 0; i < 4; i++) {
