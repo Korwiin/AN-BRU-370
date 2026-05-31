@@ -165,7 +165,7 @@ void UI::showBrightnessAdjust(int value) {
 
   // Left panel — actions (x=0..61)
   u8g2.drawStr(0, 10, "SP=Save");
-  u8g2.drawStr(0, 24, "LP=Cncl");
+  u8g2.drawStr(0, 24, "LP=Cancel");
 
   // Right panel — title, bar, value (x=65..127)
   u8g2.drawStr(65, 8, "Brightness");
