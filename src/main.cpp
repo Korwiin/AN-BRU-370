@@ -61,29 +61,29 @@ static void loadNvs() {
 
 static void executeMenuItem() {
   switch (s_menuSel) {
-    case 0:  // Reboot
-      ESP.restart();
-      break;
-    case 1:  // Knob direction
+    case 0:  // Knob direction
       s_encReversed = !s_encReversed;
       { Preferences p; p.begin("brew", false); p.putInt("encrev", s_encReversed); p.end(); }
       return;
-    case 2:  // Brightness
+    case 1:  // Brightness
       s_prevBrightness = s_brightness;
       s_mode = BRIGHTNESS_ADJUST;
       return;
-    case 3:  // Sleep
+    case 2:  // Sleep
       s_prevSleepSecs = s_sleepSecs;
       s_mode = SLEEP_ADJUST;
+      return;
+    case 3:  // WiFi
+      s_mode = WIFI_MENU;
       return;
     case 4:  // Mouse Tune
       memcpy(s_prevMouseParams, mouseParams, sizeof(mouseParams));
       s_mouseTuneSel = 0; s_mouseTuneOffset = 0;
       s_mode = MOUSE_TUNE_MENU;
       return;
-    case 5:  // WiFi — placeholder, wired in Tasks 9+10
-      s_mode = WIFI_MENU;
-      return;
+    case 5:  // Reboot
+      ESP.restart();
+      break;
     case 6:  // EXIT
       s_mode = MACRO_MENU;
       return;

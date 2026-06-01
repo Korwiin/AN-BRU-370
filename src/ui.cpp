@@ -147,7 +147,7 @@ void UI::update() {
 // ---- Settings menu ----
 
 static const char* s_menuItems[] = {
-  "Reboot","Knob","Brightness","Sleep","Mouse Tune","WiFi","EXIT"
+  "Knob","Brightness","Sleep","WiFi","Mouse Tune","Reboot","EXIT"
 };
 static const int kNumMenuItems = 7;
 
@@ -169,8 +169,8 @@ void UI::showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bo
     if (idx >= kNumMenuItems) break;
     int y = 8 + i * 8;
     const char* label;
-    if (idx == 1)      label = encReversed ? "Knob:CCW" : "Knob:CW";
-    else if (idx == 2) label = "Bright";
+    if (idx == 0)      label = encReversed ? "Knob:CCW" : "Knob:CW";
+    else if (idx == 1) label = "Bright";
     else if (idx == 4) label = "M.Tune";
     else               label = s_menuItems[idx];
     if (idx == sel) {
