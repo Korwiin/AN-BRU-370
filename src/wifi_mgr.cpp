@@ -13,6 +13,7 @@ static NimBLECharacteristic* s_bleTxChar     = nullptr;
 static volatile bool          s_bleClientConn = false;
 static String                 s_bleRxBuf;
 static volatile bool          s_bleLineReady  = false;
+static portMUX_TYPE           s_bleMux        = portMUX_INITIALIZER_UNLOCKED;
 
 static char s_ssid[64] = {0};
 static char s_pass[64] = {0};
@@ -220,9 +221,13 @@ class BleRxCb : public NimBLECharacteristicCallbacks {
     std::string val = pChar->getValue();
     for (char c : val) {
       if (c == '\n' || c == '\r') {
+        portENTER_CRITICAL(&s_bleMux);
         if (s_bleRxBuf.length() > 0) s_bleLineReady = true;
-      } else if (!s_bleLineReady) {
-        s_bleRxBuf += c;
+        portEXIT_CRITICAL(&s_bleMux);
+      } else {
+        portENTER_CRITICAL(&s_bleMux);
+        if (!s_bleLineReady) s_bleRxBuf += c;
+        portEXIT_CRITICAL(&s_bleMux);
       }
     }
   }
@@ -276,7 +281,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
     switch (state) {
       case WAIT_CLIENT:
         if (s_bleClientConn) {
-          char msg[100];
+          char msg[160];
           snprintf(msg, sizeof(msg),
             "\r\n=== AN/BRU-370 WiFi Setup ===\r\n\r\nCurrent SSID: %s\r\n\r\nEnter new SSID:\r\n",
             s_ssid);
@@ -288,8 +293,10 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
       case GET_SSID:
         if (!s_bleClientConn) { state = WAIT_CLIENT; break; }
         if (s_bleLineReady) {
+          portENTER_CRITICAL(&s_bleMux);
           String line = s_bleRxBuf;
           s_bleRxBuf = ""; s_bleLineReady = false;
+          portEXIT_CRITICAL(&s_bleMux);
           line.trim();
           if (line.length() == 0) {
             bleSend("Enter new SSID:\r\n");
@@ -304,8 +311,10 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
       case GET_PASS:
         if (!s_bleClientConn) { state = WAIT_CLIENT; break; }
         if (s_bleLineReady) {
+          portENTER_CRITICAL(&s_bleMux);
           String line = s_bleRxBuf;
           s_bleRxBuf = ""; s_bleLineReady = false;
+          portEXIT_CRITICAL(&s_bleMux);
           line.trim();
           strlcpy(newPass, line.c_str(), sizeof(newPass));
           char msg[160];
@@ -320,8 +329,10 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
       case CONFIRM:
         if (!s_bleClientConn) { state = WAIT_CLIENT; break; }
         if (s_bleLineReady) {
+          portENTER_CRITICAL(&s_bleMux);
           String line = s_bleRxBuf;
           s_bleRxBuf = ""; s_bleLineReady = false;
+          portEXIT_CRITICAL(&s_bleMux);
           line.trim();
           if (line == "Y" || line == "y") {
             saveCredentials(newSSID, newPass);
