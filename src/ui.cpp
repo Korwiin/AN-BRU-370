@@ -284,6 +284,29 @@ void UI::showSerialActive() {
   u8g2.sendBuffer();
 }
 
+void UI::showWifiConfirm() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0,  8, "BLE");
+  u8g2.drawStr(0, 16, "Setup");
+  u8g2.drawStr(65,  8, "WiFi will");
+  u8g2.drawStr(65, 16, "disconnect.");
+  u8g2.drawStr(65, 24, "SP=OK");
+  u8g2.drawStr(65, 32, "LP=No");
+  u8g2.sendBuffer();
+}
+
+void UI::showBleActive() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0,  8, "BLE");
+  u8g2.drawStr(0, 16, "Active");
+  u8g2.drawStr(65,  8, "AN/BRU-370");
+  u8g2.drawStr(65, 16, "Waiting...");
+  u8g2.drawStr(65, 24, "LP=Cancel");
+  u8g2.sendBuffer();
+}
+
 void UI::showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip) {
   static const char* items[] = {"Manual", "Bluetooth", "Connect", "Back"};
   static const int kItems = 4;

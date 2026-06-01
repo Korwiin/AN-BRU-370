@@ -36,6 +36,8 @@ namespace UI {
   void showMouseTuneEdit(int paramIdx, int digits[4], int digitPos);
   void showSaved();
   void showSerialActive();
+  void showWifiConfirm();  // "Are you sure?" before BLE session starts
+  void showBleActive();    // displayed while NimBLE UART session is running
   // Split layout matching showSettingsMenu: left panel shows WiFi/SSID/IP; right panel scrolls 4 options.
   void showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip);
   // Shows character entry screen.
