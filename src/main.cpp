@@ -335,16 +335,10 @@ void loop() {
 
   } else if (s_mode == WIFI_MENU) {
     s_wifiSubSel = (s_wifiSubSel + delta + 4) % 4;
+    if (s_wifiSubSel < s_wifiSubOffset) s_wifiSubOffset = s_wifiSubSel;
+    if (s_wifiSubSel >= s_wifiSubOffset + 4) s_wifiSubOffset = s_wifiSubSel - 3;
     if (Encoder::shortPressed()) {
       if (s_wifiSubSel == 0) {
-        // Serial Entry
-        bool saved = WifiMgr::runSerialSetup(
-          []() { UI::showSerialActive(); },
-          []() { return Encoder::longPressed(); }
-        );
-        if (saved) UI::showSaved();
-        s_mode = SETTINGS;
-      } else if (s_wifiSubSel == 1) {
         // Manual Entry — encoder character scroll
         char newSSID[33] = {0};
         char newPass[64] = {0};
@@ -369,13 +363,51 @@ void loop() {
           }
         }
         s_mode = SETTINGS;
+      } else if (s_wifiSubSel == 1) {
+        // Bluetooth — confirm WiFi disconnect, then run BLE UART session
+        Encoder::flush();
+        bool confirmed = false;
+        while (true) {
+          UI::showWifiConfirm();
+          if (Encoder::shortPressed()) { confirmed = true; break; }
+          if (Encoder::longPressed())  break;
+          delay(10);
+        }
+        if (confirmed) {
+          bool saved = WifiMgr::runBleSetup(
+            []() { UI::showBleActive(); },
+            []() { return Encoder::longPressed(); }
+          );
+          if (saved) ESP.restart();
+        }
+        s_mode = SETTINGS;
+      } else if (s_wifiSubSel == 2) {
+        // Connect — reconnect with saved credentials
+        WifiMgr::reconnect();
+        unsigned long t0 = millis();
+        bool connected = false;
+        while (millis() - t0 < 15000UL) {
+          UI::showWifiConnecting(WifiMgr::activeSSID());
+          if (WifiMgr::pollConnect()) { connected = true; break; }
+          delay(100);
+        }
+        if (connected) {
+          UI::showWifiConnected(WifiMgr::activeSSID());
+        } else {
+          UI::showWifiFailed(WifiMgr::activeSSID());
+          delay(1500);
+        }
+        s_mode = SETTINGS;
       } else {
         // Back
         s_mode = SETTINGS;
       }
-      s_wifiSubSel = 0;
+      s_wifiSubSel   = 0;
+      s_wifiSubOffset = 0;
     }
-    if (Encoder::longPressed()) { s_wifiSubSel = 0; s_mode = SETTINGS; }
+    if (Encoder::longPressed()) {
+      s_wifiSubSel = 0; s_wifiSubOffset = 0; s_mode = SETTINGS;
+    }
   }
 
   // OLED sleep check
