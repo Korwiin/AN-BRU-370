@@ -284,15 +284,31 @@ void UI::showSerialActive() {
   u8g2.sendBuffer();
 }
 
-void UI::showWifiSubMenu(int sel) {
-  static const char* items[] = {"Serial Entry", "Manual Entry", "Back"};
+void UI::showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip) {
+  static const char* items[] = {"Manual", "Bluetooth", "Connect", "Back"};
+  static const int kItems = 4;
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 8, "WIFI SETUP");
-  for (int i = 0; i < 3; i++) {
-    int y = 18 + i * 8;
-    if (i == sel) { u8g2.drawStr(0, y, ">"); u8g2.drawStr(10, y, items[i]); }
-    else            u8g2.drawStr(10, y, items[i]);
+  u8g2.setFont(u8g2_font_5x7_tr);
+
+  // Left panel — WiFi status (x=0..63)
+  char ssidLine[13], ipLine[13];
+  snprintf(ssidLine, sizeof(ssidLine), "S:%.10s", ssid);
+  snprintf(ipLine,   sizeof(ipLine),   "IP:%.9s",  ip);
+  u8g2.drawStr(0,  8, "WiFi");
+  u8g2.drawStr(0, 16, ssidLine);
+  u8g2.drawStr(0, 24, ipLine);
+
+  // Right panel — 4-item scrolling menu (x=65..127)
+  for (int i = 0; i < 4; i++) {
+    int idx = offset + i;
+    if (idx >= kItems) break;
+    int y = 8 + i * 8;
+    if (idx == sel) {
+      u8g2.drawStr(65, y, ">");
+      u8g2.drawStr(71, y, items[idx]);
+    } else {
+      u8g2.drawStr(71, y, items[idx]);
+    }
   }
   u8g2.sendBuffer();
 }

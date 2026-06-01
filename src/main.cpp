@@ -31,6 +31,7 @@ static int  s_editDigits[4]       = {0,0,0,0};
 static int  s_editDigitPos        = 0;
 static int  s_prevMouseParams[6];
 static int  s_wifiSubSel          = 0;
+static int  s_wifiSubOffset       = 0;
 static bool s_mcActive            = false;
 static bool s_mcFlash             = false;
 static unsigned long s_mcFlashTimer = 0;
@@ -333,7 +334,7 @@ void loop() {
     if (Encoder::longPressed()) { s_mode = MOUSE_TUNE_MENU; UI::flashScreen(); }
 
   } else if (s_mode == WIFI_MENU) {
-    s_wifiSubSel = (s_wifiSubSel + delta + 3) % 3;
+    s_wifiSubSel = (s_wifiSubSel + delta + 4) % 4;
     if (Encoder::shortPressed()) {
       if (s_wifiSubSel == 0) {
         // Serial Entry
@@ -397,7 +398,8 @@ void loop() {
       case MOUSE_TUNE_MENU:   UI::showMouseTuneMenu(s_mouseTuneSel, s_mouseTuneOffset); break;
       case MOUSE_TUNE_EDIT:   UI::showMouseTuneEdit(s_editParamIdx,
                                 s_editDigits, s_editDigitPos); break;
-      case WIFI_MENU:         UI::showWifiSubMenu(s_wifiSubSel); break;
+      case WIFI_MENU:         UI::showWifiSubMenu(s_wifiSubSel, s_wifiSubOffset,
+                              WifiMgr::activeSSID(), WifiMgr::activeIP()); break;
     }
   }
 }

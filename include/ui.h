@@ -36,7 +36,8 @@ namespace UI {
   void showMouseTuneEdit(int paramIdx, int digits[4], int digitPos);
   void showSaved();
   void showSerialActive();
-  void showWifiSubMenu(int sel);
+  // Split layout matching showSettingsMenu: left panel shows WiFi/SSID/IP; right panel scrolls 4 options.
+  void showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip);
   // Shows character entry screen.
   // field: "SSID" or "Password"
   // buf: current entered string (null-terminated)
