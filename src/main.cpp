@@ -368,6 +368,7 @@ void loop() {
         Encoder::flush();
         bool confirmed = false;
         while (true) {
+          Encoder::readDelta();
           UI::showWifiConfirm();
           if (Encoder::shortPressed()) { confirmed = true; break; }
           if (Encoder::longPressed())  break;
@@ -376,7 +377,7 @@ void loop() {
         if (confirmed) {
           bool saved = WifiMgr::runBleSetup(
             []() { UI::showBleActive(); },
-            []() { return Encoder::longPressed(); }
+            []() { Encoder::readDelta(); return Encoder::longPressed(); }
           );
           if (saved) ESP.restart();
         }
