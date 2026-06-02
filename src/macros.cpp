@@ -13,6 +13,7 @@ static void openMapAndSelectPin() {
   HID::pressKey(KEY_F10);
   delay(30);
   HID::moveAbs((uint16_t)mouseParams[0], (uint16_t)mouseParams[1]);
+  HID::mouseClick();
   HID::moveAbs((uint16_t)mouseParams[2], (uint16_t)mouseParams[3]);
 }
 
