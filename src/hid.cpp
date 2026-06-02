@@ -96,4 +96,5 @@ void HID::mouseClick(uint8_t button) {
   delay(50);
   s_absMouse.send(0, s_absX, s_absY);
   delay(250);
+  delay(20);
 }

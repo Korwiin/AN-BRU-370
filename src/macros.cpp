@@ -11,6 +11,7 @@ int mouseParams[6] = {16384, 1000, 16384, 16384, 10, 26};
 static void openMapAndSelectPin() {
   HID::Keyboard.releaseAll();
   HID::pressKey(KEY_F10);
+  delay(30);
   HID::moveAbs((uint16_t)mouseParams[0], (uint16_t)mouseParams[1]);
   HID::moveAbs((uint16_t)mouseParams[2], (uint16_t)mouseParams[3]);
 }
