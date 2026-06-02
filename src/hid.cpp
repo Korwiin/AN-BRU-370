@@ -5,7 +5,7 @@ USBHIDKeyboard HID::Keyboard;
 USBHIDGamepad  HID::Gamepad;
 
 // --- Absolute mouse HID descriptor (53 bytes) ---
-// Pointer device, 0-32767 logical range, 3 buttons + X/Y axes.
+// Pointer device, 0-4095 logical range, 3 buttons + X/Y axes.
 // Report ID = HID_REPORT_ID_MOUSE (2) — required for composite HID.
 // Report payload: [buttons(1B)] [X lo][X hi] [Y lo][Y hi] = 5 bytes.
 static const uint8_t s_absDesc[] = {
@@ -21,7 +21,7 @@ static const uint8_t s_absDesc[] = {
       0x81,0x03,                      // Input(Const) — 5 padding bits
       0x05,0x01,                      // UsagePage(Desktop)
       0x09,0x30, 0x09,0x31,           // Usage(X) Usage(Y)
-      0x15,0x00, 0x26,0xFF,0x7F,      // LogMin(0) LogMax(32767)
+      0x15,0x00, 0x26,0xFF,0x0F,      // LogMin(0) LogMax(4095)
       0x75,0x10, 0x95,0x02,           // Size(16) Count(2)
       0x81,0x02,                      // Input(Data,Var,Abs) — X and Y
     0xC0,                             // End Physical Collection

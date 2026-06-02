@@ -55,10 +55,14 @@ static void loadNvs() {
   s_brightness  = prefs.getInt("brightness", 20);
   s_encReversed = prefs.getInt("encrev", 1);
   s_sleepSecs   = prefs.getInt("sleep", 45);
-  mouseParams[0] = prefs.getInt("aptX", 16384);
-  mouseParams[1] = prefs.getInt("aptY", 1000);
-  mouseParams[2] = prefs.getInt("amcX", 16384);
-  mouseParams[3] = prefs.getInt("amcY", 16384);
+  mouseParams[0] = prefs.getInt("aptX", 875);
+  if (mouseParams[0] > 4095) mouseParams[0] = 875;   // clamp stale 0-32767 value
+  mouseParams[1] = prefs.getInt("aptY", 50);
+  if (mouseParams[1] > 4095) mouseParams[1] = 50;
+  mouseParams[2] = prefs.getInt("amcX", 2048);
+  if (mouseParams[2] > 4095) mouseParams[2] = 2048;
+  mouseParams[3] = prefs.getInt("amcY", 2048);
+  if (mouseParams[3] > 4095) mouseParams[3] = 2048;
   mouseParams[4] = prefs.getInt("lbX", 10);
   mouseParams[5] = prefs.getInt("lbY", 26);
   prefs.end();
@@ -340,14 +344,14 @@ void loop() {
       unsigned long dt  = now - s_lastCalibTick;
       s_lastCalibTick   = now;
       int step;
-      if      (dt <  60) step = 500;
-      else if (dt < 100) step = 100;
-      else if (dt < 200) step = 20;
+      if      (dt <  60) step = 100;
+      else if (dt < 100) step = 10;
+      else if (dt < 200) step = 2;
       else               step = 1;
       if (s_mode == MOUSE_CALIBRATE_X) {
-        s_calibX = (uint16_t)constrain((int)s_calibX + delta * step, 0, 32767);
+        s_calibX = (uint16_t)constrain((int)s_calibX + delta * step, 0, 4095);
       } else {
-        s_calibY = (uint16_t)constrain((int)s_calibY + delta * step, 0, 32767);
+        s_calibY = (uint16_t)constrain((int)s_calibY + delta * step, 0, 4095);
       }
       HID::moveAbs(s_calibX, s_calibY);
       UI::showMouseCalibrate(
