@@ -6,7 +6,7 @@
 // [0]=aptX [1]=aptY : absolute position of Pin Tool button (0-32767)
 // [2]=amcX [3]=amcY : absolute position of map drop target (0-32767)
 // [4]=lbX  [5]=lbY  : relative delta from pin drop to label input
-int mouseParams[6] = {16384, 1000, 16384, 16384, 10, 26};
+int mouseParams[6] = {7000, 400, 16384, 16384, 10, 26};
 
 static void openMapAndSelectPin() {
   HID::Keyboard.releaseAll();
