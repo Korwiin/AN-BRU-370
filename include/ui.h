@@ -34,6 +34,7 @@ namespace UI {
   void showSleepAdjust(int secs);
   void showMouseTuneMenu(int sel, int offset);
   void showMouseTuneEdit(int paramIdx, int digits[4], int digitPos);
+  void showMouseCalibrate(int axis, uint16_t val, const char* label);
   void showSaved();
   void showSerialActive();
   void showWifiConfirm();  // "Are you sure?" before BLE session starts

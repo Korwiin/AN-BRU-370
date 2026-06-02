@@ -235,10 +235,11 @@ void UI::showSleepAdjust(int secs) {
 
 void UI::showMouseTuneMenu(int sel, int offset) {
   static const char* items[] = {
-    "PinTool X","PinTool Y","MapCtr X","MapCtr Y",
-    "Label X","Label Y","Run:Pin","Run:Ctr","Save+Exit","Cancel"
+    "Cal:Pin Tool", "Cal:Map Ctr",
+    "Label X", "Label Y",
+    "Save+Exit", "Cancel"
   };
-  static const int kItems = 10;
+  static const int kItems = 6;
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tr);
   u8g2.drawStr(0, 8, "MOUSE TUNE");
@@ -273,6 +274,19 @@ void UI::showMouseTuneEdit(int paramIdx, int digits[4], int digitPos) {
   }
   u8g2.setFont(u8g2_font_6x10_tr);
   u8g2.drawStr(0, 31, digitPos < 3 ? "SP=nxt LP=back" : "SP=done LP=back");
+  u8g2.sendBuffer();
+}
+
+void UI::showMouseCalibrate(int axis, uint16_t val, const char* label) {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0, 7, label);
+  char vbuf[14];
+  snprintf(vbuf, sizeof(vbuf), "%c: %u", axis == 0 ? 'X' : 'Y', (unsigned)val);
+  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.drawStr(0, 19, vbuf);
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0, 31, axis == 0 ? "SP=lock  LP=cancel" : "SP=save  LP=cancel");
   u8g2.sendBuffer();
 }
 
