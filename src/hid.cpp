@@ -1,23 +1,84 @@
 #include "hid.h"
+#include <USBHID.h>
 
 USBHIDKeyboard HID::Keyboard;
-USBHIDMouse    HID::Mouse;
 USBHIDGamepad  HID::Gamepad;
 
-static USBHID s_hid;  // used only for ready() query
+// --- Absolute mouse HID descriptor (51 bytes) ---
+// Pointer device, 0-32767 logical range, 3 buttons + X/Y axes.
+// Report: [buttons(1B)] [X lo][X hi] [Y lo][Y hi]  = 5 bytes total.
+static const uint8_t s_absDesc[] = {
+  0x05,0x01, 0x09,0x02, 0xA1,0x01,   // UsagePage(Desktop), Usage(Mouse), App Collection
+    0x09,0x01, 0xA1,0x00,             // Usage(Pointer), Physical Collection
+      0x05,0x09,                      // UsagePage(Button)
+      0x19,0x01, 0x29,0x03,           // UsageMin(1) UsageMax(3)
+      0x15,0x00, 0x25,0x01,           // LogMin(0) LogMax(1)
+      0x95,0x03, 0x75,0x01,           // Count(3) Size(1)
+      0x81,0x02,                      // Input(Data,Var,Abs) — 3 button bits
+      0x95,0x01, 0x75,0x05,           // Count(1) Size(5)
+      0x81,0x03,                      // Input(Const) — 5 padding bits
+      0x05,0x01,                      // UsagePage(Desktop)
+      0x09,0x30, 0x09,0x31,           // Usage(X) Usage(Y)
+      0x15,0x00, 0x26,0xFF,0x7F,      // LogMin(0) LogMax(32767)
+      0x75,0x10, 0x95,0x02,           // Size(16) Count(2)
+      0x81,0x02,                      // Input(Data,Var,Abs) — X and Y
+    0xC0,                             // End Physical Collection
+  0xC0                                // End App Collection
+};
+
+class AbsMouseDevice : public USBHIDDevice {
+public:
+  AbsMouseDevice() {
+    static bool s_init = false;
+    if (!s_init) { s_init = true; _hid.addDevice(this, sizeof(s_absDesc)); }
+  }
+  void begin() { _hid.begin(); }
+  uint16_t _onGetDescriptor(uint8_t* buf) override {
+    memcpy(buf, s_absDesc, sizeof(s_absDesc));
+    return sizeof(s_absDesc);
+  }
+  bool send(uint8_t btns, uint16_t x, uint16_t y) {
+    uint8_t r[5] = {
+      btns,
+      (uint8_t)(x & 0xFF), (uint8_t)(x >> 8),
+      (uint8_t)(y & 0xFF), (uint8_t)(y >> 8)
+    };
+    return _hid.SendReport(0, r, 5);
+  }
+private:
+  USBHID _hid;
+};
+
+static AbsMouseDevice s_absMouse;
+static uint16_t       s_absX = 0;
+static uint16_t       s_absY = 0;
+static USBHID         s_hid;   // used only for isReady() query
 
 void HID::begin() {
   USB.manufacturerName("E4 Mafia");
   USB.productName("AN/BRU-370");
   USB.PID(0x370A);
   Keyboard.begin();
-  Mouse.begin();
+  s_absMouse.begin();
   Gamepad.begin();
   USB.begin();
 }
 
 bool HID::isReady() {
   return s_hid.ready();
+}
+
+void HID::moveAbs(uint16_t x, uint16_t y) {
+  s_absX = x;
+  s_absY = y;
+  s_absMouse.send(0, s_absX, s_absY);
+}
+
+void HID::moveRel(int16_t dx, int16_t dy) {
+  int nx = (int)s_absX + dx;
+  int ny = (int)s_absY + dy;
+  moveAbs((uint16_t)constrain(nx, 0, 32767),
+          (uint16_t)constrain(ny, 0, 32767));
 }
 
 void HID::pressKey(uint8_t key) {
@@ -29,27 +90,8 @@ void HID::typeText(const char* text) {
 }
 
 void HID::mouseClick(uint8_t button) {
-  Mouse.click(button); delay(250);
-}
-
-void HID::homeMouse() {
-  for (int i = 0; i < 53; i++) {
-    Mouse.move(-127, -30);
-    delay(20);
-  }
-  delay(250);
-}
-
-void HID::moveMouseTotal(int totalX, int totalY) {
-  int iters = max((abs(totalX) + 126) / 127, (abs(totalY) + 126) / 127);
-  if (iters == 0) { delay(250); return; }
-  int sentX = 0, sentY = 0;
-  for (int i = 1; i <= iters; i++) {
-    int nx = (totalX * i) / iters;
-    int ny = (totalY * i) / iters;
-    Mouse.move((int8_t)(nx - sentX), (int8_t)(ny - sentY));
-    sentX = nx; sentY = ny;
-    delay(20);
-  }
+  s_absMouse.send(button, s_absX, s_absY);
+  delay(50);
+  s_absMouse.send(0, s_absX, s_absY);
   delay(250);
 }
