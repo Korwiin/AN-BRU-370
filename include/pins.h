@@ -2,7 +2,7 @@
 #include <cstdint>
 
 // --- Pin map — Brew370 / ESP32-S3 Super Mini (DWEII) ---
-// All front-side pins. ADC1 only for pot (Wi-Fi safe).
+// All front-side pins. ADC1 only (Wi-Fi safe) reserved for future use.
 // See Board Diagrams/ESP32-S3_DWEII_Pinout.jpg
 
 // OLED I2C (SSD1306 128x32)
@@ -24,5 +24,3 @@ constexpr uint8_t PIN_SW1_B      = 2;   // INPUT_PULLUP
 constexpr uint8_t PIN_SW2_A      = 3;   // INPUT_PULLUP
 constexpr uint8_t PIN_SW2_B      = 4;   // INPUT_PULLUP
 
-// ANT ELEV potentiometer (RK097 B10K)
-constexpr uint8_t PIN_POT        = 7;   // ADC1 ch6 -- safe with Wi-Fi

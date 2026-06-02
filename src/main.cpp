@@ -257,6 +257,7 @@ void loop() {
 
   bool nowConnected = DcsBios::isConnected();
   if (nowConnected && !s_wasDcsConnected) {
+    Hardware::forceSync();
     UI::showSyncing(); delay(800); UI::showSynced();
     s_syncDone = true;
   }
