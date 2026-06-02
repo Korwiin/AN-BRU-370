@@ -2,27 +2,27 @@
 #include "hid.h"
 #include <Arduino.h>
 
-// Brew370 defaults — different screen resolution from Sham_Master.
-// Tune via Settings -> Mouse Tuning menu. Saved to NVS key "brew".
-int mouseParams[6] = {460, 8, 555, 295, 10, 26};
+// Mouse calibration params — loaded from NVS in setup(), defaults here.
+// [0]=aptX [1]=aptY : absolute position of Pin Tool button (0-32767)
+// [2]=amcX [3]=amcY : absolute position of map drop target (0-32767)
+// [4]=lbX  [5]=lbY  : relative delta from pin drop to label input
+int mouseParams[6] = {16384, 1000, 16384, 16384, 10, 26};
 
 static void openMapAndSelectPin() {
   HID::Keyboard.releaseAll();
-  HID::Mouse.release(MOUSE_LEFT);
   HID::pressKey(KEY_F10);
-  HID::homeMouse();
-  HID::moveMouseTotal(mouseParams[0], mouseParams[1]);
-  HID::moveMouseTotal(mouseParams[2], mouseParams[3]);
+  HID::moveAbs((uint16_t)mouseParams[0], (uint16_t)mouseParams[1]);
+  HID::moveAbs((uint16_t)mouseParams[2], (uint16_t)mouseParams[3]);
 }
 
 static void dropPinAndLabel(const char* label) {
   HID::mouseClick();
   delay(400);
-  HID::moveMouseTotal(mouseParams[4], mouseParams[5]);
+  HID::moveRel((int16_t)mouseParams[4], (int16_t)mouseParams[5]);
   HID::mouseClick();
   HID::Keyboard.releaseAll();
   HID::typeText(label);
-  HID::Mouse.move(-60, 0);
+  HID::moveRel(-60, 0);
   HID::mouseClick();
   delay(250);
   HID::pressKey(KEY_F1);
@@ -57,7 +57,7 @@ const int numMacros = sizeof(macros) / sizeof(macros[0]);
 
 static void executeCDRP(int idx) {
   HID::typeText(macros[idx].payload);
-  HID::Mouse.move(-60, 0);
+  HID::moveAbs(100, 100);
   HID::mouseClick();
 }
 
