@@ -359,6 +359,7 @@ void loop() {
     if (Encoder::shortPressed()) {
       if (s_mode == MOUSE_CALIBRATE_X) {
         s_mode = MOUSE_CALIBRATE_Y;
+        s_lastCalibTick = millis();
         UI::showMouseCalibrate(1, s_calibY, s_calibIdx == 0 ? "Pin Tool" : "Map Ctr");
       } else {
         mouseParams[s_calibIdx * 2]     = (int)s_calibX;
