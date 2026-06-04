@@ -12,7 +12,7 @@ namespace HID {
   extern USBHIDKeyboard Keyboard;
   extern USBHIDGamepad  Gamepad;
 
-  void begin();
+  void begin(uint16_t w, uint16_t h);
   bool isReady();
 
   void moveAbs(uint16_t x, uint16_t y);

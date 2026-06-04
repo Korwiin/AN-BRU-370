@@ -4,40 +4,45 @@
 USBHIDKeyboard HID::Keyboard;
 USBHIDGamepad  HID::Gamepad;
 
-// --- Absolute mouse HID descriptor (53 bytes) ---
-// Pointer device, 0-4095 logical range, 3 buttons + X/Y axes.
-// Report ID = HID_REPORT_ID_MOUSE (2) — required for composite HID.
-// Report payload: [buttons(1B)] [X lo][X hi] [Y lo][Y hi] = 5 bytes.
-static const uint8_t s_absDesc[] = {
+// --- Absolute mouse HID descriptor (64 bytes) ---
+// X and Y declared separately so each can have its own LogMax (screen W ≠ H).
+// Bytes 41-42 = X LogMax (lo, hi), bytes 54-55 = Y LogMax (lo, hi).
+// Both are patched with (screenW-1) and (screenH-1) in HID::begin() before USB.begin().
+// Report ID = HID_REPORT_ID_MOUSE (2). Payload = [buttons][Xlo][Xhi][Ylo][Yhi] = 5 bytes.
+static uint8_t s_absBuf[64] = {
   0x05,0x01, 0x09,0x02, 0xA1,0x01,   // UsagePage(Desktop), Usage(Mouse), App Collection
-    0x85, HID_REPORT_ID_MOUSE,        // Report ID (2) — must match SendReport call
-    0x09,0x01, 0xA1,0x00,             // Usage(Pointer), Physical Collection
-      0x05,0x09,                      // UsagePage(Button)
-      0x19,0x01, 0x29,0x03,           // UsageMin(1) UsageMax(3)
-      0x15,0x00, 0x25,0x01,           // LogMin(0) LogMax(1)
-      0x95,0x03, 0x75,0x01,           // Count(3) Size(1)
-      0x81,0x02,                      // Input(Data,Var,Abs) — 3 button bits
-      0x95,0x01, 0x75,0x05,           // Count(1) Size(5)
-      0x81,0x03,                      // Input(Const) — 5 padding bits
-      0x05,0x01,                      // UsagePage(Desktop)
-      0x09,0x30, 0x09,0x31,           // Usage(X) Usage(Y)
-      0x15,0x00, 0x26,0xFF,0x0F,      // LogMin(0) LogMax(4095)
-      0x75,0x10, 0x95,0x02,           // Size(16) Count(2)
-      0x81,0x02,                      // Input(Data,Var,Abs) — X and Y
-    0xC0,                             // End Physical Collection
+  0x85, HID_REPORT_ID_MOUSE,          // Report ID (2)
+  0x09,0x01, 0xA1,0x00,               // Usage(Pointer), Physical Collection
+  0x05,0x09, 0x19,0x01, 0x29,0x03,   // UsagePage(Button), UsageMin(1), UsageMax(3)
+  0x15,0x00, 0x25,0x01,               // LogMin(0), LogMax(1)
+  0x95,0x03, 0x75,0x01, 0x81,0x02,   // Count(3), Size(1), Input — 3 button bits
+  0x95,0x01, 0x75,0x05, 0x81,0x03,   // Count(1), Size(5), Input — 5 padding bits
+  0x05,0x01,                          // UsagePage(Desktop)
+  // X axis — LogMax lo/hi at bytes 41,42 — patched in HID::begin()
+  0x09,0x30,                          // Usage(X)
+  0x15,0x00, 0x26,0x7F,0x07,          // LogMin(0), LogMax(1919 placeholder)
+  0x75,0x10, 0x95,0x01, 0x81,0x02,   // Size(16), Count(1), Input(Abs)
+  // Y axis — LogMax lo/hi at bytes 54,55 — patched in HID::begin()
+  0x09,0x31,                          // Usage(Y)
+  0x15,0x00, 0x26,0x37,0x04,          // LogMin(0), LogMax(1079 placeholder)
+  0x75,0x10, 0x95,0x01, 0x81,0x02,   // Size(16), Count(1), Input(Abs)
+  0xC0,                               // End Physical Collection
   0xC0                                // End App Collection
 };
+
+static uint16_t s_maxX = 1919;
+static uint16_t s_maxY = 1079;
 
 class AbsMouseDevice : public USBHIDDevice {
 public:
   AbsMouseDevice() {
     static bool s_init = false;
-    if (!s_init) { s_init = true; _hid.addDevice(this, sizeof(s_absDesc)); }
+    if (!s_init) { s_init = true; _hid.addDevice(this, sizeof(s_absBuf)); }
   }
   void begin() { _hid.begin(); }
   uint16_t _onGetDescriptor(uint8_t* buf) override {
-    memcpy(buf, s_absDesc, sizeof(s_absDesc));
-    return sizeof(s_absDesc);
+    memcpy(buf, s_absBuf, sizeof(s_absBuf));
+    return sizeof(s_absBuf);
   }
   bool send(uint8_t btns, uint16_t x, uint16_t y) {
     uint8_t r[5] = {
@@ -56,7 +61,15 @@ static uint16_t       s_absX = 0;
 static uint16_t       s_absY = 0;
 static USBHID         s_hid;   // used only for isReady() query
 
-void HID::begin() {
+void HID::begin(uint16_t w, uint16_t h) {
+  // Patch descriptor with screen-native coordinate ranges before USB enumeration
+  s_maxX = w - 1;
+  s_maxY = h - 1;
+  s_absBuf[41] = s_maxX & 0xFF;
+  s_absBuf[42] = s_maxX >> 8;
+  s_absBuf[54] = s_maxY & 0xFF;
+  s_absBuf[55] = s_maxY >> 8;
+
   USB.manufacturerName("E4 Mafia");
   USB.productName("AN/BRU-370");
   USB.PID(0x370A);
@@ -79,8 +92,8 @@ void HID::moveAbs(uint16_t x, uint16_t y) {
 void HID::moveRel(int16_t dx, int16_t dy) {
   int nx = (int)s_absX + dx;
   int ny = (int)s_absY + dy;
-  moveAbs((uint16_t)constrain(nx, 0, 32767),
-          (uint16_t)constrain(ny, 0, 32767));
+  moveAbs((uint16_t)constrain(nx, 0, (int)s_maxX),
+          (uint16_t)constrain(ny, 0, (int)s_maxY));
 }
 
 void HID::pressKey(uint8_t key) {
