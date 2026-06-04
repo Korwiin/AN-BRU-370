@@ -60,18 +60,16 @@ static void loadNvs() {
   s_brightness  = prefs.getInt("brightness", 20);
   s_encReversed = prefs.getInt("encrev", 1);
   s_sleepSecs   = prefs.getInt("sleep", 45);
-  mouseParams[0] = prefs.getInt("aptX", 875);
-  if (mouseParams[0] > 4095) mouseParams[0] = 875;   // clamp stale 0-32767 value
-  mouseParams[1] = prefs.getInt("aptY", 50);
-  if (mouseParams[1] > 4095) mouseParams[1] = 50;
-  mouseParams[2] = prefs.getInt("amcX", 2048);
-  if (mouseParams[2] > 4095) mouseParams[2] = 2048;
-  mouseParams[3] = prefs.getInt("amcY", 2048);
-  if (mouseParams[3] > 4095) mouseParams[3] = 2048;
-  mouseParams[4] = prefs.getInt("lbX", 10);
-  mouseParams[5] = prefs.getInt("lbY", 26);
+  // Screen dims loaded first — calibration defaults are proportional to them
   s_screenW = prefs.getInt("scrW", 1920);
   s_screenH = prefs.getInt("scrH", 1080);
+  // TODO: remove stale NVS keys aptX/aptY/amcX/amcY (0-4095 space, now abandoned)
+  mouseParams[0] = prefs.getInt("apxX",  s_screenW / 4);
+  mouseParams[1] = prefs.getInt("apxY",  s_screenH / 54);
+  mouseParams[2] = prefs.getInt("amcX2", s_screenW / 2);
+  mouseParams[3] = prefs.getInt("amcY2", s_screenH / 2);
+  mouseParams[4] = prefs.getInt("lbX", 10);
+  mouseParams[5] = prefs.getInt("lbY", 26);
   prefs.end();
   memcpy(s_prevMouseParams, mouseParams, sizeof(mouseParams));
 }
@@ -144,8 +142,8 @@ static void executeMouseTuneItem() {
   }
   if (s_mouseTuneSel == 5) {
     Preferences p; p.begin("brew", false);
-    p.putInt("aptX", mouseParams[0]); p.putInt("aptY", mouseParams[1]);
-    p.putInt("amcX", mouseParams[2]); p.putInt("amcY", mouseParams[3]);
+    p.putInt("apxX", mouseParams[0]); p.putInt("apxY", mouseParams[1]);
+    p.putInt("amcX2", mouseParams[2]); p.putInt("amcY2", mouseParams[3]);
     p.putInt("lbX",  mouseParams[4]); p.putInt("lbY",  mouseParams[5]);
     p.end();
     UI::showSaved();
@@ -163,7 +161,7 @@ void setup() {
 #endif
 
   loadNvs();
-  HID::begin();
+  HID::begin(s_screenW, s_screenH);
   UI::begin();
 
   Encoder::begin();  // init early so splash can be dismissed
@@ -371,8 +369,8 @@ void loop() {
         Preferences p; p.begin("brew", false);
         p.putInt("scrW", s_screenW); p.putInt("scrH", s_screenH);
         p.end();
-        UI::showSaved();
-        s_mode = MOUSE_TUNE_MENU;
+        UI::showSaved();   // includes 600ms delay — enough to read "SAVED"
+        ESP.restart();
       }
     }
     if (Encoder::longPressed()) { s_mode = MOUSE_TUNE_MENU; UI::flashScreen(); }
@@ -388,9 +386,9 @@ void loop() {
       else if (dt < 200) step = 4;
       else               step = 3;
       if (s_mode == MOUSE_CALIBRATE_X) {
-        s_calibX = (uint16_t)constrain((int)s_calibX + delta * step, 0, 4095);
+        s_calibX = (uint16_t)constrain((int)s_calibX + delta * step, 0, s_screenW - 1);
       } else {
-        s_calibY = (uint16_t)constrain((int)s_calibY + delta * step, 0, 4095);
+        s_calibY = (uint16_t)constrain((int)s_calibY + delta * step, 0, s_screenH - 1);
       }
       HID::moveAbs(s_calibX, s_calibY);
       UI::showMouseCalibrate(
