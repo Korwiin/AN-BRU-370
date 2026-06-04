@@ -13,7 +13,8 @@
 enum MenuState {
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
   MOUSE_TUNE_MENU, MOUSE_TUNE_EDIT, WIFI_MENU,
-  MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y
+  MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y,
+  SCREEN_EDIT
 };
 
 static MenuState s_mode           = MACRO_MENU;
@@ -48,6 +49,10 @@ static int           s_calibIdx        = 0;
 static uint16_t      s_calibX          = 0;
 static uint16_t      s_calibY          = 0;
 static unsigned long s_lastCalibTick   = 0;
+static int s_screenW         = 1920;
+static int s_screenH         = 1080;
+static int s_screenDigits[8] = {0};
+static int s_screenDigitPos  = 0;
 
 static void loadNvs() {
   Preferences prefs;
@@ -65,6 +70,8 @@ static void loadNvs() {
   if (mouseParams[3] > 4095) mouseParams[3] = 2048;
   mouseParams[4] = prefs.getInt("lbX", 10);
   mouseParams[5] = prefs.getInt("lbY", 26);
+  s_screenW = prefs.getInt("scrW", 1920);
+  s_screenH = prefs.getInt("scrH", 1080);
   prefs.end();
   memcpy(s_prevMouseParams, mouseParams, sizeof(mouseParams));
 }
@@ -102,8 +109,21 @@ static void executeMenuItem() {
 }
 
 static void executeMouseTuneItem() {
-  if (s_mouseTuneSel == 0 || s_mouseTuneSel == 1) {
-    s_calibIdx = s_mouseTuneSel;
+  if (s_mouseTuneSel == 0) {
+    s_screenDigits[0] = s_screenW / 1000;
+    s_screenDigits[1] = (s_screenW / 100) % 10;
+    s_screenDigits[2] = (s_screenW / 10)  % 10;
+    s_screenDigits[3] = s_screenW % 10;
+    s_screenDigits[4] = s_screenH / 1000;
+    s_screenDigits[5] = (s_screenH / 100) % 10;
+    s_screenDigits[6] = (s_screenH / 10)  % 10;
+    s_screenDigits[7] = s_screenH % 10;
+    s_screenDigitPos  = 0;
+    s_mode = SCREEN_EDIT;
+    return;
+  }
+  if (s_mouseTuneSel == 1 || s_mouseTuneSel == 2) {
+    s_calibIdx = s_mouseTuneSel - 1;
     s_calibX   = (uint16_t)mouseParams[s_calibIdx * 2];
     s_calibY   = (uint16_t)mouseParams[s_calibIdx * 2 + 1];
     s_lastCalibTick = millis();
@@ -111,8 +131,8 @@ static void executeMouseTuneItem() {
     s_mode = MOUSE_CALIBRATE_X;
     return;
   }
-  if (s_mouseTuneSel == 2 || s_mouseTuneSel == 3) {
-    s_editParamIdx = s_mouseTuneSel + 2;
+  if (s_mouseTuneSel == 3 || s_mouseTuneSel == 4) {
+    s_editParamIdx = s_mouseTuneSel + 1;
     int v = mouseParams[s_editParamIdx];
     s_editDigits[0] = v / 1000;
     s_editDigits[1] = (v / 100) % 10;
@@ -122,7 +142,7 @@ static void executeMouseTuneItem() {
     s_mode = MOUSE_TUNE_EDIT;
     return;
   }
-  if (s_mouseTuneSel == 4) {
+  if (s_mouseTuneSel == 5) {
     Preferences p; p.begin("brew", false);
     p.putInt("aptX", mouseParams[0]); p.putInt("aptY", mouseParams[1]);
     p.putInt("amcX", mouseParams[2]); p.putInt("amcY", mouseParams[3]);
@@ -132,7 +152,7 @@ static void executeMouseTuneItem() {
     s_mode = SETTINGS;
     return;
   }
-  s_mode = SETTINGS;  // sel=5: Cancel
+  s_mode = SETTINGS;  // sel=6: Cancel
 }
 
 void setup() {
@@ -314,7 +334,7 @@ void loop() {
     if (Encoder::longPressed()) { s_sleepSecs = s_prevSleepSecs; s_mode = SETTINGS; }
 
   } else if (s_mode == MOUSE_TUNE_MENU) {
-    s_mouseTuneSel = (s_mouseTuneSel + delta + 6) % 6;
+    s_mouseTuneSel = (s_mouseTuneSel + delta + 7) % 7;
     if (s_mouseTuneSel < s_mouseTuneOffset) s_mouseTuneOffset = s_mouseTuneSel;
     if (s_mouseTuneSel >= s_mouseTuneOffset + 3) s_mouseTuneOffset = s_mouseTuneSel - 2;
     if (Encoder::shortPressed()) { UI::flashScreen(); executeMouseTuneItem(); }
@@ -334,6 +354,25 @@ void loop() {
           s_editDigits[2]*10  + s_editDigits[3];
         s_mode = MOUSE_TUNE_MENU;
         UI::flashScreen();
+      }
+    }
+    if (Encoder::longPressed()) { s_mode = MOUSE_TUNE_MENU; UI::flashScreen(); }
+
+  } else if (s_mode == SCREEN_EDIT) {
+    s_screenDigits[s_screenDigitPos] = (s_screenDigits[s_screenDigitPos] + delta + 10) % 10;
+    if (Encoder::shortPressed()) {
+      if (s_screenDigitPos < 7) {
+        s_screenDigitPos++;
+      } else {
+        s_screenW = s_screenDigits[0]*1000 + s_screenDigits[1]*100 +
+                    s_screenDigits[2]*10   + s_screenDigits[3];
+        s_screenH = s_screenDigits[4]*1000 + s_screenDigits[5]*100 +
+                    s_screenDigits[6]*10   + s_screenDigits[7];
+        Preferences p; p.begin("brew", false);
+        p.putInt("scrW", s_screenW); p.putInt("scrH", s_screenH);
+        p.end();
+        UI::showSaved();
+        s_mode = MOUSE_TUNE_MENU;
       }
     }
     if (Encoder::longPressed()) { s_mode = MOUSE_TUNE_MENU; UI::flashScreen(); }
@@ -479,6 +518,7 @@ void loop() {
       case MOUSE_CALIBRATE_Y:
         UI::showMouseCalibrate(1, s_calibY, s_calibIdx == 0 ? "Pin Tool" : "Map Ctr");
         break;
+      case SCREEN_EDIT: UI::showScreenEdit(s_screenDigits, s_screenDigitPos); break;
       case WIFI_MENU:         UI::showWifiSubMenu(s_wifiSubSel, s_wifiSubOffset,
                               WifiMgr::activeSSID(), WifiMgr::activeIP()); break;
     }
