@@ -381,10 +381,10 @@ void loop() {
       unsigned long dt  = now - s_lastCalibTick;
       s_lastCalibTick   = now;
       int step;
-      if      (dt <  60) step = 100;
-      else if (dt < 100) step = 15;
-      else if (dt < 200) step = 4;
-      else               step = 3;
+      if      (dt <  60) step = 40;
+      else if (dt < 100) step = 10;
+      else if (dt < 200) step = 3;
+      else               step = 1;
       if (s_mode == MOUSE_CALIBRATE_X) {
         s_calibX = (uint16_t)constrain((int)s_calibX + delta * step, 0, s_screenW - 1);
       } else {

@@ -40,6 +40,7 @@ public:
     if (!s_init) { s_init = true; _hid.addDevice(this, sizeof(s_absBuf)); }
   }
   void begin() { _hid.begin(); }
+  bool ready() { return _hid.ready(); }
   uint16_t _onGetDescriptor(uint8_t* buf) override {
     memcpy(buf, s_absBuf, sizeof(s_absBuf));
     return sizeof(s_absBuf);
@@ -59,7 +60,6 @@ private:
 static AbsMouseDevice s_absMouse;
 static uint16_t       s_absX = 0;
 static uint16_t       s_absY = 0;
-static USBHID         s_hid;   // used only for isReady() query
 
 void HID::begin(uint16_t w, uint16_t h) {
   // Patch descriptor with screen-native coordinate ranges before USB enumeration
@@ -72,7 +72,7 @@ void HID::begin(uint16_t w, uint16_t h) {
 
   USB.manufacturerName("E4 Mafia");
   USB.productName("AN/BRU-370");
-  USB.PID(0x370A);
+  USB.PID(0x370B);
   Keyboard.begin();
   s_absMouse.begin();
   Gamepad.begin();
@@ -80,7 +80,7 @@ void HID::begin(uint16_t w, uint16_t h) {
 }
 
 bool HID::isReady() {
-  return s_hid.ready();
+  return s_absMouse.ready();
 }
 
 void HID::moveAbs(uint16_t x, uint16_t y) {
