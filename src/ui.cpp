@@ -235,11 +235,12 @@ void UI::showSleepAdjust(int secs) {
 
 void UI::showMouseTuneMenu(int sel, int offset) {
   static const char* items[] = {
+    "Screen",
     "Cal:Pin Tool", "Cal:Map Ctr",
     "Label X", "Label Y",
     "Save+Exit", "Cancel"
   };
-  static const int kItems = 6;
+  static const int kItems = 7;
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tr);
   u8g2.drawStr(0, 8, "MOUSE TUNE");
@@ -287,6 +288,29 @@ void UI::showMouseCalibrate(int axis, uint16_t val, const char* label) {
   u8g2.drawStr(0, 19, vbuf);
   u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 31, axis == 0 ? "SP=lock  LP=cancel" : "SP=save  LP=cancel");
+  u8g2.sendBuffer();
+}
+
+void UI::showScreenEdit(int digits[8], int digitPos) {
+  static const int kDx[8] = {21, 30, 39, 48, 72, 81, 90, 99};
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0, 7, "Screen");
+  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.drawStr(59, 20, "x");
+  for (int d = 0; d < 8; d++) {
+    int x = kDx[d];
+    char dc[2] = {(char)('0' + digits[d]), 0};
+    if (d == digitPos) {
+      u8g2.setDrawColor(1); u8g2.drawBox(x - 1, 9, 8, 12);
+      u8g2.setDrawColor(0); u8g2.drawStr(x, 20, dc);
+      u8g2.setDrawColor(1);
+    } else {
+      u8g2.drawStr(x, 20, dc);
+    }
+  }
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0, 31, digitPos < 7 ? "SP=nxt LP=cancel" : "SP=save LP=cancel");
   u8g2.sendBuffer();
 }
 
