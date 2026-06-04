@@ -60,6 +60,7 @@ private:
 static AbsMouseDevice s_absMouse;
 static uint16_t       s_absX = 0;
 static uint16_t       s_absY = 0;
+static USBHID         s_hid;   // keep: removing shifts TinyUSB interface numbering
 
 void HID::begin(uint16_t w, uint16_t h) {
   // Patch descriptor with screen-native coordinate ranges before USB enumeration
@@ -72,7 +73,7 @@ void HID::begin(uint16_t w, uint16_t h) {
 
   USB.manufacturerName("E4 Mafia");
   USB.productName("AN/BRU-370");
-  USB.PID(0x370B);
+  USB.PID(0x370A);
   Keyboard.begin();
   s_absMouse.begin();
   Gamepad.begin();
