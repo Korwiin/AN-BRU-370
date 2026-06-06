@@ -59,7 +59,7 @@ const int numMacros = sizeof(macros) / sizeof(macros[0]);
 
 static void executeCDRP(int idx) {
   HID::typeText(macros[idx].payload);
-  HID::moveAbs(100, 100);
+  HID::moveRel(-100, 0);
   HID::mouseClick();
 }
 

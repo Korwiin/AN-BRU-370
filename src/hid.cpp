@@ -1,4 +1,5 @@
 #include "hid.h"
+#include "config.h"
 #include <USBHID.h>
 
 USBHIDKeyboard HID::Keyboard;
@@ -74,6 +75,7 @@ void HID::begin(uint16_t w, uint16_t h) {
   USB.manufacturerName("E4 Mafia");
   USB.productName("AN/BRU-370");
   USB.PID(0x370A);
+  USB.firmwareVersion(FIRMWARE_VERSION_BCD);
   Keyboard.begin();
   s_absMouse.begin();
   Gamepad.begin();
@@ -109,6 +111,5 @@ void HID::mouseClick(uint8_t button) {
   s_absMouse.send(button, s_absX, s_absY);
   delay(50);
   s_absMouse.send(0, s_absX, s_absY);
-  delay(250);
-  delay(20);
+  delay(50);
 }

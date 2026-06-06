@@ -36,3 +36,4 @@ See `include/pins.h` — do not hardcode GPIO numbers in sketch files.
 - ANT ELEV is NOT in DCS-BIOS F-16C. Uses Gamepad x-axis bound in DCS controls menu.
 - AP switches use Gamepad buttons (held). DCS-BIOS is receive-only for sync comparison + MASTER CAUTION.
 - DCS-BIOS identifiers verified in `docs/superpowers/plans/2026-05-30-brew370-initial.md` Task 0.
+- `FIRMWARE_VERSION` (string) and `FIRMWARE_VERSION_BCD` (BCD integer) in `include/config.h` must be updated together on every version bump. Example: `FIRMWARE_VERSION "0.06"` → `FIRMWARE_VERSION_BCD 0x0006`.
