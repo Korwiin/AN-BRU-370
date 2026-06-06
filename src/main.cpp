@@ -377,6 +377,16 @@ void loop() {
       } else {
         mouseParams[s_calibIdx * 2]     = (int)s_calibX;
         mouseParams[s_calibIdx * 2 + 1] = (int)s_calibY;
+        {
+          Preferences p; p.begin("brew", false);
+          switch (s_calibIdx) {
+            case 0: p.putInt("apxX",  mouseParams[0]); p.putInt("apxY",  mouseParams[1]); break;
+            case 1: p.putInt("amcX2", mouseParams[2]); p.putInt("amcY2", mouseParams[3]); break;
+            case 2: p.putInt("lbX2",  mouseParams[4]); p.putInt("lbY2",  mouseParams[5]); break;
+            case 3: p.putInt("cdrpX", mouseParams[6]); p.putInt("cdrpY", mouseParams[7]); break;
+          }
+          p.end();
+        }
         s_mode = MOUSE_TUNE_MENU;
       }
     }
