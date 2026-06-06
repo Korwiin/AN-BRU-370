@@ -68,10 +68,11 @@ static void loadNvs() {
   mouseParams[1] = prefs.getInt("apxY",  s_screenH / 54);
   mouseParams[2] = prefs.getInt("amcX2", s_screenW / 2);
   mouseParams[3] = prefs.getInt("amcY2", s_screenH / 2);
-  mouseParams[4] = prefs.getInt("lbX", 10);
-  mouseParams[5] = prefs.getInt("lbY", 26);
+  mouseParams[4] = prefs.getInt("lbX2", s_screenW / 2);
+  mouseParams[5] = prefs.getInt("lbY2", s_screenH / 2);
+  mouseParams[6] = prefs.getInt("cdrpX", s_screenW / 5);
+  mouseParams[7] = prefs.getInt("cdrpY", s_screenH / 2);
   prefs.end();
-  memcpy(s_prevMouseParams, mouseParams, sizeof(mouseParams));
 }
 
 static void executeMenuItem() {
