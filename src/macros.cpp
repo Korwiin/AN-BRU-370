@@ -5,8 +5,9 @@
 // Mouse calibration params — loaded from NVS in setup(), defaults here.
 // [0]=aptX [1]=aptY : absolute position of Pin Tool button (0-32767)
 // [2]=amcX [3]=amcY : absolute position of map drop target (0-32767)
-// [4]=lbX  [5]=lbY  : relative delta from pin drop to label input
-int mouseParams[6] = {875, 50, 2048, 2048, 10, 26};
+// [4]=lbX  [5]=lbY  : absolute position of label input box (0-32767)
+// [6]=cdX  [7]=cdY  : absolute position of CDRP confirm click target (0-32767)
+int mouseParams[8] = {875, 50, 2048, 2048, 0, 0, 0, 0};
 
 static void openMapAndSelectPin() {
   HID::Keyboard.releaseAll();
@@ -20,7 +21,7 @@ static void openMapAndSelectPin() {
 static void dropPinAndLabel(const char* label) {
   HID::mouseClick();
   delay(400);
-  HID::moveRel((int16_t)mouseParams[4], (int16_t)mouseParams[5]);
+  HID::moveAbs((uint16_t)mouseParams[4], (uint16_t)mouseParams[5]);
   HID::mouseClick();
   HID::Keyboard.releaseAll();
   HID::typeText(label);
@@ -59,7 +60,7 @@ const int numMacros = sizeof(macros) / sizeof(macros[0]);
 
 static void executeCDRP(int idx) {
   HID::typeText(macros[idx].payload);
-  HID::moveRel(-100, 0);
+  HID::moveAbs((uint16_t)mouseParams[6], (uint16_t)mouseParams[7]);
   HID::mouseClick();
 }
 
