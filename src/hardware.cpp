@@ -2,9 +2,15 @@
 #include "hid.h"
 #include "pins.h"
 
-static uint8_t       s_sw1     = 0xFF;
-static uint8_t       s_sw2     = 0xFF;
-static unsigned long s_lastSend = 0;
+static uint8_t       s_sw1       = 0xFF;
+static uint8_t       s_sw2       = 0xFF;
+static uint8_t       s_pending1  = 0xFF;
+static uint8_t       s_pending2  = 0xFF;
+static unsigned long s_debounce1 = 0;
+static unsigned long s_debounce2 = 0;
+static unsigned long s_lastSend  = 0;
+
+static constexpr unsigned long DEBOUNCE_MS = 25;
 
 static uint8_t readSwitch(uint8_t pinA, uint8_t pinB) {
   bool a = (digitalRead(pinA) == LOW);
@@ -42,23 +48,29 @@ void Hardware::begin() {
   pinMode(PIN_SW2_A, INPUT_PULLUP);
   pinMode(PIN_SW2_B, INPUT_PULLUP);
 
-  s_sw1 = readSwitch(PIN_SW1_A, PIN_SW1_B);
-  s_sw2 = readSwitch(PIN_SW2_A, PIN_SW2_B);
+  s_sw1      = readSwitch(PIN_SW1_A, PIN_SW1_B);
+  s_sw2      = readSwitch(PIN_SW2_A, PIN_SW2_B);
+  s_pending1 = s_sw1;
+  s_pending2 = s_sw2;
   pushGamepad(s_sw1, s_sw2);
 }
 
 void Hardware::update() {
-  uint8_t       sw1 = readSwitch(PIN_SW1_A, PIN_SW1_B);
-  uint8_t       sw2 = readSwitch(PIN_SW2_A, PIN_SW2_B);
-  unsigned long now = millis();
+  uint8_t       raw1 = readSwitch(PIN_SW1_A, PIN_SW1_B);
+  uint8_t       raw2 = readSwitch(PIN_SW2_A, PIN_SW2_B);
+  unsigned long now  = millis();
 
-  bool changed  = (sw1 != s_sw1 || sw2 != s_sw2);
+  if (raw1 != s_pending1) { s_pending1 = raw1; s_debounce1 = now; }
+  if (raw2 != s_pending2) { s_pending2 = raw2; s_debounce2 = now; }
+
+  bool changed = false;
+  if ((now - s_debounce1 >= DEBOUNCE_MS) && s_pending1 != s_sw1) { s_sw1 = s_pending1; changed = true; }
+  if ((now - s_debounce2 >= DEBOUNCE_MS) && s_pending2 != s_sw2) { s_sw2 = s_pending2; changed = true; }
+
   bool periodic = (now - s_lastSend >= 2000UL);
 
   if (changed || periodic) {
-    s_sw1 = sw1;
-    s_sw2 = sw2;
-    if (pushGamepad(sw1, sw2)) s_lastSend = now;
+    if (pushGamepad(s_sw1, s_sw2)) s_lastSend = now;
   }
 }
 
