@@ -142,16 +142,16 @@ static void executeMouseTuneItem() {
 }
 
 static const char* kCalibLabelX[] = {
-  "Mv L/R to Map Label",
-  "Mv L/R to Map Center",
-  "Mv L/R to Text Field",
-  "Mv L/R to Click Out"
+  "Move L/R to Map Label",
+  "Move L/R to MapCenter",
+  "Move L/R to TextField",
+  "Move L/R to Click Out"
 };
 static const char* kCalibLabelY[] = {
-  "Mv U/D to Map Label",
-  "Mv U/D to Map Center",
-  "Mv U/D to Text Field",
-  "Mv U/D to Click Out"
+  "Move U/D to Map Label",
+  "Move U/D to MapCenter",
+  "Move U/D to TextField",
+  "Move U/D to Click Out"
 };
 
 void setup() {
