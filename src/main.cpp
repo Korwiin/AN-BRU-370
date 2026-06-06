@@ -141,6 +141,19 @@ static void executeMouseTuneItem() {
   s_mode = SETTINGS;
 }
 
+static const char* kCalibLabelX[] = {
+  "Mv L/R to Map Label",
+  "Mv L/R to Map Center",
+  "Mv L/R to Text Field",
+  "Mv L/R to Click Out"
+};
+static const char* kCalibLabelY[] = {
+  "Mv U/D to Map Label",
+  "Mv U/D to Map Center",
+  "Mv U/D to Text Field",
+  "Mv U/D to Click Out"
+};
+
 void setup() {
 #ifndef RELEASE_BUILD
   Serial.begin(115200);
@@ -366,14 +379,14 @@ void loop() {
       UI::showMouseCalibrate(
         s_mode == MOUSE_CALIBRATE_X ? 0 : 1,
         s_mode == MOUSE_CALIBRATE_X ? s_calibX : s_calibY,
-        s_calibIdx == 0 ? "Pin Tool" : "Map Ctr"
+        s_mode == MOUSE_CALIBRATE_X ? kCalibLabelX[s_calibIdx] : kCalibLabelY[s_calibIdx]
       );
     }
     if (Encoder::shortPressed()) {
       if (s_mode == MOUSE_CALIBRATE_X) {
         s_mode = MOUSE_CALIBRATE_Y;
         s_lastCalibTick = millis();
-        UI::showMouseCalibrate(1, s_calibY, s_calibIdx == 0 ? "Pin Tool" : "Map Ctr");
+        UI::showMouseCalibrate(1, s_calibY, kCalibLabelY[s_calibIdx]);
       } else {
         mouseParams[s_calibIdx * 2]     = (int)s_calibX;
         mouseParams[s_calibIdx * 2 + 1] = (int)s_calibY;
@@ -491,10 +504,10 @@ void loop() {
       case SLEEP_ADJUST:      UI::showSleepAdjust(s_sleepSecs); break;
       case MOUSE_TUNE_MENU:   UI::showMouseTuneMenu(s_mouseTuneSel, s_mouseTuneOffset); break;
       case MOUSE_CALIBRATE_X:
-        UI::showMouseCalibrate(0, s_calibX, s_calibIdx == 0 ? "Pin Tool" : "Map Ctr");
+        UI::showMouseCalibrate(0, s_calibX, kCalibLabelX[s_calibIdx]);
         break;
       case MOUSE_CALIBRATE_Y:
-        UI::showMouseCalibrate(1, s_calibY, s_calibIdx == 0 ? "Pin Tool" : "Map Ctr");
+        UI::showMouseCalibrate(1, s_calibY, kCalibLabelY[s_calibIdx]);
         break;
       case SCREEN_EDIT: UI::showScreenEdit(s_screenDigits, s_screenDigitPos); break;
       case WIFI_MENU:         UI::showWifiSubMenu(s_wifiSubSel, s_wifiSubOffset,
