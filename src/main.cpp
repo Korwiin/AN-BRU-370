@@ -40,6 +40,7 @@ static bool s_oledSleeping        = false;
 static unsigned long s_lastActivity = 0;
 static bool s_wifiCancelled  = false;
 static bool s_dcsBiosStarted = false;
+static bool s_wifiEnabled    = true;
 
 static int           s_calibIdx        = 0;
 static uint16_t      s_calibX          = 0;
@@ -68,6 +69,7 @@ static void loadNvs() {
   mouseParams[5] = prefs.getInt("lbY2", s_screenH / 2);
   mouseParams[6] = prefs.getInt("cdrpX", s_screenW / 5);
   mouseParams[7] = prefs.getInt("cdrpY", s_screenH / 2);
+  s_wifiEnabled  = prefs.getInt("wifi_en", 1);
   prefs.end();
 }
 
@@ -185,7 +187,8 @@ void setup() {
     Encoder::flush();
   }
 
-  if (!s_wifiCancelled) WifiMgr::startConnect();
+  if (s_wifiEnabled && !s_wifiCancelled) WifiMgr::startConnect();
+  if (s_wifiEnabled) {
   unsigned long wifiStart = millis();
 
   {
@@ -217,13 +220,14 @@ void setup() {
     // On timeout: s_wifiCancelled stays false so loop() background polling continues.
     // If the AP responds after 30s the device connects silently — better than never connecting.
   }
+  } // end if (s_wifiEnabled)
 
   Hardware::begin();
   s_lastActivity = millis();
 }
 
 void loop() {
-  if (!s_dcsBiosStarted && !s_wifiCancelled) {
+  if (!s_dcsBiosStarted && !s_wifiCancelled && s_wifiEnabled) {
     if (WifiMgr::pollConnect()) {
       DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
                      "255.255.255.255", DCSBIOS_CMD_PORT);
@@ -408,11 +412,17 @@ void loop() {
     }
 
   } else if (s_mode == WIFI_MENU) {
-    s_wifiSubSel = (s_wifiSubSel + delta + 4) % 4;
+    s_wifiSubSel = (s_wifiSubSel + delta + 5) % 5;
     if (s_wifiSubSel < s_wifiSubOffset) s_wifiSubOffset = s_wifiSubSel;
     if (s_wifiSubSel >= s_wifiSubOffset + 4) s_wifiSubOffset = s_wifiSubSel - 3;
     if (Encoder::shortPressed()) {
       if (s_wifiSubSel == 0) {
+        // WiFi enable/disable toggle
+        s_wifiEnabled = !s_wifiEnabled;
+        { Preferences p; p.begin("brew", false); p.putInt("wifi_en", s_wifiEnabled ? 1 : 0); p.end(); }
+        UI::showSaved();
+        ESP.restart();
+      } else if (s_wifiSubSel == 1) {
         // Manual Entry — encoder character scroll
         char newSSID[33] = {0};
         char newPass[64] = {0};
@@ -437,7 +447,7 @@ void loop() {
           }
         }
         s_mode = SETTINGS;
-      } else if (s_wifiSubSel == 1) {
+      } else if (s_wifiSubSel == 2) {
         // Bluetooth — confirm WiFi disconnect, then run BLE UART session
         Encoder::flush();
         bool confirmed = false;
@@ -456,8 +466,9 @@ void loop() {
           if (saved) ESP.restart();
         }
         s_mode = SETTINGS;
-      } else if (s_wifiSubSel == 2) {
+      } else if (s_wifiSubSel == 3) {
         // Connect — reconnect with saved credentials
+        if (!s_wifiEnabled) { s_mode = SETTINGS; s_wifiSubSel = 0; s_wifiSubOffset = 0; return; }
         WifiMgr::reconnect();
         unsigned long t0 = millis();
         bool connected = false;
@@ -511,7 +522,8 @@ void loop() {
         break;
       case SCREEN_EDIT: UI::showScreenEdit(s_screenDigits, s_screenDigitPos); break;
       case WIFI_MENU:         UI::showWifiSubMenu(s_wifiSubSel, s_wifiSubOffset,
-                              WifiMgr::activeSSID(), WifiMgr::activeIP()); break;
+                              WifiMgr::activeSSID(), WifiMgr::activeIP(),
+                              s_wifiEnabled); break;
     }
   }
 }

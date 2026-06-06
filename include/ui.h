@@ -40,7 +40,7 @@ namespace UI {
   void showWifiConfirm();  // "Are you sure?" before BLE session starts
   void showBleActive();    // displayed while NimBLE UART session is running
   // Split layout matching showSettingsMenu: left panel shows WiFi/SSID/IP; right panel scrolls 4 options.
-  void showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip);
+  void showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip, bool wifiEnabled);
   // Shows character entry screen.
   // field: "SSID" or "Password"
   // buf: current entered string (null-terminated)
