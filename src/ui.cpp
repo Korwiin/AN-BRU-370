@@ -147,7 +147,7 @@ void UI::update() {
 // ---- Settings menu ----
 
 static const char* s_menuItems[] = {
-  "Knob","Brightness","Sleep","WiFi","Mouse Tune","Reboot","EXIT"
+  "Knob","Brightness","LCD Sleep","WiFi","Mouse Tune","Reboot","EXIT"
 };
 static const int kNumMenuItems = 7;
 
@@ -213,7 +213,7 @@ void UI::showSleepAdjust(int secs) {
   u8g2.drawStr(0, 24, "LP=Cancel");
 
   // Right panel — title, bar, value (x=65..127)
-  u8g2.drawStr(65, 8, "Sleep");
+  u8g2.drawStr(65, 8, "LCD Timeout");
   u8g2.drawFrame(65, 11, 62, 8);
   if (secs == 0) {
     u8g2.drawBox(66, 12, 60, 6);
