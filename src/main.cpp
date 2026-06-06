@@ -12,7 +12,7 @@
 
 enum MenuState {
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
-  MOUSE_TUNE_MENU, MOUSE_TUNE_EDIT, WIFI_MENU,
+  MOUSE_TUNE_MENU, WIFI_MENU,
   MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y,
   SCREEN_EDIT
 };
@@ -28,10 +28,6 @@ static int  s_sleepSecs           = 45;
 static int  s_prevSleepSecs       = 45;
 static int  s_mouseTuneSel        = 0;
 static int  s_mouseTuneOffset     = 0;
-static int  s_editParamIdx        = 0;
-static int  s_editDigits[4]       = {0,0,0,0};
-static int  s_editDigitPos        = 0;
-static int  s_prevMouseParams[6];
 static int  s_wifiSubSel          = 0;
 static int  s_wifiSubOffset       = 0;
 static bool s_mcActive            = false;
@@ -93,7 +89,6 @@ static void executeMenuItem() {
       s_mode = WIFI_MENU;
       return;
     case 4:  // Mouse Tune
-      memcpy(s_prevMouseParams, mouseParams, sizeof(mouseParams));
       s_mouseTuneSel = 0; s_mouseTuneOffset = 0;
       s_mode = MOUSE_TUNE_MENU;
       return;
@@ -330,24 +325,8 @@ void loop() {
     if (s_mouseTuneSel >= s_mouseTuneOffset + 3) s_mouseTuneOffset = s_mouseTuneSel - 2;
     if (Encoder::shortPressed()) { UI::flashScreen(); executeMouseTuneItem(); }
     if (Encoder::longPressed()) {
-      memcpy(mouseParams, s_prevMouseParams, sizeof(mouseParams));
       s_mode = SETTINGS; UI::flashScreen();
     }
-
-  } else if (s_mode == MOUSE_TUNE_EDIT) {
-    s_editDigits[s_editDigitPos] = (s_editDigits[s_editDigitPos] + delta + 10) % 10;
-    if (Encoder::shortPressed()) {
-      if (s_editDigitPos < 3) {
-        s_editDigitPos++;
-      } else {
-        mouseParams[s_editParamIdx] =
-          s_editDigits[0]*1000 + s_editDigits[1]*100 +
-          s_editDigits[2]*10  + s_editDigits[3];
-        s_mode = MOUSE_TUNE_MENU;
-        UI::flashScreen();
-      }
-    }
-    if (Encoder::longPressed()) { s_mode = MOUSE_TUNE_MENU; UI::flashScreen(); }
 
   } else if (s_mode == SCREEN_EDIT) {
     s_screenDigits[s_screenDigitPos] = (s_screenDigits[s_screenDigitPos] + delta + 10) % 10;
@@ -501,8 +480,6 @@ void loop() {
       case BRIGHTNESS_ADJUST: UI::showBrightnessAdjust(s_brightness); break;
       case SLEEP_ADJUST:      UI::showSleepAdjust(s_sleepSecs); break;
       case MOUSE_TUNE_MENU:   UI::showMouseTuneMenu(s_mouseTuneSel, s_mouseTuneOffset); break;
-      case MOUSE_TUNE_EDIT:   UI::showMouseTuneEdit(s_editParamIdx,
-                                s_editDigits, s_editDigitPos); break;
       case MOUSE_CALIBRATE_X:
         UI::showMouseCalibrate(0, s_calibX, s_calibIdx == 0 ? "Pin Tool" : "Map Ctr");
         break;

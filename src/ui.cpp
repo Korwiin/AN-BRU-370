@@ -254,30 +254,6 @@ void UI::showMouseTuneMenu(int sel, int offset) {
   u8g2.sendBuffer();
 }
 
-void UI::showMouseTuneEdit(int paramIdx, int digits[4], int digitPos) {
-  static const char* labels[] = {
-    "PinTool X","PinTool Y","MapCtr X","MapCtr Y","Label X","Label Y"
-  };
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 8, labels[paramIdx]);
-  u8g2.setFont(u8g2_font_9x15_tr);
-  for (int d = 0; d < 4; d++) {
-    int x = 20 + d * 22;
-    char dc[2] = {(char)('0' + digits[d]), 0};
-    if (d == digitPos) {
-      u8g2.setDrawColor(1); u8g2.drawBox(x - 1, 10, 20, 16);
-      u8g2.setDrawColor(0); u8g2.drawStr(x, 25, dc);
-      u8g2.setDrawColor(1);
-    } else {
-      u8g2.drawStr(x, 25, dc);
-    }
-  }
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 31, digitPos < 3 ? "SP=nxt LP=back" : "SP=done LP=back");
-  u8g2.sendBuffer();
-}
-
 void UI::showMouseCalibrate(int axis, uint16_t val, const char* label) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);

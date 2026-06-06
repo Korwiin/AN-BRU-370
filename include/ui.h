@@ -33,7 +33,6 @@ namespace UI {
   void showBrightnessAdjust(int value);
   void showSleepAdjust(int secs);
   void showMouseTuneMenu(int sel, int offset);
-  void showMouseTuneEdit(int paramIdx, int digits[4], int digitPos);
   void showMouseCalibrate(int axis, uint16_t val, const char* label);
   void showScreenEdit(int digits[8], int digitPos);
   void showSaved();
