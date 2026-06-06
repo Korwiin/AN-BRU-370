@@ -121,37 +121,29 @@ static void executeMouseTuneItem() {
     s_mode = SCREEN_EDIT;
     return;
   }
-  if (s_mouseTuneSel == 1 || s_mouseTuneSel == 2) {
-    s_calibIdx = s_mouseTuneSel - 1;
-    s_calibX   = (uint16_t)mouseParams[s_calibIdx * 2];
-    s_calibY   = (uint16_t)mouseParams[s_calibIdx * 2 + 1];
+  if (s_mouseTuneSel >= 1 && s_mouseTuneSel <= 4) {
+    int ci = s_mouseTuneSel - 1;  // calibIdx: 0=PinTool 1=MapCtr 2=PinLabel 3=ClickOut
+    if (ci == 2) {
+      // Pin Label POS: drop a pin to open label dialog before calibrating
+      HID::Keyboard.releaseAll();
+      HID::pressKey(KEY_F10);
+      delay(30);
+      HID::moveAbs((uint16_t)mouseParams[0], (uint16_t)mouseParams[1]);
+      HID::mouseClick();
+      HID::moveAbs((uint16_t)mouseParams[2], (uint16_t)mouseParams[3]);
+      HID::mouseClick();
+      delay(400);
+    }
+    s_calibIdx      = ci;
+    s_calibX        = (uint16_t)mouseParams[ci * 2];
+    s_calibY        = (uint16_t)mouseParams[ci * 2 + 1];
     s_lastCalibTick = millis();
     HID::moveAbs(s_calibX, s_calibY);
     s_mode = MOUSE_CALIBRATE_X;
     return;
   }
-  if (s_mouseTuneSel == 3 || s_mouseTuneSel == 4) {
-    s_editParamIdx = s_mouseTuneSel + 1;
-    int v = mouseParams[s_editParamIdx];
-    s_editDigits[0] = v / 1000;
-    s_editDigits[1] = (v / 100) % 10;
-    s_editDigits[2] = (v / 10)  % 10;
-    s_editDigits[3] = v % 10;
-    s_editDigitPos  = 0;
-    s_mode = MOUSE_TUNE_EDIT;
-    return;
-  }
-  if (s_mouseTuneSel == 5) {
-    Preferences p; p.begin("brew", false);
-    p.putInt("apxX", mouseParams[0]); p.putInt("apxY", mouseParams[1]);
-    p.putInt("amcX2", mouseParams[2]); p.putInt("amcY2", mouseParams[3]);
-    p.putInt("lbX",  mouseParams[4]); p.putInt("lbY",  mouseParams[5]);
-    p.end();
-    UI::showSaved();
-    s_mode = SETTINGS;
-    return;
-  }
-  s_mode = SETTINGS;  // sel=6: Cancel
+  // sel == 5: Back
+  s_mode = SETTINGS;
 }
 
 void setup() {
