@@ -320,7 +320,7 @@ void loop() {
     if (Encoder::longPressed()) { s_sleepSecs = s_prevSleepSecs; s_mode = SETTINGS; }
 
   } else if (s_mode == MOUSE_TUNE_MENU) {
-    s_mouseTuneSel = (s_mouseTuneSel + delta + 7) % 7;
+    s_mouseTuneSel = (s_mouseTuneSel + delta + 6) % 6;
     if (s_mouseTuneSel < s_mouseTuneOffset) s_mouseTuneOffset = s_mouseTuneSel;
     if (s_mouseTuneSel >= s_mouseTuneOffset + 3) s_mouseTuneOffset = s_mouseTuneSel - 2;
     if (Encoder::shortPressed()) { UI::flashScreen(); executeMouseTuneItem(); }

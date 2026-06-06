@@ -235,15 +235,15 @@ void UI::showSleepAdjust(int secs) {
 
 void UI::showMouseTuneMenu(int sel, int offset) {
   static const char* items[] = {
-    "Screen",
-    "Cal:Pin Tool", "Cal:Map Ctr",
-    "Label X", "Label Y",
-    "Save+Exit", "Cancel"
+    "Screen Size",
+    "Map Pin Tool POS", "Map Center POS",
+    "Pin Label POS", "Click Out POS",
+    "Back"
   };
-  static const int kItems = 7;
+  static const int kItems = 6;
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 8, "MOUSE TUNE");
+  u8g2.drawStr(0, 8, "MOUSE POSITION TUNING");
   for (int i = 0; i < 3; i++) {
     int idx = offset + i;
     if (idx >= kItems) break;
