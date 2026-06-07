@@ -26,6 +26,10 @@ namespace UI {
   // flashState alternates true/false every ~200 ms to produce flash effect.
   void showMasterCaution(bool flashState);
 
+  // Full-screen MISSILE LAUNCH takeover. Call repeatedly while RWR MSL is active.
+  // flashState alternates true/false every ~100 ms to produce flash effect.
+  void showMissileLaunch(bool flashState);
+
   void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED
   void flashScreen();            // brief invert flash for button feedback
 
