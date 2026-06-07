@@ -135,6 +135,22 @@ void UI::showMissileLaunch(bool flashState) {
   u8g2.sendBuffer();
 }
 
+void UI::showStoresConfig(bool flashState) {
+  u8g2.clearBuffer();
+  if (flashState) {
+    u8g2.setDrawColor(1);
+    u8g2.drawBox(0, 0, 128, 32);
+    u8g2.setDrawColor(0);
+  }
+  u8g2.setFont(u8g2_font_9x15B_tr);
+  int w1 = u8g2.getStrWidth("STORES");
+  u8g2.drawStr((128 - w1) / 2, 14, "STORES");
+  int w2 = u8g2.getStrWidth("CONFIG");
+  u8g2.drawStr((128 - w2) / 2, 30, "CONFIG");
+  if (flashState) u8g2.setDrawColor(1);
+  u8g2.sendBuffer();
+}
+
 void UI::showMacroMenu(int idx) {
   Macro* m = &macros[idx];
   u8g2.clearBuffer();
