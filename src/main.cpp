@@ -33,6 +33,9 @@ static int  s_wifiSubOffset       = 0;
 static bool s_mcActive            = false;
 static bool s_mcFlash             = false;
 static unsigned long s_mcFlashTimer = 0;
+static bool          s_rwrActive     = false;
+static bool          s_rwrFlash      = false;
+static unsigned long s_rwrFlashTimer = 0;
 static bool s_wasDcsConnected     = false;
 static bool s_syncDone            = false;
 static unsigned long s_lastOled   = 0;
@@ -237,6 +240,7 @@ void loop() {
 
   bool dcsActivity = DcsBios::update();
   bool mc          = DcsBios::masterCaution();
+  bool rwr         = DcsBios::rwrMslLaunch();
 
   int8_t delta = Encoder::readDelta();
   if (s_encReversed) delta = -delta;
@@ -251,6 +255,33 @@ void loop() {
   if (!s_oledSleeping && (encActivity || dcsActivity)) {
     s_lastActivity = millis();
   }
+
+  // RWR MISSILE LAUNCH — higher priority than MC; 200ms debounce, 100ms flash
+  static unsigned long s_rwrHighSince = 0;
+  if (rwr && s_rwrHighSince == 0)  s_rwrHighSince = millis();
+  if (!rwr)                         s_rwrHighSince = 0;
+  bool rwrConfirmed = rwr && (millis() - s_rwrHighSince >= 200);
+
+  if (rwrConfirmed && s_oledSleeping) {
+    UI::wake();
+    s_oledSleeping = false;
+    s_lastActivity = millis();
+  }
+  if (rwrConfirmed) {
+    s_rwrActive = true;
+    if (millis() - s_rwrFlashTimer > 100) {
+      s_rwrFlash = !s_rwrFlash;
+      s_rwrFlashTimer = millis();
+    }
+    UI::showMissileLaunch(s_rwrFlash);
+    if (Encoder::shortPressed()) {
+      DcsBios::sendCommand(DCSBIOS_CMD_CMDS_DISPENSE, 1);
+      delay(100);
+      DcsBios::sendCommand(DCSBIOS_CMD_CMDS_DISPENSE, 0);
+    }
+    return;
+  }
+  if (s_rwrActive && !rwrConfirmed) s_rwrActive = false;
 
   // MASTER CAUTION — debounce 200ms to reject large-block export transients
   static unsigned long s_mcHighSince = 0;
