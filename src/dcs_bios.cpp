@@ -10,6 +10,7 @@ static unsigned long s_lastRx = 0;
 static uint8_t s_apPitch = 0xFF;
 static uint8_t s_apRoll  = 0xFF;
 static bool    s_mcLight = false;
+static bool    s_rwrMslLaunch = false;
 
 // Binary frame parser state machine
 enum ParseState { SYNC0, SYNC1, SYNC2, SYNC3,
@@ -29,6 +30,9 @@ static void processWord(uint16_t addr, uint16_t word) {
   }
   if (addr == DCSBIOS_ADDR_MC_LIGHT) {
     s_mcLight = (word & DCSBIOS_MASK_MC_LIGHT) != 0;
+  }
+  if (addr == DCSBIOS_ADDR_RWR_MSL_LAUNCH) {
+    s_rwrMslLaunch = (word & DCSBIOS_MASK_RWR_MSL_LAUNCH) != 0;
   }
 }
 
@@ -101,4 +105,5 @@ void DcsBios::sendCommand(const char* id, uint16_t value) {
 uint8_t DcsBios::apPitchSwitch() { return s_apPitch; }
 uint8_t DcsBios::apRollSwitch()  { return s_apRoll;  }
 bool    DcsBios::masterCaution() { return s_mcLight; }
+bool    DcsBios::rwrMslLaunch()  { return s_rwrMslLaunch; }
 
