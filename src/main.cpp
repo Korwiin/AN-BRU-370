@@ -239,8 +239,9 @@ void loop() {
   }
 
   bool dcsActivity = DcsBios::update();
-  bool mc          = DcsBios::masterCaution();
-  bool rwr         = DcsBios::rwrMslLaunch();
+  bool dcsLive     = DcsBios::isConnected();
+  bool mc          = dcsLive && DcsBios::masterCaution();
+  bool rwr         = dcsLive && DcsBios::rwrMslLaunch();
 
   int8_t delta = Encoder::readDelta();
   if (s_encReversed) delta = -delta;
@@ -300,11 +301,20 @@ void loop() {
       s_mcFlash = !s_mcFlash;
       s_mcFlashTimer = millis();
     }
-    UI::showMasterCaution(s_mcFlash);
-    if (Encoder::shortPressed()) {
-      DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 1);
-      delay(100);
-      DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 0);
+    if (DcsBios::storesConfigLight()) {
+      UI::showStoresConfig(s_mcFlash);
+      if (Encoder::shortPressed()) {
+        uint8_t cur  = DcsBios::storesConfigSw();
+        uint8_t next = (cur == 0xFF) ? 1 : (cur ^ 1);
+        DcsBios::sendCommand(DCSBIOS_CMD_STORES_CONFIG_SW, next);
+      }
+    } else {
+      UI::showMasterCaution(s_mcFlash);
+      if (Encoder::shortPressed()) {
+        DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 1);
+        delay(100);
+        DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 0);
+      }
     }
     return;
   }
