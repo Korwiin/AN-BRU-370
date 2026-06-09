@@ -30,6 +30,7 @@ namespace UI {
   // flashState alternates true/false every ~100 ms to produce flash effect.
   void showMissileLaunch(bool flashState);
   void showStoresConfig(bool flashState);
+  void showStoresConfigTiming(uint32_t swMs, uint32_t ltMs);
 
   void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED
   void flashScreen();            // brief invert flash for button feedback

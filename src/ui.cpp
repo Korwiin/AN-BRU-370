@@ -151,6 +151,18 @@ void UI::showStoresConfig(bool flashState) {
   u8g2.sendBuffer();
 }
 
+void UI::showStoresConfigTiming(uint32_t swMs, uint32_t ltMs) {
+  char line1[16], line2[16];
+  snprintf(line1, sizeof(line1), "SW: %lums", (unsigned long)swMs);
+  snprintf(line2, sizeof(line2), "LT: %lums", (unsigned long)ltMs);
+  u8g2.clearBuffer();
+  u8g2.setDrawColor(1);
+  u8g2.setFont(u8g2_font_9x15B_tr);
+  u8g2.drawStr(0, 14, line1);
+  u8g2.drawStr(0, 30, line2);
+  u8g2.sendBuffer();
+}
+
 void UI::showMacroMenu(int idx) {
   Macro* m = &macros[idx];
   u8g2.clearBuffer();
