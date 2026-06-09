@@ -17,6 +17,10 @@ enum MenuState {
   SCREEN_EDIT
 };
 
+enum ScState : uint8_t {
+  SC_IDLE, SC_WAITING_SW, SC_WAITING_LIGHT, SC_SHOW_TIMING, SC_GAVE_UP
+};
+
 static MenuState s_mode           = MACRO_MENU;
 static int  s_currentMacro        = 0;
 static int  s_menuSel             = 0;
@@ -44,6 +48,14 @@ static unsigned long s_lastActivity = 0;
 static bool s_wifiCancelled  = false;
 static bool s_dcsBiosStarted = false;
 static bool s_wifiEnabled    = true;
+
+static ScState       s_scState     = SC_IDLE;
+static uint8_t       s_scTarget    = 0xFF;
+static unsigned long s_scTPress    = 0;
+static unsigned long s_scTLastSend = 0;
+static uint32_t      s_scSwMs      = 0;
+static uint32_t      s_scLtMs      = 0;
+static unsigned long s_scShowUntil = 0;
 
 static int           s_calibIdx        = 0;
 static uint16_t      s_calibX          = 0;
