@@ -30,6 +30,10 @@ constexpr uint8_t  DCSBIOS_SHFT_STORES_CONFIG_SW = 7;
 #define DCSBIOS_CMD_CMDS_DISPENSE  "CMDS_DISPENSE_BTN"
 #define DCSBIOS_CMD_STORES_CONFIG_SW  "STORES_CONFIG_SW"
 
+// Smart-send timing (ms). Tune SC_LIGHT_TIMEOUT_MS based on observed LT values.
+constexpr uint32_t SC_RETRY_MS          = 500;
+constexpr uint32_t SC_LIGHT_TIMEOUT_MS  = 3000;
+
 namespace DcsBios {
   // Call after WiFi is connected.
   void begin(const char* mcastAddr, uint16_t listenPort,
