@@ -18,7 +18,7 @@ enum MenuState {
 };
 
 enum ScState : uint8_t {
-  SC_IDLE, SC_WAITING_SW, SC_WAITING_LIGHT, SC_SHOW_TIMING, SC_GAVE_UP
+  SC_IDLE, SC_WAITING_SW, SC_WAITING_LIGHT, SC_GAVE_UP
 };
 
 static MenuState s_mode           = MACRO_MENU;
@@ -53,9 +53,6 @@ static ScState       s_scState     = SC_IDLE;
 static uint8_t       s_scTarget    = 0xFF;
 static unsigned long s_scTPress    = 0;
 static unsigned long s_scTLastSend = 0;
-static uint32_t      s_scSwMs      = 0;
-static uint32_t      s_scLtMs      = 0;
-static unsigned long s_scShowUntil = 0;
 
 static int           s_calibIdx        = 0;
 static uint16_t      s_calibX          = 0;
@@ -296,17 +293,6 @@ void loop() {
   }
   if (s_rwrActive && !rwrConfirmed) s_rwrActive = false;
 
-  // SC_SHOW_TIMING: persists even after MC clears — checked before mcConfirmed gate
-  if (s_scState == SC_SHOW_TIMING) {
-    if (millis() >= s_scShowUntil) {
-      s_scState  = SC_IDLE;
-      s_scTarget = 0xFF;
-    } else {
-      UI::showStoresConfigTiming(s_scSwMs, s_scLtMs);
-      return;
-    }
-  }
-
   // MASTER CAUTION — debounce 200ms to reject large-block export transients
   static unsigned long s_mcHighSince = 0;
   if (mc && s_mcHighSince == 0)  s_mcHighSince = millis();
@@ -346,19 +332,13 @@ void loop() {
     } else if (s_scState == SC_WAITING_SW) {
       UI::showStoresConfig(s_mcFlash);
       if (DcsBios::storesConfigSw() == s_scTarget) {
-        s_scSwMs  = (uint32_t)(millis() - s_scTPress);
         s_scState = SC_WAITING_LIGHT;
       } else if (millis() - s_scTLastSend >= SC_RETRY_MS) {
         DcsBios::sendCommand(DCSBIOS_CMD_STORES_CONFIG_SW, s_scTarget);
         s_scTLastSend = millis();
       }
     } else if (s_scState == SC_WAITING_LIGHT) {
-      if (!DcsBios::storesConfigLight()) {
-        s_scLtMs      = (uint32_t)(millis() - s_scTPress);
-        s_scShowUntil = millis() + 4000UL;
-        s_scState     = SC_SHOW_TIMING;
-        UI::showStoresConfigTiming(s_scSwMs, s_scLtMs);
-      } else if (millis() - (s_scTPress + s_scSwMs) >= SC_LIGHT_TIMEOUT_MS) {
+      if (millis() - s_scTPress >= SC_LIGHT_TIMEOUT_MS) {
         s_scState = SC_GAVE_UP;
         UI::showMasterCaution(s_mcFlash);
       } else {
@@ -380,10 +360,8 @@ void loop() {
   }
   if (s_mcActive && !mcConfirmed) {
     s_mcActive = false;
-    if (s_scState != SC_SHOW_TIMING) {
-      s_scState  = SC_IDLE;
-      s_scTarget = 0xFF;
-    }
+    s_scState  = SC_IDLE;
+    s_scTarget = 0xFF;
   }
 
   // Normal operation
