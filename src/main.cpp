@@ -5,7 +5,6 @@
 #include "wifi_mgr.h"
 #include "ui.h"
 #include "dcs_bios.h"
-#include "hardware.h"
 #include "encoder.h"
 #include "hid.h"
 #include "macros.h"
@@ -234,7 +233,6 @@ void setup() {
   }
   } // end if (s_wifiEnabled)
 
-  Hardware::begin();
   s_lastActivity = millis();
 }
 
@@ -365,11 +363,8 @@ void loop() {
   }
 
   // Normal operation
-  Hardware::update();
-
   bool nowConnected = DcsBios::isConnected();
   if (nowConnected && !s_wasDcsConnected) {
-    Hardware::forceSync();
     UI::showSyncing(); delay(800); UI::showSynced();
     s_syncDone = true;
   }
