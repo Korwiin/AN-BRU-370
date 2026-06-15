@@ -8,12 +8,10 @@
 
 ## System Overview
 
-The AN/BRU-370 is a USB composite HID + Wi-Fi peripheral that bridges physical cockpit controls to DCS World. It presents as three HID interfaces simultaneously: a CDC serial port (for programming), an absolute digitizer (for map interactions), and a gamepad (for autopilot switches). Over Wi-Fi it receives cockpit state from DCS-BIOS and sends switch commands back.
+The AN/BRU-370 is a USB composite HID + Wi-Fi peripheral that bridges physical cockpit controls to DCS World. It presents as two HID interfaces simultaneously: a CDC serial port (for programming) and an absolute digitizer (for map interactions). Over Wi-Fi it receives cockpit state from DCS-BIOS and sends switch commands back.
 
 Physical controls:
 - **Rotary encoder** — navigation, value adjustment, and absolute pointer control
-- **AP PITCH switch** — 3-position toggle (ATT HOLD / A/P OFF / ALT HOLD)
-- **AP ROLL switch** — 3-position toggle (STRG SEL / ATT HOLD / HDG SEL)
 
 ---
 
@@ -136,21 +134,6 @@ Each confirmed calibration saves immediately to NVS — there is no separate Sav
 
 ---
 
-## Gamepad Mapping
-
-The AP PITCH and AP ROLL switches each report three exclusive states as gamepad buttons. Exactly one button per switch is held at a time.
-
-| Button | Switch | Physical position | DCS action |
-|---|---|---|---|
-| 1 | PITCH | Down | ATT HOLD |
-| 2 | PITCH | Center | A/P OFF |
-| 3 | PITCH | Up | ALT HOLD |
-| 4 | ROLL | Down | STRG SEL |
-| 5 | ROLL | Center | ATT HOLD |
-| 6 | ROLL | Up | HDG SEL |
-
----
-
 ## DCS-BIOS Integration
 
 DCS-BIOS streams cockpit state over UDP multicast. The device receives the stream, decodes relevant words, and sends switch commands back as plain-text UDP.
@@ -161,8 +144,6 @@ The connection is considered active if a valid export frame arrived within the l
 
 | Signal | What it controls |
 |---|---|
-| AP PITCH switch position | Reflected to gamepad buttons for sync comparison |
-| AP ROLL switch position | Reflected to gamepad buttons for sync comparison |
 | MASTER CAUTION light | Triggers MC takeover alert |
 | RWR MISSILE LAUNCH light | Triggers missile launch alert |
 | STORES CONFIG light | Triggers Stores Config smart-send flow |

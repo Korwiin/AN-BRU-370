@@ -75,9 +75,7 @@ All verified against `F-16C_50.json` v0.11.4.
 
 | Signal | Address | Mask | Shift | Notes |
 |---|---|---|---|---|
-| AP PITCH switch | `0x4400` | `0x0300` | 8 | 0=ATT HOLD, 1=A/P OFF, 2=ALT HOLD |
-| AP ROLL switch | `0x4400` | `0x0C00` | 10 | 0=STRG SEL, 1=ATT HOLD, 2=HDG SEL |
-| STORES_CONFIG_SW | `0x4400` | `0x0080` | 7 | 0=CAT I, 1=CAT III. Shares AP address. |
+| STORES_CONFIG_SW | `0x4400` | `0x0080` | 7 | 0=CAT I, 1=CAT III |
 | MASTER_CAUTION light | `0x447A` | `0x0001` | — | bit test |
 | STORES CONFIG light | `0x4478` | `0x0001` | — | bit test |
 | RWR MSL LAUNCH light | `0x4480` | `0x0004` | — | bit test |
@@ -92,7 +90,7 @@ All verified against `F-16C_50.json` v0.11.4.
 | `DCSBIOS_CMD_CMDS_DISPENSE` | `CMDS_DISPENSE_BTN` | Countermeasures dispense |
 | `DCSBIOS_CMD_STORES_CONFIG_SW` | `STORES_CONFIG_SW` | Stores Config switch toggle |
 
-ANT ELEV is **not** modeled in DCS-BIOS for the F-16C. It is handled via the HID Gamepad X-axis bound in DCS controls.
+ANT ELEV is **not** modeled in DCS-BIOS for the F-16C.
 
 ---
 
@@ -107,21 +105,6 @@ ANT ELEV is **not** modeled in DCS-BIOS for the F-16C. It is handled via the HID
 | RWR debounce | 200 ms | Minimum time RWR must be high before alert triggers |
 | MC flash interval | 200 ms | OLED flash toggle rate for Master Caution |
 | RWR flash interval | 100 ms | OLED flash toggle rate for Missile Launch |
-
----
-
-## HID Gamepad Mapping
-
-Six mutually-exclusive buttons. Exactly one button per switch is pressed at a time.
-
-| Button # | Bit | Switch | Physical position | DCS action |
-|---|---|---|---|---|
-| 1 | 0 | PITCH | Down | ATT HOLD |
-| 2 | 1 | PITCH | Center | A/P OFF |
-| 3 | 2 | PITCH | Up | ALT HOLD |
-| 4 | 3 | ROLL | Down | STRG SEL |
-| 5 | 4 | ROLL | Center | ATT HOLD |
-| 6 | 5 | ROLL | Up | HDG SEL |
 
 ---
 
