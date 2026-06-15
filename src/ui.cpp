@@ -421,42 +421,31 @@ void UI::setContrast(uint8_t value) {
 
 // ---- Firmware update screens ----
 
-void UI::showFirmwareMenu(const char* currentVer) {
+void UI::showFirmwareChecking(const char* currentVer) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(0, 8,  "AN/BRU-370");
-  u8g2.drawStr(0, 16, currentVer);
-  u8g2.drawStr(0, 24, "Firmware");
-  u8g2.drawStr(65, 8,  "> Check");
-  u8g2.drawStr(65, 16, "LP=Back");
+  u8g2.drawStr(0, 8,  currentVer);
+  u8g2.drawStr(0, 16, "Checking for updates...");
   u8g2.sendBuffer();
 }
 
-void UI::showFirmwareChecking() {
+void UI::showFirmwareUpToDate(const char* currentVer) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
-  const char* msg = "Checking...";
-  u8g2.drawStr((128 - u8g2.getStrWidth(msg)) / 2, 20, msg);
+  u8g2.drawStr(0, 8,  currentVer);
+  u8g2.drawStr(0, 16, "You are up to date.");
+  u8g2.drawStr(0, 24, "SP=Back");
   u8g2.sendBuffer();
 }
 
-void UI::showFirmwareUpToDate(const char* ver) {
+void UI::showFirmwareConfirm(const char* currentVer, const char* availVer) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
-  const char* line1 = "Up to date";
-  u8g2.drawStr((128 - u8g2.getStrWidth(line1)) / 2, 14, line1);
-  u8g2.drawStr((128 - u8g2.getStrWidth(ver))   / 2, 24, ver);
-  u8g2.sendBuffer();
-}
-
-void UI::showFirmwareConfirm(const char* availVer) {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_5x7_tr);
-  char line1[20];
-  snprintf(line1, sizeof(line1), "%s avail", availVer);
-  u8g2.drawStr(0, 8,  line1);
-  u8g2.drawStr(0, 18, "SP=Update");
-  u8g2.drawStr(0, 28, "LP=Cancel");
+  char line2[24];
+  snprintf(line2, sizeof(line2), "Firmware %s avail", availVer);
+  u8g2.drawStr(0, 8,  currentVer);
+  u8g2.drawStr(0, 16, line2);
+  u8g2.drawStr(0, 24, "SP=Update   LP=Cancel");
   u8g2.sendBuffer();
 }
 
