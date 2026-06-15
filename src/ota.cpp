@@ -16,6 +16,7 @@ OTA::CheckResult OTA::check() {
     strlcpy(result.error, "No server", sizeof(result.error));
     return result;
   }
+  http.setTimeout(8000);
 
   int code = http.GET();
   if (code != HTTP_CODE_OK) {
