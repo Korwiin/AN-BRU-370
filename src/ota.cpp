@@ -15,26 +15,32 @@ OTA::CheckResult OTA::check() {
     return result;
   }
 
-  WiFiClientSecure client;
-  client.setInsecure();
-
-  HTTPClient http;
-  if (!http.begin(client, OTA_MANIFEST_URL)) {
-    strlcpy(result.error, "URL err", sizeof(result.error));
-    return result;
-  }
-  http.setConnectTimeout(15000);  // TLS handshake needs up to ~5s on slow networks
-  http.setTimeout(8000);
-
-  int code = http.GET();
-  if (code != HTTP_CODE_OK) {
+  // Retry once — raw.githubusercontent.com TLS handshakes fail transiently
+  int code = -1;
+  String payload;
+  for (int attempt = 0; attempt < 2 && code != HTTP_CODE_OK; attempt++) {
+    if (attempt > 0) delay(2000);
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+    if (!http.begin(client, OTA_MANIFEST_URL)) {
+      strlcpy(result.error, "URL err", sizeof(result.error));
+      return result;
+    }
+    http.setConnectTimeout(15000);
+    http.setTimeout(8000);
+    code = http.GET();
+    if (code == HTTP_CODE_OK) {
+      payload = http.getString();
+    }
     http.end();
-    snprintf(result.error, sizeof(result.error), "HTTP %d", code);
-    return result;
   }
 
-  String payload = http.getString();
-  http.end();
+  if (code != HTTP_CODE_OK) {
+    snprintf(result.error, sizeof(result.error), "%d/%uK",
+             code, (unsigned)(ESP.getMaxAllocHeap() / 1024));
+    return result;
+  }
 
   // Parse {"version": N, "url": "..."}
   const char* src = payload.c_str();
@@ -62,46 +68,58 @@ OTA::CheckResult OTA::check() {
   return result;
 }
 
+static char s_performError[32] = {};
+const char* OTA::performError() { return s_performError; }
+
 bool OTA::perform(const char* url, void(*progress)(int)) {
+  s_performError[0] = '\0';
+  WiFi.setSleep(false);
+
   WiFiClientSecure client;
   client.setInsecure();
 
   HTTPClient http;
-  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-  if (!http.begin(client, url)) return false;
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  if (!http.begin(client, url)) {
+    WiFi.setSleep(true);
+    strlcpy(s_performError, "begin fail", sizeof(s_performError));
+    return false;
+  }
+  http.setConnectTimeout(15000);
   http.setTimeout(30000);
 
   int code = http.GET();
-  if (code != HTTP_CODE_OK) { http.end(); return false; }
-
-  int totalBytes = http.getSize();
-  if (!Update.begin(totalBytes > 0 ? totalBytes : UPDATE_SIZE_UNKNOWN)) {
-    http.end();
+  if (code != HTTP_CODE_OK) {
+    http.end(); WiFi.setSleep(true);
+    snprintf(s_performError, sizeof(s_performError), "GET %d", code);
     return false;
   }
 
-  WiFiClient* stream = http.getStreamPtr();
-  uint8_t buf[512];
-  int written = 0;
-
-  while (http.connected() && (totalBytes < 0 || written < totalBytes)) {
-    int avail = stream->available();
-    if (avail > 0) {
-      int toRead = min(avail, (int)sizeof(buf));
-      size_t n = stream->readBytes(buf, toRead);
-      size_t wrote = Update.write(buf, n);
-      if (wrote != n) { http.end(); Update.abort(); return false; }
-      written += (int)wrote;
-      if (totalBytes > 0 && progress) {
-        progress((written * 100) / totalBytes);
-      }
-    } else {
-      delay(1);
-    }
+  int totalBytes = http.getSize();
+  if (!Update.begin(totalBytes > 0 ? totalBytes : UPDATE_SIZE_UNKNOWN)) {
+    http.end(); WiFi.setSleep(true);
+    strlcpy(s_performError, "begin OTA fail", sizeof(s_performError));
+    return false;
   }
 
+  if (progress) {
+    Update.onProgress([progress, totalBytes](size_t done, size_t total) {
+      if (totalBytes > 0) progress((int)((done * 100) / totalBytes));
+    });
+  }
+
+  WiFiClient* stream = http.getStreamPtr();
+  size_t written = Update.writeStream(*stream);
   http.end();
-  if (!Update.end(true)) return false;
+  WiFi.setSleep(true);
+
+  bool sizeOk = (totalBytes <= 0) || ((int)written == totalBytes);
+  if (!sizeOk || !Update.end(true)) {
+    Update.abort();
+    snprintf(s_performError, sizeof(s_performError), "w%d/%d e%d",
+             (int)written, totalBytes, (int)Update.getError());
+    return false;
+  }
   ESP.restart();
   return true;  // never reached
 }

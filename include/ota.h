@@ -16,6 +16,7 @@ namespace OTA {
   // Download binary from url and flash via ESP32 Update library.
   // Calls progress(0..100) periodically for OLED updates.
   // Blocking (tens of seconds). Calls ESP.restart() on success — never returns true.
-  // Returns false on failure.
+  // Returns false on failure; call performError() to get the reason.
   bool perform(const char* url, void(*progress)(int));
+  const char* performError();  // empty string on success
 }

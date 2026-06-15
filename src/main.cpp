@@ -628,7 +628,7 @@ void loop() {
   } else if (s_mode == FIRMWARE_UPDATING) {
     UI::showFirmwareUpdating(0);
     if (!OTA::perform(s_otaResult.url, otaProgressCb)) {
-      strlcpy(s_otaError, "Flash failed", sizeof(s_otaError));
+      strlcpy(s_otaError, OTA::performError(), sizeof(s_otaError));
       s_mode = FIRMWARE_ERROR;
     }
 
