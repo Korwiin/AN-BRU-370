@@ -7,8 +7,6 @@ static uint16_t  s_cmdPort;
 static unsigned long s_lastRx = 0;
 
 // Decoded state — 0xFF = not yet received
-static uint8_t s_apPitch = 0xFF;
-static uint8_t s_apRoll  = 0xFF;
 static bool    s_mcLight = false;
 static bool    s_rwrMslLaunch = false;
 static bool    s_storesConfigLight = false;
@@ -24,11 +22,7 @@ static uint16_t   s_dataIdx = 0;
 static uint8_t    s_buf[512];
 
 static void processWord(uint16_t addr, uint16_t word) {
-  if (addr == DCSBIOS_ADDR_AP_SWITCHES) {
-    uint8_t p = (word & DCSBIOS_MASK_AP_PITCH) >> DCSBIOS_SHFT_AP_PITCH;
-    uint8_t r = (word & DCSBIOS_MASK_AP_ROLL)  >> DCSBIOS_SHFT_AP_ROLL;
-    if (p <= 2) s_apPitch = p;
-    if (r <= 2) s_apRoll  = r;
+  if (addr == DCSBIOS_ADDR_STORES_CONFIG_SW) {
     s_storesConfigSw = (word & DCSBIOS_MASK_STORES_CONFIG_SW) >> DCSBIOS_SHFT_STORES_CONFIG_SW;
   }
   if (addr == DCSBIOS_ADDR_MC_LIGHT) {
@@ -108,8 +102,6 @@ void DcsBios::sendCommand(const char* id, uint16_t value) {
   s_udp.endPacket();
 }
 
-uint8_t DcsBios::apPitchSwitch() { return s_apPitch; }
-uint8_t DcsBios::apRollSwitch()  { return s_apRoll;  }
 bool    DcsBios::masterCaution() { return s_mcLight; }
 bool    DcsBios::rwrMslLaunch()  { return s_rwrMslLaunch; }
 bool    DcsBios::storesConfigLight() { return s_storesConfigLight; }
