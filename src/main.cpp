@@ -8,12 +8,15 @@
 #include "encoder.h"
 #include "hid.h"
 #include "macros.h"
+#include "ota.h"
 
 enum MenuState {
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
   MOUSE_TUNE_MENU, WIFI_MENU,
   MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y,
-  SCREEN_EDIT
+  SCREEN_EDIT,
+  FIRMWARE_MENU, FIRMWARE_CHECKING, FIRMWARE_UP_TO_DATE,
+  FIRMWARE_CONFIRM, FIRMWARE_UPDATING, FIRMWARE_ERROR
 };
 
 enum ScState : uint8_t {
@@ -47,6 +50,10 @@ static unsigned long s_lastActivity = 0;
 static bool s_wifiCancelled  = false;
 static bool s_dcsBiosStarted = false;
 static bool s_wifiEnabled    = true;
+
+static OTA::CheckResult  s_otaResult        = {};
+static unsigned long     s_otaUpToDateSince  = 0;
+static char              s_otaError[24]      = {0};
 
 static ScState       s_scState     = SC_IDLE;
 static uint8_t       s_scTarget    = 0xFF;
@@ -84,6 +91,10 @@ static void loadNvs() {
   prefs.end();
 }
 
+static void otaProgressCb(int percent) {
+  UI::showFirmwareUpdating(percent);
+}
+
 static void executeMenuItem() {
   switch (s_menuSel) {
     case 0:  // Knob direction
@@ -105,10 +116,13 @@ static void executeMenuItem() {
       s_mouseTuneSel = 0; s_mouseTuneOffset = 0;
       s_mode = MOUSE_TUNE_MENU;
       return;
-    case 5:  // Reboot
+    case 5:  // Firmware
+      s_mode = FIRMWARE_MENU;
+      return;
+    case 6:  // Reboot
       ESP.restart();
       break;
-    case 6:  // EXIT
+    case 7:  // EXIT
       s_mode = MACRO_MENU;
       return;
   }
@@ -384,7 +398,7 @@ void loop() {
     }
 
   } else if (s_mode == SETTINGS) {
-    s_menuSel = (s_menuSel + delta + 7) % 7;
+    s_menuSel = (s_menuSel + delta + 8) % 8;
     if (s_menuSel < s_menuOffset) s_menuOffset = s_menuSel;
     if (s_menuSel >= s_menuOffset + 4) s_menuOffset = s_menuSel - 3;
     if (Encoder::shortPressed()) executeMenuItem();
@@ -579,6 +593,47 @@ void loop() {
     if (Encoder::longPressed()) {
       s_wifiSubSel = 0; s_wifiSubOffset = 0; s_mode = SETTINGS;
     }
+
+  } else if (s_mode == FIRMWARE_MENU) {
+    if (Encoder::shortPressed()) s_mode = FIRMWARE_CHECKING;
+    if (Encoder::longPressed())  { s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0; }
+
+  } else if (s_mode == FIRMWARE_CHECKING) {
+    if (!WifiMgr::isConnected()) {
+      strlcpy(s_otaError, "No WiFi", sizeof(s_otaError));
+      s_mode = FIRMWARE_ERROR;
+    } else {
+      UI::showFirmwareChecking();
+      s_otaResult = OTA::check();
+      if (s_otaResult.error[0]) {
+        strlcpy(s_otaError, s_otaResult.error, sizeof(s_otaError));
+        s_mode = FIRMWARE_ERROR;
+      } else if (s_otaResult.available) {
+        s_mode = FIRMWARE_CONFIRM;
+      } else {
+        s_otaUpToDateSince = millis();
+        s_mode = FIRMWARE_UP_TO_DATE;
+      }
+    }
+
+  } else if (s_mode == FIRMWARE_UP_TO_DATE) {
+    if (Encoder::shortPressed() || millis() - s_otaUpToDateSince > 3000) {
+      s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0;
+    }
+
+  } else if (s_mode == FIRMWARE_CONFIRM) {
+    if (Encoder::shortPressed()) s_mode = FIRMWARE_UPDATING;
+    if (Encoder::longPressed())  { s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0; }
+
+  } else if (s_mode == FIRMWARE_UPDATING) {
+    UI::showFirmwareUpdating(0);
+    if (!OTA::perform(s_otaResult.url, otaProgressCb)) {
+      strlcpy(s_otaError, "Flash failed", sizeof(s_otaError));
+      s_mode = FIRMWARE_ERROR;
+    }
+
+  } else if (s_mode == FIRMWARE_ERROR) {
+    if (Encoder::shortPressed()) { s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0; }
   }
 
   // OLED sleep check
@@ -609,6 +664,28 @@ void loop() {
       case WIFI_MENU:         UI::showWifiSubMenu(s_wifiSubSel, s_wifiSubOffset,
                               WifiMgr::activeSSID(), WifiMgr::activeIP(),
                               s_wifiEnabled); break;
+      case FIRMWARE_MENU: {
+        char ver[12];
+        snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
+        UI::showFirmwareMenu(ver);
+        break;
+      }
+      case FIRMWARE_CHECKING:  break;  // screen set inline before blocking call
+      case FIRMWARE_UP_TO_DATE: {
+        char ver[12];
+        snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
+        UI::showFirmwareUpToDate(ver);
+        break;
+      }
+      case FIRMWARE_CONFIRM: {
+        char ver[10];
+        snprintf(ver, sizeof(ver), "%X.%02X",
+                 s_otaResult.versionBCD >> 8, s_otaResult.versionBCD & 0xFF);
+        UI::showFirmwareConfirm(ver);
+        break;
+      }
+      case FIRMWARE_UPDATING:  break;  // screen driven by otaProgressCb
+      case FIRMWARE_ERROR:     UI::showFirmwareError(s_otaError); break;
     }
   }
 }

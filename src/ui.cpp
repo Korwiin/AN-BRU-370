@@ -180,9 +180,9 @@ void UI::update() {
 // ---- Settings menu ----
 
 static const char* s_menuItems[] = {
-  "Knob","Brightness","LCD Sleep","WiFi","Mouse Tune","Reboot","EXIT"
+  "Knob","Brightness","LCD Sleep","WiFi","Mouse Tune","Firmware","Reboot","EXIT"
 };
-static const int kNumMenuItems = 7;
+static const int kNumMenuItems = 8;
 
 void UI::showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bool dcsOk) {
   u8g2.clearBuffer();
@@ -205,6 +205,7 @@ void UI::showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bo
     if (idx == 0)      label = encReversed ? "Knob:CCW" : "Knob:CW";
     else if (idx == 1) label = "Bright";
     else if (idx == 4) label = "Mouse";
+    else if (idx == 5) label = "Fw Upd";
     else               label = s_menuItems[idx];
     if (idx == sel) {
       u8g2.drawStr(65, y, ">");
