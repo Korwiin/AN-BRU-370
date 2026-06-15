@@ -61,6 +61,7 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
   HTTPClient http;
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   if (!http.begin(client, url)) return false;
+  http.setTimeout(30000);
 
   int code = http.GET();
   if (code != HTTP_CODE_OK) { http.end(); return false; }
@@ -79,14 +80,16 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
     int avail = stream->available();
     if (avail > 0) {
       int toRead = min(avail, (int)sizeof(buf));
-      int n = stream->readBytes(buf, toRead);
-      Update.write(buf, n);
-      written += n;
+      size_t n = stream->readBytes(buf, toRead);
+      size_t wrote = Update.write(buf, n);
+      if (wrote != n) { http.end(); Update.abort(); return false; }
+      written += (int)wrote;
       if (totalBytes > 0 && progress) {
         progress((written * 100) / totalBytes);
       }
+    } else {
+      delay(1);
     }
-    delay(1);
   }
 
   http.end();
