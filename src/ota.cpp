@@ -15,20 +15,22 @@ OTA::CheckResult OTA::check() {
     return result;
   }
 
-  // Retry once — raw.githubusercontent.com TLS handshakes fail transiently
+  // Retry once — raw.githubusercontent.com TLS handshakes fail transiently.
+  // Client declared outside loop: one TLS context reused across retries
+  // instead of two partial contexts competing for heap.
+  WiFiClientSecure client;
+  client.setInsecure();
   int code = -1;
   String payload;
   for (int attempt = 0; attempt < 2 && code != HTTP_CODE_OK; attempt++) {
     if (attempt > 0) delay(2000);
-    WiFiClientSecure client;
-    client.setInsecure();
     HTTPClient http;
     if (!http.begin(client, OTA_MANIFEST_URL)) {
       strlcpy(result.error, "URL err", sizeof(result.error));
       return result;
     }
     http.setConnectTimeout(15000);
-    http.setTimeout(8000);
+    http.setTimeout(20000);
     code = http.GET();
     if (code == HTTP_CODE_OK) {
       payload = http.getString();
