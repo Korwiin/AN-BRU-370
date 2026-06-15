@@ -55,5 +55,42 @@ OTA::CheckResult OTA::check() {
 }
 
 bool OTA::perform(const char* url, void(*progress)(int)) {
-  return false;  // placeholder — implemented in Task 3
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  if (!http.begin(client, url)) return false;
+
+  int code = http.GET();
+  if (code != HTTP_CODE_OK) { http.end(); return false; }
+
+  int totalBytes = http.getSize();
+  if (!Update.begin(totalBytes > 0 ? totalBytes : UPDATE_SIZE_UNKNOWN)) {
+    http.end();
+    return false;
+  }
+
+  WiFiClient* stream = http.getStreamPtr();
+  uint8_t buf[512];
+  int written = 0;
+
+  while (http.connected() && (totalBytes < 0 || written < totalBytes)) {
+    int avail = stream->available();
+    if (avail > 0) {
+      int toRead = min(avail, (int)sizeof(buf));
+      int n = stream->readBytes(buf, toRead);
+      Update.write(buf, n);
+      written += n;
+      if (totalBytes > 0 && progress) {
+        progress((written * 100) / totalBytes);
+      }
+    }
+    delay(1);
+  }
+
+  http.end();
+  if (!Update.end(true)) return false;
+  ESP.restart();
+  return true;  // never reached
 }
