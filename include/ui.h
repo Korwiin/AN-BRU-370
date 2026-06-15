@@ -46,6 +46,13 @@ namespace UI {
   void showBleActive();    // displayed while NimBLE UART session is running
   // Split layout matching showSettingsMenu: left panel shows WiFi/SSID/IP; right panel scrolls 5 options.
   void showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip, bool wifiEnabled);
+  // OTA firmware update screens
+  void showFirmwareMenu(const char* currentVer);
+  void showFirmwareChecking();
+  void showFirmwareUpToDate(const char* ver);
+  void showFirmwareConfirm(const char* availVer);
+  void showFirmwareUpdating(int percent);
+  void showFirmwareError(const char* reason);
   // Shows character entry screen.
   // field: "SSID" or "Password"
   // buf: current entered string (null-terminated)
