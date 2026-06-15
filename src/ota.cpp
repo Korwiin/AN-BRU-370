@@ -8,20 +8,28 @@
 OTA::CheckResult OTA::check() {
   CheckResult result = {};
 
+  // DCS-BIOS uses a hard-coded IP, so WiFi connected ≠ DNS working
+  IPAddress ip;
+  if (!WiFi.hostByName("raw.githubusercontent.com", ip)) {
+    strlcpy(result.error, "DNS fail", sizeof(result.error));
+    return result;
+  }
+
   WiFiClientSecure client;
   client.setInsecure();
 
   HTTPClient http;
   if (!http.begin(client, OTA_MANIFEST_URL)) {
-    strlcpy(result.error, "No server", sizeof(result.error));
+    strlcpy(result.error, "URL err", sizeof(result.error));
     return result;
   }
+  http.setConnectTimeout(15000);  // TLS handshake needs up to ~5s on slow networks
   http.setTimeout(8000);
 
   int code = http.GET();
   if (code != HTTP_CODE_OK) {
     http.end();
-    strlcpy(result.error, "No server", sizeof(result.error));
+    snprintf(result.error, sizeof(result.error), "HTTP %d", code);
     return result;
   }
 
