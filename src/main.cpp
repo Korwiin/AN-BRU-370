@@ -602,6 +602,7 @@ void loop() {
       snprintf(ver, sizeof(ver), "Current Firmware v%s", FIRMWARE_VERSION);
       UI::showFirmwareChecking(ver);
       s_otaResult = OTA::check();
+      s_lastActivity = millis();  // blocking check can outlast sleep timer; reset so result stays visible
       if (s_otaResult.error[0]) {
         strlcpy(s_otaError, s_otaResult.error, sizeof(s_otaError));
         s_mode = FIRMWARE_ERROR;

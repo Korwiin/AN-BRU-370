@@ -85,17 +85,21 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
   WiFiClientSecure client;
   client.setInsecure();
 
+  // Retry once — GitHub release redirects to S3 can transiently refuse
   HTTPClient http;
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  if (!http.begin(client, url)) {
-    WiFi.setSleep(true);
-    strlcpy(s_performError, "begin fail", sizeof(s_performError));
-    return false;
+  int code = -1;
+  for (int attempt = 0; attempt < 2 && code != HTTP_CODE_OK; attempt++) {
+    if (attempt > 0) { http.end(); delay(3000); }
+    if (!http.begin(client, url)) {
+      WiFi.setSleep(true);
+      strlcpy(s_performError, "begin fail", sizeof(s_performError));
+      return false;
+    }
+    http.setConnectTimeout(15000);
+    http.setTimeout(30000);
+    code = http.GET();
   }
-  http.setConnectTimeout(15000);
-  http.setTimeout(30000);
-
-  int code = http.GET();
   if (code != HTTP_CODE_OK) {
     http.end(); WiFi.setSleep(true);
     snprintf(s_performError, sizeof(s_performError), "GET %d", code);
