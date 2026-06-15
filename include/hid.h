@@ -2,7 +2,6 @@
 #include <Arduino.h>
 #include <USB.h>
 #include <USBHIDKeyboard.h>
-#include <USBHIDGamepad.h>
 
 #ifndef MOUSE_LEFT
 #define MOUSE_LEFT 0x01
@@ -10,7 +9,6 @@
 
 namespace HID {
   extern USBHIDKeyboard Keyboard;
-  extern USBHIDGamepad  Gamepad;
 
   void begin(uint16_t w, uint16_t h);
   bool isReady();

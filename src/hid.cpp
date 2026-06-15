@@ -3,7 +3,6 @@
 #include <USBHID.h>
 
 USBHIDKeyboard HID::Keyboard;
-USBHIDGamepad  HID::Gamepad;
 
 // --- Absolute digitizer (pen) HID descriptor (64 bytes) ---
 // UsagePage(Digitizer)/Usage(Pen) bypasses Windows mouhid.sys delta pipeline entirely.
@@ -78,7 +77,6 @@ void HID::begin(uint16_t w, uint16_t h) {
   USB.firmwareVersion(FIRMWARE_VERSION_BCD);
   Keyboard.begin();
   s_absMouse.begin();
-  Gamepad.begin();
   USB.begin();
 }
 
