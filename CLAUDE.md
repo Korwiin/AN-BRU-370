@@ -25,7 +25,7 @@ See `include/pins.h` — do not hardcode GPIO numbers in sketch files.
   Copy `include/config.h.example` to `include/config.h` before building.
 - DCS-BIOS over Wi-Fi (UDP multicast 239.255.50.10:5010 recv, UDP 7778 send).
   No third-party DCS-BIOS library — direct WiFiUDP only.
-- USB composite: CDC + HIDKeyboard + HID Digitizer (pen) + HIDGamepad. Build flags
+- USB composite: CDC + HIDKeyboard + HID Digitizer (pen). Build flags
   `-DARDUINO_USB_MODE=1` and `-DARDUINO_USB_CDC_ON_BOOT=1` are both required.
 - Absolute pointing device uses `Usage Page(Digitizer) / Usage(Pen)` — NOT `Usage(Mouse)`.
   Windows `mouhid.sys` (mouse driver) applies a ~16px minimum-displacement filter to
@@ -33,7 +33,5 @@ See `include/pins.h` — do not hardcode GPIO numbers in sketch files.
   (digitizer driver) maps absolute coordinates 1:1. Do NOT revert to Usage(Mouse).
   Button byte: bit0=TipSwitch (L-click), bit1=BarrelSwitch (R-click), bit2=InRange (always 1).
 - ADC1 only (GPIO 1–10) for the pot. ADC2 is unreliable with Wi-Fi active.
-- ANT ELEV is NOT in DCS-BIOS F-16C. Uses Gamepad x-axis bound in DCS controls menu.
-- AP switches use Gamepad buttons (held). DCS-BIOS is receive-only for sync comparison + MASTER CAUTION.
 - DCS-BIOS identifiers verified in `docs/superpowers/plans/2026-05-30-brew370-initial.md` Task 0.
 - `FIRMWARE_VERSION` (string) and `FIRMWARE_VERSION_BCD` (BCD integer) in `include/config.h` must be updated together on every version bump. Example: `FIRMWARE_VERSION "0.06"` → `FIRMWARE_VERSION_BCD 0x0006`.
