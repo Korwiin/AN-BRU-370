@@ -16,3 +16,6 @@
 #define FIRMWARE_VERSION     "0.13"
 #define FIRMWARE_VERSION_BCD  0x0013  // BCD: 0xMMmm — keep in sync with FIRMWARE_VERSION
 #define DEVICE_NAME         "Brew370"
+
+// OTA updates
+#define OTA_MANIFEST_URL    "https://raw.githubusercontent.com/YOUR_GITHUB_USER/Brew370/main/ota/manifest.json"
