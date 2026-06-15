@@ -9,6 +9,7 @@
 #include "hid.h"
 #include "macros.h"
 #include "ota.h"
+#include <WiFi.h>
 
 enum MenuState {
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
@@ -600,7 +601,7 @@ void loop() {
     } else {
       char ver[24];
       snprintf(ver, sizeof(ver), "Current Firmware v%s", FIRMWARE_VERSION);
-      UI::showFirmwareChecking(ver);
+      UI::showFirmwareChecking(ver, WiFi.RSSI());
       s_otaResult = OTA::check();
       s_lastActivity = millis();  // blocking check can outlast sleep timer; reset so result stays visible
       if (s_otaResult.error[0]) {

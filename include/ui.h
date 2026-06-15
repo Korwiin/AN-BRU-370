@@ -47,7 +47,7 @@ namespace UI {
   // Split layout matching showSettingsMenu: left panel shows WiFi/SSID/IP; right panel scrolls 5 options.
   void showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip, bool wifiEnabled);
   // OTA firmware update screens
-  void showFirmwareChecking(const char* currentVer);
+  void showFirmwareChecking(const char* currentVer, int rssi);
   void showFirmwareUpToDate(const char* currentVer);
   void showFirmwareConfirm(const char* currentVer, const char* availVer);
   void showFirmwareUpdating(int percent);

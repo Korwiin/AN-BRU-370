@@ -7,19 +7,23 @@
 
 OTA::CheckResult OTA::check() {
   CheckResult result = {};
+  WiFi.setSleep(false);
 
   // DCS-BIOS uses a hard-coded IP, so WiFi connected ≠ DNS working
   IPAddress ip;
   if (!WiFi.hostByName("raw.githubusercontent.com", ip)) {
     strlcpy(result.error, "DNS fail", sizeof(result.error));
+    WiFi.setSleep(true);
     return result;
   }
 
   // Retry once — raw.githubusercontent.com TLS handshakes fail transiently.
   // Client declared outside loop: one TLS context reused across retries
   // instead of two partial contexts competing for heap.
+  // client.setTimeout caps the TLS handshake phase; http timeouts only cover TCP connect + reads.
   WiFiClientSecure client;
   client.setInsecure();
+  client.setTimeout(15000);
   int   code       = -1;
   int   codes[2]   = {0, 0};
   int   elapsed[2] = {0, 0};
@@ -29,6 +33,7 @@ OTA::CheckResult OTA::check() {
     HTTPClient http;
     if (!http.begin(client, OTA_MANIFEST_URL)) {
       strlcpy(result.error, "URL err", sizeof(result.error));
+      WiFi.setSleep(true);
       return result;
     }
     http.setConnectTimeout(15000);
@@ -46,6 +51,7 @@ OTA::CheckResult OTA::check() {
   if (code != HTTP_CODE_OK) {
     snprintf(result.error, sizeof(result.error), "a1:%d/%ds a2:%d/%ds",
              codes[0], elapsed[0], codes[1], elapsed[1]);
+    WiFi.setSleep(true);
     return result;
   }
 
@@ -53,25 +59,26 @@ OTA::CheckResult OTA::check() {
   const char* src = payload.c_str();
 
   const char* vp = strstr(src, "\"version\"");
-  if (!vp) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); return result; }
+  if (!vp) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
   vp = strchr(vp, ':');
-  if (!vp) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); return result; }
+  if (!vp) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
   result.versionBCD = (uint16_t)atoi(vp + 1);
 
   const char* up = strstr(src, "\"url\"");
-  if (!up) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); return result; }
+  if (!up) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
   up += 5;
   up = strchr(up, '"');
-  if (!up) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); return result; }
+  if (!up) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
   up++;
   const char* ue = strchr(up, '"');
-  if (!ue) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); return result; }
+  if (!ue) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
   size_t len = (size_t)(ue - up);
-  if (len >= sizeof(result.url)) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); return result; }
+  if (len >= sizeof(result.url)) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
   memcpy(result.url, up, len);
   result.url[len] = '\0';
 
   result.available = (result.versionBCD > FIRMWARE_VERSION_BCD);
+  WiFi.setSleep(true);
   return result;
 }
 
@@ -84,6 +91,7 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
 
   WiFiClientSecure client;
   client.setInsecure();
+  client.setTimeout(15000);
 
   // Retry once — GitHub release redirects to S3 can transiently refuse
   HTTPClient http;

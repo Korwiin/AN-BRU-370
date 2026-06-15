@@ -421,11 +421,14 @@ void UI::setContrast(uint8_t value) {
 
 // ---- Firmware update screens ----
 
-void UI::showFirmwareChecking(const char* currentVer) {
+void UI::showFirmwareChecking(const char* currentVer, int rssi) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 8,  currentVer);
   u8g2.drawStr(0, 16, "Checking for updates...");
+  char rssiLine[16];
+  snprintf(rssiLine, sizeof(rssiLine), "WiFi: %ddBm", rssi);
+  u8g2.drawStr(0, 24, rssiLine);
   u8g2.sendBuffer();
 }
 
