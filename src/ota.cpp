@@ -20,7 +20,9 @@ OTA::CheckResult OTA::check() {
   // instead of two partial contexts competing for heap.
   WiFiClientSecure client;
   client.setInsecure();
-  int code = -1;
+  int   code       = -1;
+  int   codes[2]   = {0, 0};
+  int   elapsed[2] = {0, 0};
   String payload;
   for (int attempt = 0; attempt < 2 && code != HTTP_CODE_OK; attempt++) {
     if (attempt > 0) delay(2000);
@@ -31,7 +33,10 @@ OTA::CheckResult OTA::check() {
     }
     http.setConnectTimeout(15000);
     http.setTimeout(20000);
-    code = http.GET();
+    unsigned long t0 = millis();
+    code             = http.GET();
+    elapsed[attempt] = (int)((millis() - t0) / 1000);
+    codes[attempt]   = code;
     if (code == HTTP_CODE_OK) {
       payload = http.getString();
     }
@@ -39,8 +44,8 @@ OTA::CheckResult OTA::check() {
   }
 
   if (code != HTTP_CODE_OK) {
-    snprintf(result.error, sizeof(result.error), "%d/%uK",
-             code, (unsigned)(ESP.getMaxAllocHeap() / 1024));
+    snprintf(result.error, sizeof(result.error), "a1:%d/%ds a2:%d/%ds",
+             codes[0], elapsed[0], codes[1], elapsed[1]);
     return result;
   }
 
