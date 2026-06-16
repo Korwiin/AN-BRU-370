@@ -629,6 +629,7 @@ void loop() {
   } else if (s_mode == FIRMWARE_UPDATING) {
     UI::showFirmwareUpdating(0);
     if (!OTA::perform(s_otaResult.url, otaProgressCb)) {
+      s_lastActivity = millis();  // perform() blocks loop(); reset so error screen stays visible
       strlcpy(s_otaError, OTA::performError(), sizeof(s_otaError));
       s_otaPerformFailed = true;
       s_mode = FIRMWARE_ERROR;
