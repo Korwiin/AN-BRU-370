@@ -36,13 +36,16 @@ static void loadCredentials() {
   String nvsSsid = prefs.getString("ssid", "");
   String nvsPass = prefs.getString("pass", "");
   prefs.end();
-  if (nvsSsid.length() > 0) {
-    nvsSsid.toCharArray(s_ssid, sizeof(s_ssid));
-    nvsPass.toCharArray(s_pass, sizeof(s_pass));
-  } else {
-    strlcpy(s_ssid, WIFI_SSID_DEFAULT, sizeof(s_ssid));
-    strlcpy(s_pass, WIFI_PASS_DEFAULT, sizeof(s_pass));
-  }
+  nvsSsid.toCharArray(s_ssid, sizeof(s_ssid));
+  nvsPass.toCharArray(s_pass, sizeof(s_pass));
+}
+
+bool WifiMgr::hasCredentials() {
+  Preferences prefs;
+  prefs.begin("brew_wifi", true);
+  String ssid = prefs.getString("ssid", "");
+  prefs.end();
+  return ssid.length() > 0;
 }
 
 static void registerEventHandler() {
@@ -72,6 +75,10 @@ static void registerEventHandler() {
 bool WifiMgr::beginAttempt(int n) {
   (void)n;
   loadCredentials();
+  if (s_ssid[0] == '\0') {
+    s_phase_ssidFail = true;
+    return false;
+  }
   registerEventHandler();
 
   // Reset all phase flags for this attempt

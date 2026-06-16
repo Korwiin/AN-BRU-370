@@ -48,6 +48,7 @@ namespace WifiMgr {
 
   void saveCredentials(const char* ssid, const char* pass);
   void clearOverride();
+  bool hasCredentials();
 
   // Blocking encoder-driven single-field entry. Returns false if cancelled (long press).
   bool runEncoderEntry(const char* fieldName,
