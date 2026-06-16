@@ -31,6 +31,7 @@ namespace DcsBios {
              const char* cmdHost,   uint16_t cmdPort);
   bool update();
   bool isConnected();
+  bool hasData();   // true while DCS-BIOS packets received (same 3s window as isConnected)
   void sendCommand(const char* identifier, uint16_t value);
 
   bool    masterCaution();

@@ -96,6 +96,10 @@ bool DcsBios::isConnected() {
   return s_lastRx > 0 && (millis() - s_lastRx < 3000);
 }
 
+bool DcsBios::hasData() {
+  return isConnected();
+}
+
 void DcsBios::sendCommand(const char* id, uint16_t value) {
   s_udp.beginPacket(s_cmdHost, s_cmdPort);
   s_udp.printf("%s %u\n", id, value);
