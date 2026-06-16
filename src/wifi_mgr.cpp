@@ -9,11 +9,12 @@
 #define NUS_RX_UUID       "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 #define NUS_TX_UUID       "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-static NimBLECharacteristic* s_bleTxChar     = nullptr;
-static volatile bool          s_bleClientConn = false;
+static NimBLECharacteristic* s_bleTxChar      = nullptr;
+static volatile bool          s_bleClientConn  = false;
+static volatile bool          s_bleSubscribed  = false;
 static String                 s_bleRxBuf;
-static volatile bool          s_bleLineReady  = false;
-static portMUX_TYPE           s_bleMux        = portMUX_INITIALIZER_UNLOCKED;
+static volatile bool          s_bleLineReady   = false;
+static portMUX_TYPE           s_bleMux         = portMUX_INITIALIZER_UNLOCKED;
 
 static char s_ssid[64] = {0};
 static char s_pass[64] = {0};
@@ -353,6 +354,7 @@ class BleServerCb : public NimBLEServerCallbacks {
     s_bleClientConn = true;
   }
   void onDisconnect(NimBLEServer* pServer) override {
+    s_bleSubscribed  = false;
     s_bleClientConn  = false;
     s_bleLineReady   = false;
     s_bleRxBuf       = "";
@@ -377,6 +379,14 @@ class BleRxCb : public NimBLECharacteristicCallbacks {
   }
 };
 
+class BleTxSubscribeCb : public NimBLECharacteristicCallbacks {
+  void onSubscribe(NimBLECharacteristic*, ble_gap_conn_desc*, uint16_t subValue) override {
+    if (subValue & 0x0001) {
+      s_bleSubscribed = true;
+    }
+  }
+};
+
 // Sends msg over BLE UART in 20-byte chunks (default NUS MTU payload size).
 static void bleSend(const char* msg) {
   if (!s_bleTxChar || !s_bleClientConn) return;
@@ -392,10 +402,30 @@ static void bleSend(const char* msg) {
   }
 }
 
+static void sendBanner() {
+  char msg[512];
+  snprintf(msg, sizeof(msg),
+    "\033[2J\033[H"
+    "\033[0;31m[UNCLASSIFIED]\033[0m\r\n"
+    "\r\n"
+    "\033[1;32mAN/BRU-370 CONFIG TERMINAL\033[0m\r\n"
+    "\033[1;32mF-16C Bl.50 // USAF\033[0m\r\n"
+    "\r\n"
+    "\033[0;31mWARNING: RESTRICTED SYSTEM\033[0m\r\n"
+    "\033[0;31mUnauthorized use prohibited.\033[0m\r\n"
+    "\r\n"
+    "\033[0;32mCurrent SSID: %s\033[0m\r\n"
+    "\r\n"
+    "Enter \033[1;32mSSID\033[0;32m:\033[0m \r\n",
+    s_ssid[0] ? s_ssid : "(none)");
+  bleSend(msg);
+}
+
 bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
   WiFi.disconnect(true);
   delay(100);
   s_connected = false;
+  s_bleSubscribed = false;
 
   NimBLEDevice::init("AN/BRU-370");
   NimBLEServer* pServer = NimBLEDevice::createServer();
@@ -403,6 +433,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
 
   NimBLEService* pSvc = pServer->createService(NUS_SERVICE_UUID);
   s_bleTxChar = pSvc->createCharacteristic(NUS_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
+  s_bleTxChar->setCallbacks(new BleTxSubscribeCb());
   NimBLECharacteristic* pRx = pSvc->createCharacteristic(
     NUS_RX_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
   pRx->setCallbacks(new BleRxCb());
@@ -424,12 +455,8 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
 
     switch (state) {
       case WAIT_CLIENT:
-        if (s_bleClientConn) {
-          char msg[160];
-          snprintf(msg, sizeof(msg),
-            "\r\n=== AN/BRU-370 WiFi Setup ===\r\n\r\nCurrent SSID: %s\r\n\r\nEnter new SSID:\r\n",
-            s_ssid);
-          bleSend(msg);
+        if (s_bleSubscribed) {
+          sendBanner();
           state = GET_SSID;
         }
         break;
