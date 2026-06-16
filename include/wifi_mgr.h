@@ -55,17 +55,6 @@ namespace WifiMgr {
   bool checkInternet();
   void nvsCredentials(char* ssidOut, size_t ssidLen, uint8_t* passStatus);
 
-  // Blocking encoder-driven single-field entry. Returns false if cancelled (long press).
-  bool runEncoderEntry(const char* fieldName,
-                       char* result, size_t maxLen,
-                       int8_t (*deltaFn)(),
-                       bool   (*shortFn)(),
-                       bool   (*longFn)(),
-                       void   (*oledFn)(const char* field, const char* buf, const char* sel));
-
-  // Serial credential entry flow. Returns true if credentials saved.
-  bool runSerialSetup(void (*oledCb)(), bool (*cancelCb)());
-
   // BLE UART (Nordic UART Service) credential entry session.
   // Returns true if credentials saved — caller must call ESP.restart().
   bool runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)());

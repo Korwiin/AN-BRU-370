@@ -54,10 +54,7 @@ namespace UI {
   void showScreenEdit(int digits[8], int digitPos);
   void showSaved();
   void showSerialActive();
-  void showWifiConfirm();  // "Are you sure?" before BLE session starts
   void showBleActive(bool connected);    // displayed while NimBLE UART session is running
-  // Split layout matching showSettingsMenu: left panel shows WiFi/SSID/IP; right panel scrolls 5 options.
-  void showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip, bool wifiEnabled);
   void showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
                     bool wifiEnabled, uint8_t gStatus);
   void showSecretsMenu(int sel, const char* savedSSID, uint8_t passStatus);
@@ -68,11 +65,6 @@ namespace UI {
   void showFirmwareConfirm(const char* currentVer, const char* availVer);
   void showFirmwareUpdating(int percent);
   void showFirmwareError(const char* reason, bool canRetry = false);
-  // Shows character entry screen.
-  // field: "SSID" or "Password"
-  // buf: current entered string (null-terminated)
-  // selLabel: label for currently highlighted char: single char, "DEL", or "OK"
-  void showCharEntry(const char* field, const char* buf, const char* selLabel);
   void setContrast(uint8_t value);
 
   void update();  // expanded in later tasks

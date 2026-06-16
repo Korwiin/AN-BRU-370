@@ -417,18 +417,6 @@ void UI::showSerialActive() {
   u8g2.sendBuffer();
 }
 
-void UI::showWifiConfirm() {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(0,  8, "BLE");
-  u8g2.drawStr(0, 16, "Setup");
-  u8g2.drawStr(65,  8, "WiFi will");
-  u8g2.drawStr(65, 16, "disconnect.");
-  u8g2.drawStr(65, 24, "SP=OK");
-  u8g2.drawStr(65, 32, "LP=No");
-  u8g2.sendBuffer();
-}
-
 void UI::showNoCredentials() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
@@ -449,41 +437,6 @@ void UI::showBleActive(bool connected) {
   u8g2.drawStr((128 - w1) / 2,  8, "AN/BRU-370 BLUETOOTH");
   u8g2.drawStr((128 - w2) / 2, 16, line2);
   u8g2.drawStr((128 - w4) / 2, 32, "LP to Cancel");
-  u8g2.sendBuffer();
-}
-
-void UI::showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip, bool wifiEnabled) {
-  static const char* items[] = {"Manual", "Bluetooth", "Connect", "Back"};
-  static const int kItems = 5;
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_5x7_tr);
-
-  // Left panel — WiFi status (x=0..63)
-  char ssidLine[13], ipLine[16];
-  snprintf(ssidLine, sizeof(ssidLine), "S:%.10s", ssid);
-  const char* after2 = ip;
-  int dots = 0;
-  for (const char* p = ip; *p; p++) {
-    if (*p == '.' && ++dots == 2) { after2 = p + 1; break; }
-  }
-  snprintf(ipLine, sizeof(ipLine), "IP: x.x.%s", after2);
-  u8g2.drawStr(0,  8, "WiFi");
-  u8g2.drawStr(0, 16, ssidLine);
-  u8g2.drawStr(0, 24, ipLine);
-
-  // Right panel — 5-item scrolling menu (x=65..127)
-  for (int i = 0; i < 4; i++) {
-    int idx = offset + i;
-    if (idx >= kItems) break;
-    int y = 8 + i * 8;
-    const char* label = (idx == 0) ? (wifiEnabled ? "WiFi:ON" : "WiFi:OFF") : items[idx - 1];
-    if (idx == sel) {
-      u8g2.drawStr(65, y, ">");
-      u8g2.drawStr(71, y, label);
-    } else {
-      u8g2.drawStr(71, y, label);
-    }
-  }
   u8g2.sendBuffer();
 }
 
@@ -555,22 +508,6 @@ void UI::showNotImplemented() {
   u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0,  8, "NOT IMPLEMENTED");
   u8g2.drawStr(0, 16, "SP = Back");
-  u8g2.sendBuffer();
-}
-
-void UI::showCharEntry(const char* field, const char* buf, const char* selLabel) {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 8, field);
-
-  // Show current buffer (truncated to ~21 chars @ 6px each)
-  char display[22] = {0};
-  strncpy(display, buf, 21);
-  u8g2.drawStr(0, 19, display);
-
-  // Show selected character in a box at bottom right
-  u8g2.drawFrame(104, 20, 22, 12);
-  u8g2.drawStr(108, 30, selLabel);
   u8g2.sendBuffer();
 }
 
