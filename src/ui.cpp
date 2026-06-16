@@ -494,7 +494,7 @@ void UI::showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
   u8g2.setFont(u8g2_font_5x7_tr);
 
   // Left panel (x=0..63)
-  char dbmLine[13], ssidLine[13], ipLine[13];
+  char dbmLine[13], ssidLine[13], ipLine[14];
   if (rssi < 0) snprintf(dbmLine, sizeof(dbmLine), "WiFi %ddBm", rssi);
   else          strlcpy(dbmLine, "WiFi ----", sizeof(dbmLine));
 
