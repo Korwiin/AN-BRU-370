@@ -12,6 +12,7 @@
 #include <WiFi.h>
 
 enum MenuState {
+  BOOT_STATUS,
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
   MOUSE_TUNE_MENU, WIFI_MENU,
   MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y,
@@ -24,7 +25,7 @@ enum ScState : uint8_t {
   SC_IDLE, SC_WAITING_SW, SC_WAITING_LIGHT, SC_GAVE_UP
 };
 
-static MenuState s_mode           = MACRO_MENU;
+static MenuState s_mode           = BOOT_STATUS;
 static int  s_currentMacro        = 0;
 static int  s_menuSel             = 0;
 static int  s_menuOffset          = 0;
@@ -51,6 +52,10 @@ static unsigned long s_lastActivity = 0;
 static bool s_wifiCancelled  = false;
 static bool s_dcsBiosStarted = false;
 static bool s_wifiEnabled    = true;
+
+static int           s_bootAttempt  = 0;   // 0=not started; 1-3=current attempt
+static unsigned long s_bootDeadline = 0;   // millis()+15s, set after beginAttempt() succeeds
+static bool          s_bootFailed   = false;
 
 static OTA::CheckResult  s_otaResult        = {};
 static char              s_otaError[24]      = {0};
@@ -197,68 +202,40 @@ void setup() {
 
   UI::setContrast(s_brightness);
 
-  // 3s settle window: show splash at 0 fill while USB-OTG enumeration completes.
-  // ESP32-S3 PMU is shared between USB-OTG and WiFi — starting WiFi during enumeration
-  // causes contention that intermittently prevents association. Long press cancels WiFi.
+  // USB settle — PMU shared between USB-OTG and WiFi; don't start WiFi until
+  // OTG enumeration completes (~3s). Show boot status with all -- during wait.
   {
     unsigned long settleStart = millis();
+    BootStatusInfo bsi = {};  // all false/zero
     while (millis() - settleStart < 3000UL) {
-      UI::showSplashProgress(0, false);
-      int8_t d = Encoder::readDelta();
-      bool   lp = Encoder::longPressed();
-      if (lp) { s_wifiCancelled = true; break; }
-      if (d != 0 || Encoder::shortPressed()) break;
+      UI::showBootStatus(bsi);
+      Encoder::readDelta();
+      if (Encoder::longPressed()) { s_wifiCancelled = true; break; }
       delay(10);
     }
     Encoder::flush();
   }
-
-  // TODO(Task4): replace with BOOT_STATUS phase-driven boot loop
-  if (s_wifiEnabled && !s_wifiCancelled) WifiMgr::beginAttempt(1);
-  if (s_wifiEnabled) {
-  unsigned long wifiStart = millis();
-  constexpr unsigned long kWifiConnectTimeoutMs = 30000UL;
-
-  {
-    while (millis() - wifiStart < kWifiConnectTimeoutMs) {
-      if (WifiMgr::pollConnect()) {
-        unsigned long showStart = millis();
-        while (millis() - showStart < 1500UL) {
-          UI::showSplashProgress(128, true);
-          if (Encoder::readDelta() || Encoder::shortPressed() || Encoder::longPressed()) break;  // shortens animation only; DCS-BIOS init follows regardless
-          delay(10);
-        }
-        DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
-                       "255.255.255.255", DCSBIOS_CMD_PORT);
-        s_dcsBiosStarted = true;
-        break;
-      }
-      unsigned long elapsed = millis() - wifiStart;
-      int fill = (int)((elapsed * 128UL) / kWifiConnectTimeoutMs);
-      if (fill > 128) fill = 128;
-      UI::showSplashProgress(fill, false);
-      int8_t d  = Encoder::readDelta();
-      bool   sp = Encoder::shortPressed();
-      bool   lp = Encoder::longPressed();
-      if (lp) { WifiMgr::cancelConnect(); s_wifiCancelled = true; break; }
-      if (d != 0 || sp) break;
-      delay(10);
-    }
-    Encoder::flush();
-    // On timeout: s_wifiCancelled stays false so loop() background polling continues.
-    // If the AP responds silently — better than never connecting.
-  }
-  } // end if (s_wifiEnabled)
-
+  // WiFi startup handled by BOOT_STATUS state in loop().
   s_lastActivity = millis();
 }
 
 void loop() {
-  if (!s_dcsBiosStarted && !s_wifiCancelled && s_wifiEnabled) {
+  // Background DCS-BIOS start for post-boot reconnects (boot path uses BOOT_STATUS state)
+  if (s_mode != BOOT_STATUS && !s_dcsBiosStarted && !s_wifiCancelled && s_wifiEnabled) {
     if (WifiMgr::pollConnect()) {
       DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
                      "255.255.255.255", DCSBIOS_CMD_PORT);
       s_dcsBiosStarted = true;
+    }
+  }
+
+  // Runtime WiFi watchdog — every 5 s after boot completes.
+  // setAutoReconnect(true) handles transient drops; this catches driver give-up.
+  static unsigned long s_lastWatchdog = 0;
+  if (s_mode != BOOT_STATUS && millis() - s_lastWatchdog >= 5000UL) {
+    s_lastWatchdog = millis();
+    if (WifiMgr::isConnected() && WiFi.status() != WL_CONNECTED) {
+      WifiMgr::reconnect();
     }
   }
 
@@ -293,6 +270,7 @@ void loop() {
     s_lastActivity = millis();
   }
   if (rwrConfirmed) {
+    if (s_mode == BOOT_STATUS) s_mode = MACRO_MENU;
     s_rwrActive = true;
     if (millis() - s_rwrFlashTimer > 100) {
       s_rwrFlash = !s_rwrFlash;
@@ -320,6 +298,7 @@ void loop() {
     s_lastActivity = millis();
   }
   if (mcConfirmed) {
+    if (s_mode == BOOT_STATUS) s_mode = MACRO_MENU;
     s_mcActive = true;
     if (millis() - s_mcFlashTimer > 200) {
       s_mcFlash = !s_mcFlash;
@@ -392,7 +371,74 @@ void loop() {
   s_wasDcsConnected = nowConnected;
 
   // Menu state machine
-  if (s_mode == MACRO_MENU) {
+  if (s_mode == BOOT_STATUS) {
+    if (!s_wifiEnabled || s_wifiCancelled) {
+      s_mode = MACRO_MENU;
+      return;
+    }
+
+    WifiMgr::WifiPhase ph = WifiMgr::getPhase();
+
+    // Attempt 0 → start attempt 1 (blocks ~3s for radio cycle + scan)
+    if (s_bootAttempt == 0) {
+      if (WifiMgr::beginAttempt(1)) {
+        s_bootAttempt = 1;
+        s_bootDeadline = millis() + 15000UL;
+      } else {
+        s_bootAttempt = 1;  // mark attempted; failure flags are set, retry fires next tick
+      }
+      ph = WifiMgr::getPhase();
+    }
+
+    // Detect failure and retry
+    if (!s_bootFailed && !ph.ip) {
+      bool needRetry = ph.rfFail || ph.ssidFail ||
+                       (ph.failReasonCode != 0) ||
+                       (s_bootDeadline > 0 && millis() > s_bootDeadline);
+      if (needRetry) {
+        if (s_bootAttempt < 3) {
+          if (WifiMgr::beginAttempt(s_bootAttempt + 1)) {
+            s_bootAttempt++;
+            s_bootDeadline = millis() + 15000UL;
+          } else {
+            s_bootAttempt++;
+          }
+          ph = WifiMgr::getPhase();
+        } else {
+          s_bootFailed = true;
+        }
+      }
+    }
+
+    // Start DCS-BIOS on first IP assignment
+    if (ph.ip && !s_dcsBiosStarted) {
+      DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
+                     "255.255.255.255", DCSBIOS_CMD_PORT);
+      s_dcsBiosStarted = true;
+    }
+
+    // Exit conditions
+    if (Encoder::longPressed()) {
+      s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0;
+      return;
+    }
+    if (ph.ip && (delta != 0 || Encoder::shortPressed())) {
+      s_mode = MACRO_MENU;
+      return;
+    }
+
+    // Draw
+    bool dcs = DcsBios::hasData();
+    BootStatusInfo bsi = {
+      ph.rf, ph.ssid, ph.eth, ph.ip, ph.dns, dcs,
+      ph.rfFail, ph.ssidFail,
+      s_bootAttempt, s_bootFailed,
+      WifiMgr::failReasonStr()
+    };
+    UI::showBootStatus(bsi);
+    return;
+
+  } else if (s_mode == MACRO_MENU) {
     s_currentMacro = (s_currentMacro + delta + numMacros) % numMacros;
     if (Encoder::shortPressed()) { UI::flashScreen(); executeMacro(s_currentMacro); }
     if (Encoder::longPressed()) {
@@ -657,6 +703,7 @@ void loop() {
   if (!s_oledSleeping && millis() - s_lastOled > 200) {
     s_lastOled = millis();
     switch (s_mode) {
+      case BOOT_STATUS:       break;  // handled inline — returns early before this switch
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;
       case SETTINGS:          UI::showSettingsMenu(s_menuSel, s_menuOffset,
                                 s_encReversed, WifiMgr::isConnected(),
