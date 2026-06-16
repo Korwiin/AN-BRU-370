@@ -50,10 +50,10 @@ Keys `lbX` and `lbY` (old relative-delta label offset) may exist in NVS as harml
 
 | Key | Type | Description |
 |---|---|---|
-| `ssid` | String | Wi-Fi SSID (empty = use compile-time default) |
-| `pass` | String | Wi-Fi password (empty = use compile-time default) |
+| `ssid` | String | Wi-Fi SSID (empty = not configured) |
+| `pass` | String | Wi-Fi password (empty = open network or not configured) |
 
-Compile-time defaults are `WIFI_SSID_DEFAULT` and `WIFI_PASS_DEFAULT` defined in `include/config.h` (gitignored).
+No compile-time credential defaults. Credentials are NVS-only; configure at runtime via Settings → Wi-Fi → Secrets → BLE TERM.
 
 ---
 
@@ -130,4 +130,4 @@ The device presents a `Usage(Pen)` digitizer, not `Usage(Mouse)`. This is requir
 
 Example: `"0.13"` → `0x0013`
 
-`config.h` is gitignored. Copy from `config.h.example` before building.
+`config.h` is committed. No setup step required — it contains no credentials.

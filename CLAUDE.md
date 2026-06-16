@@ -21,8 +21,8 @@ See `include/pins.h` — do not hardcode GPIO numbers in sketch files.
 
 ## Project-Specific Constraints
 
-- `include/config.h` is gitignored — never commit Wi-Fi credentials.
-  Copy `include/config.h.example` to `include/config.h` before building.
+- `include/config.h` is committed. It contains no credentials — Wi-Fi credentials are NVS-only.
+  No setup step needed; the file is part of the repo and builds as-is.
 - DCS-BIOS over Wi-Fi (UDP multicast 239.255.50.10:5010 recv, UDP 7778 send).
   No third-party DCS-BIOS library — direct WiFiUDP only.
 - USB composite: CDC + HIDKeyboard + HID Digitizer (pen). Build flags

@@ -4,7 +4,7 @@
 // config.h is gitignored — never commit credentials.
 
 // Wi-Fi credentials are loaded from NVS (Preferences) only — no compiled-in defaults.
-// Use Settings → Wi-Fi to configure at runtime (serial, manual, or BLE entry).
+// Use Settings → Wi-Fi → Secrets → BLE TERM to configure at runtime.
 
 // DCS-BIOS network
 #define DCSBIOS_MCAST_ADDR  "239.255.50.10"
@@ -17,4 +17,4 @@
 #define DEVICE_NAME         "Brew370"
 
 // OTA updates
-#define OTA_MANIFEST_URL    "https://raw.githubusercontent.com/YOUR_GITHUB_USER/Brew370/main/ota/manifest.json"
+#define OTA_MANIFEST_URL    "https://raw.githubusercontent.com/Korwiin/AN-BRU-370/main/ota/manifest.json"
