@@ -51,6 +51,34 @@ bool WifiMgr::hasCredentials() {
 
 bool WifiMgr::isBleClientConnected() { return s_bleClientConn; }
 
+int WifiMgr::rssi() { return WiFi.RSSI(); }
+
+bool WifiMgr::checkInternet() {
+  static bool          s_result    = false;
+  static unsigned long s_lastCheck = 0;
+  static bool          s_hasResult = false;
+  if (!isConnected()) { s_hasResult = false; s_lastCheck = 0; return false; }
+  unsigned long now = millis();
+  if (s_hasResult && now - s_lastCheck < 30000UL) return s_result;
+  IPAddress ip;
+  s_result    = (WiFi.hostByName("raw.githubusercontent.com", ip) == 1);
+  s_lastCheck = now;
+  s_hasResult = true;
+  return s_result;
+}
+
+void WifiMgr::nvsCredentials(char* ssidOut, size_t ssidLen, uint8_t* passStatus) {
+  Preferences prefs;
+  prefs.begin("brew_wifi", true);
+  String ssid = prefs.getString("ssid", "");
+  String pass = prefs.getString("pass", "");
+  prefs.end();
+  strlcpy(ssidOut, ssid.c_str(), ssidLen);
+  if      (ssid.length() == 0) *passStatus = 0;
+  else if (pass.length() == 0) *passStatus = 1;
+  else                          *passStatus = 2;
+}
+
 static void registerEventHandler() {
   if (s_eventRegistered) return;
   s_eventRegistered = true;

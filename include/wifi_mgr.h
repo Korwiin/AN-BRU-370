@@ -51,6 +51,10 @@ namespace WifiMgr {
   bool hasCredentials();
   bool isBleClientConnected();
 
+  int  rssi();
+  bool checkInternet();
+  void nvsCredentials(char* ssidOut, size_t ssidLen, uint8_t* passStatus);
+
   // Blocking encoder-driven single-field entry. Returns false if cancelled (long press).
   bool runEncoderEntry(const char* fieldName,
                        char* result, size_t maxLen,
