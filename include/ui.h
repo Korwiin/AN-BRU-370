@@ -25,6 +25,7 @@ namespace UI {
   void sleep();        // power down OLED (setPowerSave 1)
   void wake();         // power up OLED (setPowerSave 0)
 
+  void showNoCredentials();
   void showWifiConnecting(const char* ssid);
   void showWifiFailed(const char* ssid);
   void showWifiConnected(const char* ssid);  // shows for 1 s then returns

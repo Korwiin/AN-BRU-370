@@ -215,6 +215,18 @@ void setup() {
     }
     Encoder::flush();
   }
+
+  // Check for empty WiFi credentials on first boot
+  if (!WifiMgr::hasCredentials()) {
+    UI::showNoCredentials();
+    while (!Encoder::shortPressed() && !Encoder::longPressed()) {
+      Encoder::readDelta();
+      delay(10);
+    }
+    s_mode = WIFI_MENU;
+    return;
+  }
+
   // WiFi startup handled by BOOT_STATUS state in loop().
   s_lastActivity = millis();
 }

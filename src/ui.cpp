@@ -429,6 +429,16 @@ void UI::showWifiConfirm() {
   u8g2.sendBuffer();
 }
 
+void UI::showNoCredentials() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  int w1 = u8g2.getStrWidth("No WiFi Setup");
+  int w2 = u8g2.getStrWidth("Press to cont.");
+  u8g2.drawStr((128 - w1) / 2,  8, "No WiFi Setup");
+  u8g2.drawStr((128 - w2) / 2, 32, "Press to cont.");
+  u8g2.sendBuffer();
+}
+
 void UI::showBleActive() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
