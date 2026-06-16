@@ -55,7 +55,7 @@ namespace UI {
   void showSaved();
   void showSerialActive();
   void showWifiConfirm();  // "Are you sure?" before BLE session starts
-  void showBleActive();    // displayed while NimBLE UART session is running
+  void showBleActive(bool connected);    // displayed while NimBLE UART session is running
   // Split layout matching showSettingsMenu: left panel shows WiFi/SSID/IP; right panel scrolls 5 options.
   void showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip, bool wifiEnabled);
   // OTA firmware update screens

@@ -49,6 +49,8 @@ bool WifiMgr::hasCredentials() {
   return ssid.length() > 0;
 }
 
+bool WifiMgr::isBleClientConnected() { return s_bleClientConn; }
+
 static void registerEventHandler() {
   if (s_eventRegistered) return;
   s_eventRegistered = true;

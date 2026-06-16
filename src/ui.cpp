@@ -439,14 +439,16 @@ void UI::showNoCredentials() {
   u8g2.sendBuffer();
 }
 
-void UI::showBleActive() {
+void UI::showBleActive(bool connected) {
+  const char* line2 = connected ? "--== CONNECTED ==--" : "--== WAITING ==--";
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(0,  8, "BLE");
-  u8g2.drawStr(0, 16, "Active");
-  u8g2.drawStr(65,  8, "AN/BRU-370");
-  u8g2.drawStr(65, 16, "Waiting...");
-  u8g2.drawStr(65, 24, "LP=Cancel");
+  int w1 = u8g2.getStrWidth("AN/BRU-370 BLUETOOTH");
+  int w2 = u8g2.getStrWidth(line2);
+  int w4 = u8g2.getStrWidth("LP to Cancel");
+  u8g2.drawStr((128 - w1) / 2,  8, "AN/BRU-370 BLUETOOTH");
+  u8g2.drawStr((128 - w2) / 2, 16, line2);
+  u8g2.drawStr((128 - w4) / 2, 32, "LP to Cancel");
   u8g2.sendBuffer();
 }
 

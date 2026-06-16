@@ -616,7 +616,7 @@ void loop() {
         }
         if (confirmed) {
           bool saved = WifiMgr::runBleSetup(
-            []() { UI::showBleActive(); },
+            []() { UI::showBleActive(WifiMgr::isBleClientConnected()); },
             []() { Encoder::readDelta(); return Encoder::longPressed(); }
           );
           if (saved) ESP.restart();
