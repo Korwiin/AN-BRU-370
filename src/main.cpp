@@ -271,6 +271,8 @@ void loop() {
     UI::wake();
     s_oledSleeping = false;
     s_lastActivity = millis();
+    s_mode = BOOT_STATUS;
+    return;
   }
   if (!s_oledSleeping && (encActivity || dcsActivity)) {
     s_lastActivity = millis();
@@ -441,7 +443,7 @@ void loop() {
       s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0;
       return;
     }
-    if (ph.ip && (delta != 0 || Encoder::shortPressed())) {
+    if (ph.ip && dcsLive && (delta != 0 || Encoder::shortPressed())) {
       s_mode = MACRO_MENU;
       return;
     }

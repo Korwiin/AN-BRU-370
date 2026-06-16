@@ -53,33 +53,43 @@ void UI::showBootStatus(const BootStatusInfo& s) {
     u8g2.drawStr(128 - vw, 8, ver);
   }
 
-  // Line 2 (y=16): RF  SSID  Eth
-  //   "RF:"   3ch x 5px = 15px, sym at x=16
-  //   "SSID:" 5ch x 5px = 25px, starts at x=33, sym at x=59
-  //   "Eth:"  4ch x 5px = 20px, starts at x=85, sym at x=106
-  u8g2.drawStr(0,  16, "RF:");
-  u8g2.drawStr(33, 16, "SSID:");
-  u8g2.drawStr(85, 16, "Eth:");
+  // Layout: left=RF:/IP:, center=SSID:/DNS:, right=ETH:/DCS:
+  // kSymW = max symbol width (2-char string at 5px/char = 10px)
+  const int kGap   = 1;
+  const int kSymW  = 10;
+  const int kRight = 128 - kSymW;   // x of right-column symbols
 
-  // Line 3 (y=24): IP  DNS  DCS
-  //   "IP:"  3ch x 5px = 15px, sym at x=16
-  //   "DNS:" 4ch x 5px = 20px, starts at x=33, sym at x=54
-  //   "DCS:" 4ch x 5px = 20px, starts at x=74, sym at x=95
-  u8g2.drawStr(0,  24, "IP:");
-  u8g2.drawStr(33, 24, "DNS:");
-  u8g2.drawStr(74, 24, "DCS:");
+  // Center column: anchor to the widest center item (SSID: + sym = 36px)
+  const int wSSID  = u8g2.getStrWidth("SSID:");
+  const int wDNS   = u8g2.getStrWidth("DNS:");
+  const int wETH   = u8g2.getStrWidth("ETH:");
+  const int wDCS   = u8g2.getStrWidth("DCS:");
+  const int wRF    = u8g2.getStrWidth("RF:");
+  const int wIP    = u8g2.getStrWidth("IP:");
+  const int kCtr   = (128 - (wSSID + kGap + kSymW)) / 2;  // left edge of center column
+
+  // Line 2 (y=16): RF: left | SSID: center | ETH: right
+  u8g2.drawStr(0,                     16, "RF:");
+  u8g2.drawStr(kCtr,                  16, "SSID:");
+  u8g2.drawStr(kRight - kGap - wETH, 16, "ETH:");
+
+  // Line 3 (y=24): IP: left | DNS: center | DCS: right
+  u8g2.drawStr(0,                     24, "IP:");
+  u8g2.drawStr(kCtr,                  24, "DNS:");
+  u8g2.drawStr(kRight - kGap - wDCS, 24, "DCS:");
 
   bool connecting = (s.attempt > 0 && !s.failed && !s.ip);
 
   // Phase symbols — blink the current bottleneck
-  drawPhase(16,  16, s.rf,   s.rfFail,   connecting && !s.rf && !s.rfFail);
-  drawPhase(59,  16, s.ssid, s.ssidFail, connecting && s.rf && !s.ssid && !s.ssidFail);
-  drawPhase(106, 16, s.eth,  false,      connecting && s.ssid && !s.eth);
-  drawPhase(16,  24, s.ip,   false,      connecting && s.eth && !s.ip);
-  drawPhase(54,  24, s.dns,  false,      false);   // DNS advisory — no blink
-  drawPhase(95,  24, s.dcs,  false,      false);   // DCS advisory — no blink
+  drawPhase(wRF  + kGap,        16, s.rf,   s.rfFail,   connecting && !s.rf && !s.rfFail);
+  drawPhase(kCtr + wSSID + kGap,16, s.ssid, s.ssidFail, connecting && s.rf && !s.ssid && !s.ssidFail);
+  drawPhase(kRight,             16, s.eth,  false,      connecting && s.ssid && !s.eth);
+  drawPhase(wIP  + kGap,        24, s.ip,   false,      connecting && s.eth && !s.ip);
+  drawPhase(kCtr + wDNS + kGap, 24, s.dns,  false,      false);
+  drawPhase(kRight,             24, s.dcs,  false,      false);
 
   // Line 4 (y=32): status text
+  static const char kSpin[] = { '-', '\\', '|', '/' };
   if (s.attempt == 0) {
     // USB settle — blank
   } else if (s.failed) {
@@ -87,8 +97,13 @@ void UI::showBootStatus(const BootStatusInfo& s) {
     const char* reason = s.failReason ? s.failReason : "WiFi error";
     snprintf(line, sizeof(line), "%.16s LP=Set", reason);
     u8g2.drawStr(0, 32, line);
+  } else if (s.ip && !s.dcs) {
+    char line[22];
+    snprintf(line, sizeof(line), "Waiting for DCS %c", kSpin[(millis() / 1000) % 4]);
+    int w = u8g2.getStrWidth(line);
+    u8g2.drawStr((128 - w) / 2, 32, line);
   } else if (s.ip) {
-    u8g2.drawStr(0, 32, "LP=Settings");
+    // DCS live — blank
   } else if (s.attempt > 1) {
     char line[28];
     snprintf(line, sizeof(line), "Attempt %d/3  Retrying...", s.attempt);
