@@ -2,52 +2,65 @@
 #include <Arduino.h>
 
 namespace WifiMgr {
-  // WiFi connection timeout used by the splash loop in main.cpp
-  constexpr unsigned long kWifiConnectTimeoutMs = 30000UL;
+  // Per-attempt phase flags — set by event handler or beginAttempt().
+  // Read via getPhase() which takes a snapshot of the volatile flags.
+  struct WifiPhase {
+    bool rf;              // radio initialised + WL_IDLE_STATUS confirmed
+    bool ssid;            // our SSID found in blocking scan
+    bool eth;             // Layer 2 association (WIFI_STA_CONNECTED event)
+    bool ip;              // DHCP complete (WIFI_STA_GOT_IP event)
+    bool dns;             // DNS server assigned (checked at GOT_IP)
+    bool rfFail;          // RF check failed (bad MAC or stale WL_CONNECTED)
+    bool ssidFail;        // our SSID not found in scan
+    uint8_t failReasonCode; // from WIFI_STA_DISCONNECTED reason field (0 = none)
+  };
 
-  // Load credentials and call WiFi.begin() — returns immediately (non-blocking).
-  void startConnect();
+  // Start one connection attempt. Blocks ~500 ms (radio cycle) + ~2-3 s (scan).
+  // Resets all phase flags, cycles radio, checks RF, scans for SSID.
+  // If SSID found, calls WiFi.begin() and returns true; caller polls getPhase().ip.
+  // Returns false if RF check or SSID scan fails (check getPhase().rfFail/.ssidFail).
+  bool beginAttempt(int n);
 
-  // Call each loop tick while connecting. Updates internal connected state on
-  // first WL_CONNECTED. Returns true exactly once (the tick connection is made).
+  // Snapshot of current phase flags (safe to call from loop() tick).
+  WifiPhase getPhase();
+
+  // Human-readable failure string derived from phase flags and failReasonCode.
+  // Returns nullptr if no failure has occurred yet.
+  const char* failReasonStr();
+
+  // Returns true when IP is assigned (uses phase flag; updated by event handler).
+  bool isConnected();
+
+  // Returns true exactly once after isConnected() becomes true.
+  // Resets if WiFi drops. Used to trigger DCS-BIOS start in non-boot paths.
   bool pollConnect();
 
-  // Abort connection attempt. Clears WiFi credentials from driver.
+  // Abort connection attempt. Clears WiFi state.
   void cancelConnect();
 
-  bool isConnected();
   const char* activeSSID();
 
-  // Returns device IP as a dotted-decimal string (e.g. "192.168.1.5"), or "--" if not connected.
+  // Returns device IP as "192.168.1.5" or "--" if not connected.
   const char* activeIP();
 
-  // Reset connected state and reconnect with saved credentials (non-blocking start).
-  // startConnect() handles WiFi.disconnect internally — no double-disconnect.
+  // Silent runtime reconnect. Called by watchdog and Settings→Connect.
   void reconnect();
 
   void saveCredentials(const char* ssid, const char* pass);
   void clearOverride();
 
-  // Runs serial credential entry flow.
-  // oledCb: called repeatedly while waiting (to keep OLED updated).
-  // cancelCb: return true to cancel (long press check).
-  // Returns true if credentials saved successfully.
-  bool runSerialSetup(void (*oledCb)(), bool (*cancelCb)());
-
-  // Runs BLE UART (Nordic UART Service) credential entry session.
-  // Disconnects WiFi, starts NimBLE, presents an interactive terminal prompt.
-  // oledActiveCb: called every loop tick while the BLE session is running.
-  // cancelCb: return true to abort (long press check).
-  // Returns true if credentials saved — caller must call ESP.restart().
-  // Returns false if cancelled; WiFi reconnect is handled internally.
-  bool runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)());
-
-  // Runs encoder character-scroll entry for a single field.
-  // result: filled on success (size maxLen). Returns false if cancelled (long press).
+  // Blocking encoder-driven single-field entry. Returns false if cancelled (long press).
   bool runEncoderEntry(const char* fieldName,
                        char* result, size_t maxLen,
                        int8_t (*deltaFn)(),
                        bool   (*shortFn)(),
                        bool   (*longFn)(),
                        void   (*oledFn)(const char* field, const char* buf, const char* sel));
+
+  // Serial credential entry flow. Returns true if credentials saved.
+  bool runSerialSetup(void (*oledCb)(), bool (*cancelCb)());
+
+  // BLE UART (Nordic UART Service) credential entry session.
+  // Returns true if credentials saved — caller must call ESP.restart().
+  bool runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)());
 }

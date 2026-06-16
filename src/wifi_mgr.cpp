@@ -19,6 +19,17 @@ static char s_ssid[64] = {0};
 static char s_pass[64] = {0};
 static bool s_connected = false;
 
+// Phase flags — set from WiFi event task; volatile for safe cross-task reads
+static volatile bool    s_phase_rf         = false;
+static volatile bool    s_phase_ssid       = false;
+static volatile bool    s_phase_eth        = false;
+static volatile bool    s_phase_ip         = false;
+static volatile bool    s_phase_dns        = false;
+static volatile bool    s_phase_rfFail     = false;
+static volatile bool    s_phase_ssidFail   = false;
+static volatile uint8_t s_phase_failReason = 0;
+static bool             s_eventRegistered  = false;
+
 static void loadCredentials() {
   Preferences prefs;
   prefs.begin("brew_wifi", true);
@@ -34,31 +45,149 @@ static void loadCredentials() {
   }
 }
 
-void WifiMgr::startConnect() {
+static void registerEventHandler() {
+  if (s_eventRegistered) return;
+  s_eventRegistered = true;
+  WiFi.onEvent([](WiFiEvent_t ev, WiFiEventInfo_t info) {
+    switch (ev) {
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+        s_phase_eth = true;
+        break;
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        s_phase_ip  = true;
+        s_phase_dns = (WiFi.dnsIP() != IPAddress(0, 0, 0, 0));
+        s_connected = true;
+        break;
+      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+        s_phase_failReason = info.wifi_sta_disconnected.reason;
+        s_phase_ip  = false;
+        s_phase_eth = false;
+        s_connected = false;
+        break;
+      default: break;
+    }
+  });
+}
+
+bool WifiMgr::beginAttempt(int n) {
+  (void)n;
   loadCredentials();
-  WiFi.disconnect(true);  // clear stale hardware state from previous boot
+  registerEventHandler();
+
+  // Reset all phase flags for this attempt
+  s_phase_rf = s_phase_ssid = s_phase_eth = s_phase_ip = s_phase_dns = false;
+  s_phase_rfFail = s_phase_ssidFail = false;
+  s_phase_failReason = 0;
+  s_connected = false;
+
+  // Driver config — set before any radio operation
+  WiFi.persistent(false);
+  WiFi.setAutoConnect(false);
+  WiFi.setAutoReconnect(true);
+  WiFi.setHostname("ANBRU-370");
+
+  // Radio cycle — clears stale hardware state
+  WiFi.mode(WIFI_OFF);
+  delay(500);
+  WiFi.mode(WIFI_STA);
+
+  // RF check
+  String mac = WiFi.macAddress();
+  bool macOk = (mac.length() >= 11 && mac != "00:00:00:00:00:00");
+  bool statusOk = (WiFi.status() != WL_CONNECTED);
+  if (!macOk || !statusOk) {
+    s_phase_rfFail = true;
+    return false;
+  }
+  s_phase_rf = true;
+
+  // Blocking SSID scan (~2-3 s)
+  int numNets = WiFi.scanNetworks(false, false);
+  if (numNets < 0) {
+    s_phase_ssidFail = true;
+    WiFi.scanDelete();
+    return false;
+  }
+  bool found = false;
+  for (int i = 0; i < numNets && !found; i++) {
+    if (strcmp(WiFi.SSID(i).c_str(), s_ssid) == 0) found = true;
+  }
+  WiFi.scanDelete();
+  if (!found) {
+    s_phase_ssidFail = true;
+    return false;
+  }
+  s_phase_ssid = true;
+
+  // All pre-checks passed — start association
+  WiFi.begin(s_ssid, s_pass);
+  return true;
+}
+
+// Legacy shim — used by runBleSetup() post-cancel path (same translation unit; not in header)
+static void startConnect() {
+  loadCredentials();
+  registerEventHandler();
+  WiFi.persistent(false);
+  WiFi.setAutoConnect(false);
+  WiFi.setAutoReconnect(true);
+  s_connected = false;
+  s_phase_ip = false;
+  WiFi.disconnect(true);
   delay(100);
   WiFi.setHostname("ANBRU-370");
   WiFi.mode(WIFI_STA);
   WiFi.begin(s_ssid, s_pass);
 }
 
-bool WifiMgr::pollConnect() {
-  if (s_connected) return false;
-  if (WiFi.status() == WL_CONNECTED) {
-    s_connected = true;
-    return true;
+WifiMgr::WifiPhase WifiMgr::getPhase() {
+  WifiPhase ph;
+  ph.rf             = s_phase_rf;
+  ph.ssid           = s_phase_ssid;
+  ph.eth            = s_phase_eth;
+  ph.ip             = s_phase_ip;
+  ph.dns            = s_phase_dns;
+  ph.rfFail         = s_phase_rfFail;
+  ph.ssidFail       = s_phase_ssidFail;
+  ph.failReasonCode = s_phase_failReason;
+  return ph;
+}
+
+const char* WifiMgr::failReasonStr() {
+  switch (s_phase_failReason) {
+    case 200: return "AP unreachable";
+    case 201: return "SSID not found";
+    case 202: return "Wrong password";
+    case 204: return "Auth timeout";
+    default:  break;
   }
-  return false;
+  if (s_phase_rfFail)   return "RF init failed";
+  if (s_phase_ssidFail) return "SSID not found";
+  if (s_phase_failReason > 0) {
+    static char buf[18];
+    snprintf(buf, sizeof(buf), "WiFi error %u", (unsigned)s_phase_failReason);
+    return buf;
+  }
+  return nullptr;
+}
+
+bool WifiMgr::pollConnect() {
+  static bool s_reported = false;
+  if (!s_phase_ip) { s_reported = false; return false; }
+  if (s_reported) return false;
+  s_reported = true;
+  s_connected = true;
+  return true;
 }
 
 void WifiMgr::cancelConnect() {
   WiFi.disconnect(true);
   s_connected = false;
+  s_phase_ip  = false;
 }
 
 bool WifiMgr::isConnected() {
-  return s_connected;
+  return s_connected || s_phase_ip;
 }
 
 const char* WifiMgr::activeSSID() {
@@ -73,8 +202,16 @@ const char* WifiMgr::activeIP() {
 }
 
 void WifiMgr::reconnect() {
-  s_connected = false;
-  startConnect();
+  loadCredentials();
+  registerEventHandler();
+  s_connected    = false;
+  s_phase_ip     = false;
+  s_phase_eth    = false;
+  s_phase_failReason = 0;
+  WiFi.mode(WIFI_OFF);
+  delay(500);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(s_ssid, s_pass);
 }
 
 void WifiMgr::saveCredentials(const char* ssid, const char* pass) {

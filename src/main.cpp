@@ -213,12 +213,14 @@ void setup() {
     Encoder::flush();
   }
 
-  if (s_wifiEnabled && !s_wifiCancelled) WifiMgr::startConnect();
+  // TODO(Task4): replace with BOOT_STATUS phase-driven boot loop
+  if (s_wifiEnabled && !s_wifiCancelled) WifiMgr::beginAttempt(1);
   if (s_wifiEnabled) {
   unsigned long wifiStart = millis();
+  constexpr unsigned long kWifiConnectTimeoutMs = 30000UL;
 
   {
-    while (millis() - wifiStart < WifiMgr::kWifiConnectTimeoutMs) {
+    while (millis() - wifiStart < kWifiConnectTimeoutMs) {
       if (WifiMgr::pollConnect()) {
         unsigned long showStart = millis();
         while (millis() - showStart < 1500UL) {
@@ -232,7 +234,7 @@ void setup() {
         break;
       }
       unsigned long elapsed = millis() - wifiStart;
-      int fill = (int)((elapsed * 128UL) / WifiMgr::kWifiConnectTimeoutMs);
+      int fill = (int)((elapsed * 128UL) / kWifiConnectTimeoutMs);
       if (fill > 128) fill = 128;
       UI::showSplashProgress(fill, false);
       int8_t d  = Encoder::readDelta();
@@ -244,7 +246,7 @@ void setup() {
     }
     Encoder::flush();
     // On timeout: s_wifiCancelled stays false so loop() background polling continues.
-    // If the AP responds after 30s the device connects silently — better than never connecting.
+    // If the AP responds silently — better than never connecting.
   }
   } // end if (s_wifiEnabled)
 
