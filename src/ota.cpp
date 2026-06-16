@@ -139,8 +139,8 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
              (int)written, totalBytes, (int)Update.getError());
     return false;
   }
-  WiFi.disconnect(true);  // clean disassociation before reset; prevents router-side stale session on next boot
-  delay(200);
+  WiFi.mode(WIFI_OFF);  // triggers esp_wifi_stop(); sends deauth frame to AP before reset
+  delay(500);
   ESP.restart();
   return true;  // never reached
 }
