@@ -489,7 +489,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
           line.trim();
           strlcpy(newPass, line.c_str(), sizeof(newPass));
           const char* passDisplay = (newPass[0] == '\0') ? "(none)" : newPass;
-          char msg[256];
+          char msg[400];
           snprintf(msg, sizeof(msg),
             "\033[0;32m\r\nCurrent SSID: %s\r\n\r\n"
             "  \033[1;32mSSID\033[0;32m: %s\r\n"
