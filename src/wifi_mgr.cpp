@@ -470,10 +470,10 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
           portEXIT_CRITICAL(&s_bleMux);
           line.trim();
           if (line.length() == 0) {
-            bleSend("Enter new SSID:\r\n");
+            bleSend("Enter \033[1;32mSSID\033[0;32m:\033[0m \r\n");
           } else {
             strlcpy(newSSID, line.c_str(), sizeof(newSSID));
-            bleSend("Enter Password:\r\n");
+            bleSend("Enter \033[1;32mPassword\033[0;32m:\033[0m \r\n");
             state = GET_PASS;
           }
         }
@@ -488,10 +488,15 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
           portEXIT_CRITICAL(&s_bleMux);
           line.trim();
           strlcpy(newPass, line.c_str(), sizeof(newPass));
-          char msg[160];
+          const char* passDisplay = (newPass[0] == '\0') ? "(none)" : newPass;
+          char msg[256];
           snprintf(msg, sizeof(msg),
-            "\r\nSSID: %s\r\nPass: %s\r\n\r\nSave & Reboot (Y), Retry (r), Cancel (n):\r\n",
-            newSSID, newPass);
+            "\033[0;32m\r\nCurrent SSID: %s\r\n\r\n"
+            "  \033[1;32mSSID\033[0;32m: %s\r\n"
+            "  \033[1;32mPass\033[0;32m: %s\033[0m\r\n"
+            "\r\n"
+            "Save [\033[1;32mY\033[0;32m / \033[1;32mr\033[0;32m=retry / \033[1;32mn\033[0;32m=cancel\033[0m]:\r\n",
+            s_ssid[0] ? s_ssid : "(none)", newSSID, passDisplay);
           bleSend(msg);
           state = CONFIRM;
         }
@@ -512,10 +517,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
             result = true;
             done   = true;
           } else if (line == "r" || line == "R") {
-            char cur[100];
-            snprintf(cur, sizeof(cur),
-              "\r\nCurrent SSID: %s\r\n\r\nEnter new SSID:\r\n", s_ssid);
-            bleSend(cur);
+            bleSend("\033[0;32mEnter \033[1;32mSSID\033[0;32m:\033[0m \r\n");
             state = GET_SSID;
           } else {
             bleSend("Cancelled.\r\n");
