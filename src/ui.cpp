@@ -487,6 +487,77 @@ void UI::showWifiSubMenu(int sel, int offset, const char* ssid, const char* ip, 
   u8g2.sendBuffer();
 }
 
+void UI::showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
+                      bool wifiEnabled, uint8_t gStatus) {
+  static const char* kItems[] = { "Connect", "Secrets", nullptr, "Back" };
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+
+  // Left panel (x=0..63)
+  char dbmLine[13], ssidLine[13], ipLine[13];
+  if (rssi < 0) snprintf(dbmLine, sizeof(dbmLine), "WiFi %ddBm", rssi);
+  else          strlcpy(dbmLine, "WiFi ----", sizeof(dbmLine));
+
+  snprintf(ssidLine, sizeof(ssidLine), "S:%.9s", (ssid && ssid[0]) ? ssid : "----");
+
+  const char* after2 = (ip && ip[0]) ? ip : "";
+  int dots = 0;
+  for (const char* p = after2; *p; p++) {
+    if (*p == '.' && ++dots == 2) { after2 = p + 1; break; }
+  }
+  if (dots < 2) after2 = "-.--";
+  snprintf(ipLine, sizeof(ipLine), "I:x.x.%s", after2);
+
+  const char* gStr = (gStatus == 0) ? "G:..." :
+                     (gStatus == 1) ? "G:Online" : "G:Offline";
+
+  u8g2.drawStr(0,  8, dbmLine);
+  u8g2.drawStr(0, 16, ssidLine);
+  u8g2.drawStr(0, 24, ipLine);
+  u8g2.drawStr(0, 32, gStr);
+
+  // Right panel (x=65+)
+  const char* toggleLabel = wifiEnabled ? "Enabled" : "Disabled";
+  for (int i = 0; i < 4; i++) {
+    int y = 8 + i * 8;
+    const char* label = (i == 2) ? toggleLabel : kItems[i];
+    if (i == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, label); }
+    else          { u8g2.drawStr(71, y, label); }
+  }
+  u8g2.sendBuffer();
+}
+
+void UI::showSecretsMenu(int sel, const char* savedSSID, uint8_t passStatus) {
+  static const char* kItems[] = { "Zeroize", "BLE TERM", "Manual" };
+  const char* passStr = (passStatus == 0) ? "P: ----" :
+                        (passStatus == 1) ? "P: NONE" : "P: ****";
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+
+  // Left panel
+  char ssidLine[13];
+  snprintf(ssidLine, sizeof(ssidLine), "S:%.9s", (savedSSID && savedSSID[0]) ? savedSSID : "----");
+  u8g2.drawStr(0,  8, "WiFi Secrets.");
+  u8g2.drawStr(0, 24, ssidLine);
+  u8g2.drawStr(0, 32, passStr);
+
+  // Right panel
+  for (int i = 0; i < 3; i++) {
+    int y = 8 + i * 8;
+    if (i == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, kItems[i]); }
+    else          { u8g2.drawStr(71, y, kItems[i]); }
+  }
+  u8g2.sendBuffer();
+}
+
+void UI::showNotImplemented() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0,  8, "NOT IMPLEMENTED");
+  u8g2.drawStr(0, 16, "SP = Back");
+  u8g2.sendBuffer();
+}
+
 void UI::showCharEntry(const char* field, const char* buf, const char* selLabel) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tr);
