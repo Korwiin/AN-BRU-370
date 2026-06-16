@@ -15,6 +15,91 @@ void UI::begin() {
   u8g2.setContrast(20);
 }
 
+// Draws a 5x5 checkmark at (x, y) where y is the text baseline.
+static void drawCheck(int x, int y) {
+  u8g2.drawLine(x,   y-2, x+2, y);
+  u8g2.drawLine(x+2, y,   x+5, y-4);
+}
+
+// Draws a 5x5 X mark at (x, y) where y is the text baseline.
+static void drawCross(int x, int y) {
+  u8g2.drawLine(x,   y-4, x+4, y);
+  u8g2.drawLine(x+4, y-4, x,   y);
+}
+
+// Draws a phase indicator symbol. done→check, fail→X, inProgress+blink→"..", else "--".
+static void drawPhase(int x, int y, bool done, bool fail, bool inProgress) {
+  if (fail) {
+    drawCross(x, y);
+  } else if (done) {
+    drawCheck(x, y);
+  } else if (inProgress && ((millis() % 600) < 300)) {
+    u8g2.drawStr(x, y, "..");
+  } else {
+    u8g2.drawStr(x, y, "--");
+  }
+}
+
+void UI::showBootStatus(const BootStatusInfo& s) {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+
+  // Line 1 (y=8): title left, firmware version right
+  u8g2.drawStr(0, 8, "AN/BRU-370");
+  {
+    char ver[10];
+    snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
+    int vw = u8g2.getStrWidth(ver);
+    u8g2.drawStr(128 - vw, 8, ver);
+  }
+
+  // Line 2 (y=16): RF  SSID  Eth
+  //   "RF:"   3ch x 5px = 15px, sym at x=16
+  //   "SSID:" 5ch x 5px = 25px, starts at x=33, sym at x=59
+  //   "Eth:"  4ch x 5px = 20px, starts at x=85, sym at x=106
+  u8g2.drawStr(0,  16, "RF:");
+  u8g2.drawStr(33, 16, "SSID:");
+  u8g2.drawStr(85, 16, "Eth:");
+
+  // Line 3 (y=24): IP  DNS  DCS
+  //   "IP:"  3ch x 5px = 15px, sym at x=16
+  //   "DNS:" 4ch x 5px = 20px, starts at x=33, sym at x=54
+  //   "DCS:" 4ch x 5px = 20px, starts at x=74, sym at x=95
+  u8g2.drawStr(0,  24, "IP:");
+  u8g2.drawStr(33, 24, "DNS:");
+  u8g2.drawStr(74, 24, "DCS:");
+
+  bool connecting = (s.attempt > 0 && !s.failed && !s.ip);
+
+  // Phase symbols — blink the current bottleneck
+  drawPhase(16,  16, s.rf,   s.rfFail,   connecting && !s.rf && !s.rfFail);
+  drawPhase(59,  16, s.ssid, s.ssidFail, connecting && s.rf && !s.ssid && !s.ssidFail);
+  drawPhase(106, 16, s.eth,  false,      connecting && s.ssid && !s.eth);
+  drawPhase(16,  24, s.ip,   false,      connecting && s.eth && !s.ip);
+  drawPhase(54,  24, s.dns,  false,      false);   // DNS advisory — no blink
+  drawPhase(95,  24, s.dcs,  false,      false);   // DCS advisory — no blink
+
+  // Line 4 (y=32): status text
+  if (s.attempt == 0) {
+    // USB settle — blank
+  } else if (s.failed) {
+    char line[32];
+    const char* reason = s.failReason ? s.failReason : "WiFi error";
+    snprintf(line, sizeof(line), "%.16s LP=Set", reason);
+    u8g2.drawStr(0, 32, line);
+  } else if (s.ip) {
+    u8g2.drawStr(0, 32, "LP=Settings");
+  } else if (s.attempt > 1) {
+    char line[28];
+    snprintf(line, sizeof(line), "Attempt %d/3  Retrying...", s.attempt);
+    u8g2.drawStr(0, 32, line);
+  } else {
+    u8g2.drawStr(0, 32, "Connecting...");
+  }
+
+  u8g2.sendBuffer();
+}
+
 // Not called from setup() — showSplashProgress() is used during boot. Retained for future use.
 void UI::showSplash() {
   static const char* text = "AN/BRU-370";

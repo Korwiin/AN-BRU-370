@@ -3,6 +3,15 @@
 #include <U8g2lib.h>
 #include <Wire.h>
 
+// Passed to UI::showBootStatus() each frame during boot.
+struct BootStatusInfo {
+  bool rf, ssid, eth, ip, dns, dcs;
+  bool rfFail, ssidFail;   // show X instead of -- for these phases
+  int attempt;             // 1-3; 0 = USB settle (show all --)
+  bool failed;             // all 3 attempts exhausted
+  const char* failReason;  // nullptr if no failure yet
+};
+
 namespace UI {
   void begin();
 
@@ -11,6 +20,8 @@ namespace UI {
   // wifiOk=false: draws a 1px progress bar of `fill` pixels (0..128) at y=31.
   // wifiOk=true:  clears bottom strip and shows "WiFi Connected" centered at y=31.
   void showSplashProgress(int fill, bool wifiOk);
+  // Renders six-phase WiFi/DCS boot status screen. Call each loop() tick during BOOT_STATUS.
+  void showBootStatus(const BootStatusInfo& s);
   void sleep();        // power down OLED (setPowerSave 1)
   void wake();         // power up OLED (setPowerSave 0)
 
