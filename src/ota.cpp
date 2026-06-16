@@ -23,7 +23,7 @@ OTA::CheckResult OTA::check() {
   // client.setTimeout caps the TLS handshake phase; http timeouts only cover TCP connect + reads.
   WiFiClientSecure client;
   client.setInsecure();
-  client.setTimeout(15000);
+  client.setTimeout(15);  // seconds — WiFiClientSecure::setTimeout is in seconds, not ms
   int   code       = -1;
   int   codes[2]   = {0, 0};
   int   elapsed[2] = {0, 0};
@@ -91,7 +91,7 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
 
   WiFiClientSecure client;
   client.setInsecure();
-  client.setTimeout(15000);
+  client.setTimeout(15);  // seconds — WiFiClientSecure::setTimeout is in seconds, not ms
 
   // Retry once — GitHub release redirects to S3 can transiently refuse
   HTTPClient http;

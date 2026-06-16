@@ -465,11 +465,11 @@ void UI::showFirmwareUpdating(int percent) {
   u8g2.sendBuffer();
 }
 
-void UI::showFirmwareError(const char* reason) {
+void UI::showFirmwareError(const char* reason, bool canRetry) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 10, "Update failed");
   u8g2.drawStr(0, 21, reason);
-  u8g2.drawStr(0, 31, "SP=Back");
+  u8g2.drawStr(0, 31, canRetry ? "SP=Retry  LP=Back" : "SP=Back");
   u8g2.sendBuffer();
 }

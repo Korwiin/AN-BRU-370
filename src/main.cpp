@@ -52,8 +52,9 @@ static bool s_wifiCancelled  = false;
 static bool s_dcsBiosStarted = false;
 static bool s_wifiEnabled    = true;
 
-static OTA::CheckResult  s_otaResult   = {};
-static char              s_otaError[24] = {0};
+static OTA::CheckResult  s_otaResult        = {};
+static char              s_otaError[24]      = {0};
+static bool              s_otaPerformFailed  = false;
 
 static ScState       s_scState     = SC_IDLE;
 static uint8_t       s_scTarget    = 0xFF;
@@ -597,6 +598,7 @@ void loop() {
   } else if (s_mode == FIRMWARE_CHECKING) {
     if (!WifiMgr::isConnected()) {
       strlcpy(s_otaError, "No WiFi", sizeof(s_otaError));
+      s_otaPerformFailed = false;
       s_mode = FIRMWARE_ERROR;
     } else {
       char ver[24];
@@ -606,6 +608,7 @@ void loop() {
       s_lastActivity = millis();  // blocking check can outlast sleep timer; reset so result stays visible
       if (s_otaResult.error[0]) {
         strlcpy(s_otaError, s_otaResult.error, sizeof(s_otaError));
+        s_otaPerformFailed = false;
         s_mode = FIRMWARE_ERROR;
       } else if (s_otaResult.available) {
         s_mode = FIRMWARE_CONFIRM;
@@ -627,11 +630,17 @@ void loop() {
     UI::showFirmwareUpdating(0);
     if (!OTA::perform(s_otaResult.url, otaProgressCb)) {
       strlcpy(s_otaError, OTA::performError(), sizeof(s_otaError));
+      s_otaPerformFailed = true;
       s_mode = FIRMWARE_ERROR;
     }
 
   } else if (s_mode == FIRMWARE_ERROR) {
-    if (Encoder::shortPressed()) { s_mode = SETTINGS; s_menuSel = 5; s_menuOffset = 2; }
+    if (s_otaPerformFailed) {
+      if (Encoder::shortPressed()) { s_otaPerformFailed = false; s_mode = FIRMWARE_CONFIRM; }
+      if (Encoder::longPressed())  { s_otaPerformFailed = false; s_mode = SETTINGS; s_menuSel = 5; s_menuOffset = 2; }
+    } else {
+      if (Encoder::shortPressed()) { s_mode = SETTINGS; s_menuSel = 5; s_menuOffset = 2; }
+    }
   }
 
   // OLED sleep check
@@ -679,7 +688,7 @@ void loop() {
         break;
       }
       case FIRMWARE_UPDATING:  break;  // screen driven by otaProgressCb
-      case FIRMWARE_ERROR:     UI::showFirmwareError(s_otaError); break;
+      case FIRMWARE_ERROR:     UI::showFirmwareError(s_otaError, s_otaPerformFailed); break;
     }
   }
 }

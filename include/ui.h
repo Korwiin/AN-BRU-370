@@ -51,7 +51,7 @@ namespace UI {
   void showFirmwareUpToDate(const char* currentVer);
   void showFirmwareConfirm(const char* currentVer, const char* availVer);
   void showFirmwareUpdating(int percent);
-  void showFirmwareError(const char* reason);
+  void showFirmwareError(const char* reason, bool canRetry = false);
   // Shows character entry screen.
   // field: "SSID" or "Password"
   // buf: current entered string (null-terminated)
