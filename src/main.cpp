@@ -620,7 +620,7 @@ void loop() {
     if (Encoder::longPressed()) { s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false; s_mode = SETTINGS; }
 
   } else if (s_mode == SECRETS_MENU) {
-    s_wifiSubSel = (s_wifiSubSel + delta + 3) % 3;
+    s_wifiSubSel = (s_wifiSubSel + delta + 4) % 4;
 
     if (Encoder::shortPressed()) {
       switch (s_wifiSubSel) {
@@ -639,10 +639,14 @@ void loop() {
           WifiMgr::nvsCredentials(s_nvsSsid, sizeof(s_nvsSsid), &s_nvsPassStatus);
           s_mode = SECRETS_MENU;
           break;
-        case 2:  // Manual — stub
+        case 2:  // Scan — stub
           UI::showNotImplemented();
           Encoder::flush();
           while (!Encoder::shortPressed()) { Encoder::readDelta(); delay(10); }
+          break;
+        case 3:  // Back
+          s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false;
+          s_mode = WIFI_MENU;
           break;
       }
     }

@@ -481,7 +481,7 @@ void UI::showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
 }
 
 void UI::showSecretsMenu(int sel, const char* savedSSID, uint8_t passStatus) {
-  static const char* kItems[] = { "Zeroize", "BLE TERM", "Manual" };
+  static const char* kItems[] = { "Zeroize", "BLE TERM", "Scan", "Back" };
   const char* passStr = (passStatus == 0) ? "P: ----" :
                         (passStatus == 1) ? "P: NONE" : "P: ****";
   u8g2.clearBuffer();
@@ -490,12 +490,12 @@ void UI::showSecretsMenu(int sel, const char* savedSSID, uint8_t passStatus) {
   // Left panel
   char ssidLine[13];
   snprintf(ssidLine, sizeof(ssidLine), "S:%.9s", (savedSSID && savedSSID[0]) ? savedSSID : "----");
-  u8g2.drawStr(0,  8, "WiFi Secrets.");
+  u8g2.drawStr(0,  8, "WiFi SECRETS");
   u8g2.drawStr(0, 24, ssidLine);
   u8g2.drawStr(0, 32, passStr);
 
   // Right panel
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 4; i++) {
     int y = 8 + i * 8;
     if (i == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, kItems[i]); }
     else          { u8g2.drawStr(71, y, kItems[i]); }
