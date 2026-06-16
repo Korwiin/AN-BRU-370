@@ -14,7 +14,7 @@
 enum MenuState {
   BOOT_STATUS,
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
-  MOUSE_TUNE_MENU, WIFI_MENU,
+  MOUSE_TUNE_MENU, WIFI_MENU, SECRETS_MENU,
   MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y,
   SCREEN_EDIT,
   FIRMWARE_CHECKING, FIRMWARE_UP_TO_DATE,
@@ -36,8 +36,11 @@ static int  s_sleepSecs           = 45;
 static int  s_prevSleepSecs       = 45;
 static int  s_mouseTuneSel        = 0;
 static int  s_mouseTuneOffset     = 0;
-static int  s_wifiSubSel          = 0;
-static int  s_wifiSubOffset       = 0;
+static int     s_wifiSubSel       = 0;
+static uint8_t s_gStatus          = 0;   // 0=pending, 1=online, 2=offline
+static bool    s_gChecked         = false;
+static char    s_nvsSsid[64]      = {0};
+static uint8_t s_nvsPassStatus    = 0;
 static bool s_mcActive            = false;
 static bool s_mcFlash             = false;
 static unsigned long s_mcFlashTimer = 0;
@@ -116,6 +119,7 @@ static void executeMenuItem() {
       s_mode = SLEEP_ADJUST;
       return;
     case 3:  // WiFi
+      s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false;
       s_mode = WIFI_MENU;
       return;
     case 4:  // Mouse Tune
@@ -223,6 +227,7 @@ void setup() {
       Encoder::readDelta();
       delay(10);
     }
+    s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false;
     s_mode = WIFI_MENU;
     s_lastActivity = millis();
     return;
@@ -569,92 +574,81 @@ void loop() {
     }
 
   } else if (s_mode == WIFI_MENU) {
-    s_wifiSubSel = (s_wifiSubSel + delta + 5) % 5;
-    if (s_wifiSubSel < s_wifiSubOffset) s_wifiSubOffset = s_wifiSubSel;
-    if (s_wifiSubSel >= s_wifiSubOffset + 4) s_wifiSubOffset = s_wifiSubSel - 3;
+    s_wifiSubSel = (s_wifiSubSel + delta + 4) % 4;
+
     if (Encoder::shortPressed()) {
-      if (s_wifiSubSel == 0) {
-        // WiFi enable/disable toggle
-        s_wifiEnabled = !s_wifiEnabled;
-        { Preferences p; p.begin("brew", false); p.putInt("wifi_en", s_wifiEnabled ? 1 : 0); p.end(); }
-        UI::showSaved();
-        ESP.restart();
-      } else if (s_wifiSubSel == 1) {
-        // Manual Entry — encoder character scroll
-        char newSSID[33] = {0};
-        char newPass[64] = {0};
-        bool gotSSID = WifiMgr::runEncoderEntry(
-          "SSID", newSSID, sizeof(newSSID),
-          []() { return Encoder::readDelta(); },
-          []() { return Encoder::shortPressed(); },
-          []() { return Encoder::longPressed(); },
-          [](const char* f, const char* b, const char* s) { UI::showCharEntry(f, b, s); }
-        );
-        if (gotSSID) {
-          bool gotPass = WifiMgr::runEncoderEntry(
-            "Password", newPass, sizeof(newPass),
-            []() { return Encoder::readDelta(); },
-            []() { return Encoder::shortPressed(); },
-            []() { return Encoder::longPressed(); },
-            [](const char* f, const char* b, const char* s) { UI::showCharEntry(f, b, s); }
-          );
-          if (gotPass) {
-            WifiMgr::saveCredentials(newSSID, newPass);
-            UI::showSaved();
+      switch (s_wifiSubSel) {
+        case 0:  // Connect
+          WifiMgr::reconnect();
+          { unsigned long t0 = millis(); bool ok = false;
+            while (millis() - t0 < 15000UL) {
+              UI::showWifiConnecting(WifiMgr::activeSSID());
+              if (WifiMgr::pollConnect()) { ok = true; break; }
+              delay(100);
+            }
+            if (ok) {
+              UI::showWifiConnected(WifiMgr::activeSSID());
+              if (!s_dcsBiosStarted) {
+                DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
+                               "255.255.255.255", DCSBIOS_CMD_PORT);
+                s_dcsBiosStarted = true;
+              }
+            } else {
+              UI::showWifiFailed(WifiMgr::activeSSID());
+              delay(1500);
+            }
           }
-        }
-        s_mode = SETTINGS;
-      } else if (s_wifiSubSel == 2) {
-        // Bluetooth — confirm WiFi disconnect, then run BLE UART session
-        Encoder::flush();
-        bool confirmed = false;
-        while (true) {
-          Encoder::readDelta();
-          UI::showWifiConfirm();
-          if (Encoder::shortPressed()) { confirmed = true; break; }
-          if (Encoder::longPressed())  break;
-          delay(10);
-        }
-        if (confirmed) {
-          bool saved = WifiMgr::runBleSetup(
-            []() { UI::showBleActive(WifiMgr::isBleClientConnected()); },
-            []() { Encoder::readDelta(); return Encoder::longPressed(); }
-          );
-          if (saved) ESP.restart();
-        }
-        s_mode = SETTINGS;
-      } else if (s_wifiSubSel == 3) {
-        // Connect — reconnect with saved credentials
-        if (!s_wifiEnabled) { s_mode = SETTINGS; s_wifiSubSel = 0; s_wifiSubOffset = 0; return; }
-        WifiMgr::reconnect();
-        unsigned long t0 = millis();
-        bool connected = false;
-        while (millis() - t0 < 15000UL) {
-          UI::showWifiConnecting(WifiMgr::activeSSID());
-          if (WifiMgr::pollConnect()) { connected = true; break; }
-          delay(100);
-        }
-        if (connected) {
-          UI::showWifiConnected(WifiMgr::activeSSID());
-          if (!s_dcsBiosStarted) {
-            DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
-                           "255.255.255.255", DCSBIOS_CMD_PORT);
-            s_dcsBiosStarted = true;
-          }
-        } else {
-          UI::showWifiFailed(WifiMgr::activeSSID());
-          delay(1500);
-        }
-        s_mode = SETTINGS;
-      } else {
-        // Back
-        s_mode = SETTINGS;
+          s_gStatus = 0; s_gChecked = false;
+          break;
+        case 1:  // Secrets
+          s_wifiSubSel = 0;
+          WifiMgr::nvsCredentials(s_nvsSsid, sizeof(s_nvsSsid), &s_nvsPassStatus);
+          s_mode = SECRETS_MENU;
+          break;
+        case 2:  // Enabled/Disabled toggle
+          s_wifiEnabled = !s_wifiEnabled;
+          { Preferences p; p.begin("brew", false); p.putInt("wifi_en", s_wifiEnabled ? 1 : 0); p.end(); }
+          UI::showSaved();
+          ESP.restart();
+          break;
+        case 3:  // Back
+          s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false;
+          s_mode = SETTINGS;
+          break;
       }
-      s_wifiSubSel   = 0;
-      s_wifiSubOffset = 0;
+    }
+    if (Encoder::longPressed()) { s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false; s_mode = SETTINGS; }
+
+  } else if (s_mode == SECRETS_MENU) {
+    s_wifiSubSel = (s_wifiSubSel + delta + 3) % 3;
+
+    if (Encoder::shortPressed()) {
+      switch (s_wifiSubSel) {
+        case 0:  // Zeroize
+          WifiMgr::clearOverride();
+          UI::showSaved();
+          ESP.restart();
+          break;
+        case 1:  // BLE TERM — launch directly, no confirm dialog
+          { bool saved = WifiMgr::runBleSetup(
+              []() { UI::showBleActive(WifiMgr::isBleClientConnected()); },
+              []() { Encoder::readDelta(); return Encoder::longPressed(); });
+            if (saved) ESP.restart();
+          }
+          s_wifiSubSel = 0;
+          WifiMgr::nvsCredentials(s_nvsSsid, sizeof(s_nvsSsid), &s_nvsPassStatus);
+          s_mode = SECRETS_MENU;
+          break;
+        case 2:  // Manual — stub
+          UI::showNotImplemented();
+          Encoder::flush();
+          while (!Encoder::shortPressed()) { Encoder::readDelta(); delay(10); }
+          break;
+      }
     }
     if (Encoder::longPressed()) {
-      s_wifiSubSel = 0; s_wifiSubOffset = 0; s_mode = SETTINGS;
+      s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false;
+      s_mode = WIFI_MENU;
     }
 
   } else if (s_mode == FIRMWARE_CHECKING) {
@@ -732,9 +726,21 @@ void loop() {
         UI::showMouseCalibrate(1, s_calibY, kCalibLabelY[s_calibIdx]);
         break;
       case SCREEN_EDIT: UI::showScreenEdit(s_screenDigits, s_screenDigitPos); break;
-      case WIFI_MENU:         UI::showWifiSubMenu(s_wifiSubSel, s_wifiSubOffset,
-                              WifiMgr::activeSSID(), WifiMgr::activeIP(),
-                              s_wifiEnabled); break;
+      case WIFI_MENU:
+        if (!s_gChecked) {
+          s_gStatus  = WifiMgr::checkInternet() ? 1 : 2;
+          s_gChecked = true;
+        }
+        UI::showWifiMenu(s_wifiSubSel,
+                         WifiMgr::rssi(),
+                         WifiMgr::activeSSID(),
+                         WifiMgr::activeIP(),
+                         s_wifiEnabled,
+                         s_gStatus);
+        break;
+      case SECRETS_MENU:
+        UI::showSecretsMenu(s_wifiSubSel, s_nvsSsid, s_nvsPassStatus);
+        break;
       case FIRMWARE_CHECKING:  break;  // screen set inline before blocking call
       case FIRMWARE_UP_TO_DATE: {
         char ver[24];
