@@ -410,7 +410,8 @@ void loop() {
       }
     }
 
-    // Start DCS-BIOS on first IP assignment
+    // Start DCS-BIOS on first IP assignment; clear failed flag if IP arrived late
+    if (ph.ip) s_bootFailed = false;
     if (ph.ip && !s_dcsBiosStarted) {
       DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
                      "255.255.255.255", DCSBIOS_CMD_PORT);
