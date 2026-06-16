@@ -408,18 +408,16 @@ static void bleSend(const char* msg) {
 static void sendBanner() {
   char msg[512];
   snprintf(msg, sizeof(msg),
-    "\033[2J\033[H"
-    "\033[0;31m[UNCLASSIFIED]\033[0m\r\n"
+    "==============================\r\n"
+    "  AN/BRU-370 CONFIG TERMINAL\r\n"
+    "     F-16C Bl.50 // USAF\r\n"
+    "==============================\r\n"
+    "  WARNING: RESTRICTED SYSTEM\r\n"
+    " Unauthorized use prohibited.\r\n"
+    "==============================\r\n"
+    "Current SSID: %s\r\n"
     "\r\n"
-    "\033[1;32mAN/BRU-370 CONFIG TERMINAL\033[0m\r\n"
-    "\033[1;32mF-16C Bl.50 // USAF\033[0m\r\n"
-    "\r\n"
-    "\033[0;31mWARNING: RESTRICTED SYSTEM\033[0m\r\n"
-    "\033[0;31mUnauthorized use prohibited.\033[0m\r\n"
-    "\r\n"
-    "\033[0;32mCurrent SSID: %s\033[0m\r\n"
-    "\r\n"
-    "Enter \033[1;32mSSID\033[0;32m:\033[0m \r\n",
+    "SSID:\r\n",
     s_ssid[0] ? s_ssid : "(none)");
   bleSend(msg);
 }
@@ -473,10 +471,10 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
           portEXIT_CRITICAL(&s_bleMux);
           line.trim();
           if (line.length() == 0) {
-            bleSend("Enter \033[1;32mSSID\033[0;32m:\033[0m \r\n");
+            bleSend("SSID:\r\n");
           } else {
             strlcpy(newSSID, line.c_str(), sizeof(newSSID));
-            bleSend("Enter \033[1;32mPassword\033[0;32m:\033[0m \r\n");
+            bleSend("Password:\r\n");
             state = GET_PASS;
           }
         }
@@ -494,12 +492,16 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
           const char* passDisplay = (newPass[0] == '\0') ? "(none)" : newPass;
           char msg[400];
           snprintf(msg, sizeof(msg),
-            "\033[0;32m\r\nCurrent SSID: %s\r\n\r\n"
-            "  \033[1;32mSSID\033[0;32m: %s\r\n"
-            "  \033[1;32mPass\033[0;32m: %s\033[0m\r\n"
             "\r\n"
-            "Save [\033[1;32mY\033[0;32m / \033[1;32mr\033[0;32m=retry / \033[1;32mn\033[0;32m=cancel\033[0m]:\r\n",
-            s_ssid[0] ? s_ssid : "(none)", newSSID, passDisplay);
+            "------------------------------\r\n"
+            "  SSID: %s\r\n"
+            "  Pass: %s\r\n"
+            "------------------------------\r\n"
+            "Current: %s\r\n"
+            "\r\n"
+            "Y=save  r=retry  n=cancel:\r\n",
+            newSSID, passDisplay,
+            s_ssid[0] ? s_ssid : "(none)");
           bleSend(msg);
           state = CONFIRM;
         }
@@ -520,7 +522,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
             result = true;
             done   = true;
           } else if (line == "r" || line == "R") {
-            bleSend("\033[0;32mEnter \033[1;32mSSID\033[0;32m:\033[0m \r\n");
+            bleSend("SSID:\r\n");
             state = GET_SSID;
           } else {
             bleSend("Cancelled.\r\n");
