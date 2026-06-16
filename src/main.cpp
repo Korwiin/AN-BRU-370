@@ -224,6 +224,7 @@ void setup() {
       delay(10);
     }
     s_mode = WIFI_MENU;
+    s_lastActivity = millis();
     return;
   }
 

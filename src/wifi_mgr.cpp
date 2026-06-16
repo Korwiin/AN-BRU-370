@@ -137,6 +137,7 @@ bool WifiMgr::beginAttempt(int n) {
 // Legacy shim — used by runBleSetup() post-cancel path (same translation unit; not in header)
 static void startConnect() {
   loadCredentials();
+  if (s_ssid[0] == '\0') return;
   registerEventHandler();
   WiFi.persistent(false);
   WiFi.setAutoConnect(false);
