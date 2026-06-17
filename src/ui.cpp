@@ -121,7 +121,7 @@ void UI::wake()  { u8g2.setPowerSave(0); }
 
 void UI::showWifiConnecting(const char* ssid) {
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 10, "WIFI CONNECTING");
   u8g2.drawStr(0, 22, ssid);
   u8g2.sendBuffer();
@@ -129,7 +129,7 @@ void UI::showWifiConnecting(const char* ssid) {
 
 void UI::showWifiFailed(const char* ssid) {
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 10, "WIFI FAILED");
   u8g2.drawStr(0, 22, ssid);
   u8g2.sendBuffer();
@@ -137,7 +137,7 @@ void UI::showWifiFailed(const char* ssid) {
 
 void UI::showWifiConnected(const char* ssid) {
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 10, "WIFI CONNECTED");
   u8g2.drawStr(0, 22, ssid);
   u8g2.sendBuffer();
@@ -376,7 +376,7 @@ void UI::showMouseTuneMenu(int sel, int offset) {
   };
   static const int kItems = 6;
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 8, "MOUSE POSITION TUNING");
   for (int i = 0; i < 3; i++) {
     int idx = offset + i;
@@ -394,7 +394,7 @@ void UI::showMouseCalibrate(int axis, uint16_t val, const char* label) {
   u8g2.drawStr(0, 7, label);
   char vbuf[14];
   snprintf(vbuf, sizeof(vbuf), "%c: %u", axis == 0 ? 'X' : 'Y', (unsigned)val);
-  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 19, vbuf);
   u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 31, axis == 0 ? "SP=lock  LP=cancel" : "SP=save  LP=cancel");
@@ -406,13 +406,13 @@ void UI::showScreenEdit(int digits[8], int digitPos) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 7, "Screen");
-  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(59, 20, "x");
   for (int d = 0; d < 8; d++) {
     int x = kDx[d];
     char dc[2] = {(char)('0' + digits[d]), 0};
     if (d == digitPos) {
-      u8g2.setDrawColor(1); u8g2.drawBox(x - 1, 9, 8, 12);
+      u8g2.setDrawColor(1); u8g2.drawBox(x - 1, 13, 8, 8);
       u8g2.setDrawColor(0); u8g2.drawStr(x, 20, dc);
       u8g2.setDrawColor(1);
     } else {
@@ -426,7 +426,7 @@ void UI::showScreenEdit(int digits[8], int digitPos) {
 
 void UI::showSerialActive() {
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 10, "SERIAL ACTIVE");
   u8g2.drawStr(0, 24, "LP=Cancel");
   u8g2.sendBuffer();
