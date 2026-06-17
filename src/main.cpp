@@ -754,7 +754,11 @@ void loop() {
         UI::showAircraftStatus(DcsBios::fuelLbs(),
                                DcsBios::chaffStr(),
                                DcsBios::flareStr(),
-                               DcsBios::ecmTransmitting()); break;
+                               DcsBios::ecmTransmitting(),
+                               DcsBios::gearNose(),
+                               DcsBios::gearLeft(),
+                               DcsBios::gearRight(),
+                               DcsBios::speedbrake()); break;
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;
       case SETTINGS:          UI::showSettingsMenu(s_menuSel, s_menuOffset,
                                 s_encReversed, WifiMgr::isConnected(),
