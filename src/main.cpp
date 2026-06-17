@@ -13,6 +13,7 @@
 
 enum MenuState {
   BOOT_STATUS,
+  AIRCRAFT_STATUS,
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
   MOUSE_TUNE_MENU, WIFI_MENU, SECRETS_MENU,
   MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y,
@@ -48,7 +49,6 @@ static bool          s_rwrActive     = false;
 static bool          s_rwrFlash      = false;
 static unsigned long s_rwrFlashTimer = 0;
 static bool s_wasDcsConnected     = false;
-static bool s_syncDone            = false;
 static unsigned long s_lastOled   = 0;
 static bool s_oledSleeping        = false;
 static unsigned long s_lastActivity = 0;
@@ -77,6 +77,8 @@ static int s_screenW         = 1920;
 static int s_screenH         = 1080;
 static int s_screenDigits[8] = {0};
 static int s_screenDigitPos  = 0;
+
+static MenuState homeMode();
 
 static void loadNvs() {
   Preferences prefs;
@@ -134,7 +136,7 @@ static void executeMenuItem() {
       break;
     case 7:  // EXIT — macros only when WiFi is off or DCS is live
       s_mode = (!s_wifiEnabled || s_wifiCancelled || DcsBios::isConnected())
-               ? MACRO_MENU : BOOT_STATUS;
+               ? homeMode() : BOOT_STATUS;
       return;
   }
   s_menuSel = 0; s_menuOffset = 0;
@@ -191,6 +193,10 @@ static const char* kCalibLabelY[] = {
   "Move U/D to TextField",
   "Move U/D to Click Out"
 };
+
+static MenuState homeMode() {
+  return DcsBios::isConnected() ? AIRCRAFT_STATUS : MACRO_MENU;
+}
 
 void setup() {
 #ifndef RELEASE_BUILD
@@ -291,7 +297,7 @@ void loop() {
     s_lastActivity = millis();
   }
   if (rwrConfirmed) {
-    if (s_mode == BOOT_STATUS) s_mode = MACRO_MENU;
+    if (s_mode == BOOT_STATUS) s_mode = homeMode();
     s_rwrActive = true;
     if (millis() - s_rwrFlashTimer > 100) {
       s_rwrFlash = !s_rwrFlash;
@@ -319,7 +325,7 @@ void loop() {
     s_lastActivity = millis();
   }
   if (mcConfirmed) {
-    if (s_mode == BOOT_STATUS) s_mode = MACRO_MENU;
+    if (s_mode == BOOT_STATUS) s_mode = homeMode();
     s_mcActive = true;
     if (millis() - s_mcFlashTimer > 200) {
       s_mcFlash = !s_mcFlash;
@@ -382,19 +388,17 @@ void loop() {
   // Normal operation
   bool nowConnected = DcsBios::isConnected();
   if (nowConnected && !s_wasDcsConnected) {
-    UI::showSyncing(); delay(800); UI::showSynced();
-    s_syncDone = true;
+    if (s_mode == MACRO_MENU) s_mode = AIRCRAFT_STATUS;
   }
-  if (!nowConnected && s_syncDone) {
-    s_syncDone = false;
-    UI::showSyncFailed();
+  if (!nowConnected && s_wasDcsConnected) {
+    if (s_mode == AIRCRAFT_STATUS) s_mode = MACRO_MENU;
   }
   s_wasDcsConnected = nowConnected;
 
   // Menu state machine
   if (s_mode == BOOT_STATUS) {
     if (!s_wifiEnabled || s_wifiCancelled) {
-      s_mode = MACRO_MENU;
+      s_mode = homeMode();
       return;
     }
 
@@ -445,7 +449,7 @@ void loop() {
       return;
     }
     if (ph.ip && dcsLive && (delta != 0 || Encoder::shortPressed())) {
-      s_mode = MACRO_MENU;
+      s_mode = homeMode();
       return;
     }
 
@@ -459,6 +463,9 @@ void loop() {
     };
     UI::showBootStatus(bsi);
     return;
+
+  } else if (s_mode == AIRCRAFT_STATUS) {
+    if (Encoder::shortPressed()) s_mode = MACRO_MENU;
 
   } else if (s_mode == MACRO_MENU) {
     s_currentMacro = (s_currentMacro + delta + numMacros) % numMacros;
@@ -719,6 +726,11 @@ void loop() {
     s_lastOled = millis();
     switch (s_mode) {
       case BOOT_STATUS:       break;  // handled inline — returns early before this switch
+      case AIRCRAFT_STATUS:
+        UI::showAircraftStatus(DcsBios::fuelLbs(),
+                               DcsBios::chaffCount(),
+                               DcsBios::flareCount(),
+                               DcsBios::ecmTransmitting()); break;
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;
       case SETTINGS:          UI::showSettingsMenu(s_menuSel, s_menuOffset,
                                 s_encReversed, WifiMgr::isConnected(),
