@@ -150,8 +150,8 @@ static uint8_t dialDigit(uint16_t raw) {
   return (uint8_t)(((uint32_t)raw * 10u + 32767u) / 65535u) % 10u;
 }
 
-uint16_t DcsBios::fuelLbs() {
-  return (uint16_t)(dialDigit(s_fuel10K) * 10000u
+uint32_t DcsBios::fuelLbs() {
+  return (uint32_t)(dialDigit(s_fuel10K) * 10000u
                   + dialDigit(s_fuel1K)  * 1000u
                   + dialDigit(s_fuel100) * 100u);
 }

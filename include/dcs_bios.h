@@ -53,7 +53,7 @@ namespace DcsBios {
   bool    rwrMslLaunch();
   bool    storesConfigLight();
   uint8_t storesConfigSw();
-  uint16_t fuelLbs();
+  uint32_t fuelLbs();
   uint8_t  chaffCount();
   uint8_t  flareCount();
   bool     ecmTransmitting();
