@@ -580,7 +580,18 @@ void loop() {
 
     if (Encoder::shortPressed()) {
       switch (s_wifiSubSel) {
-        case 0:  // Connect
+        case 0:  // ENABLE / DISABLE toggle
+          s_wifiEnabled = !s_wifiEnabled;
+          { Preferences p; p.begin("brew", false); p.putInt("wifi_en", s_wifiEnabled ? 1 : 0); p.end(); }
+          UI::showSaved();
+          ESP.restart();
+          break;
+        case 1:  // Secrets
+          s_wifiSubSel = 0;
+          WifiMgr::nvsCredentials(s_nvsSsid, sizeof(s_nvsSsid), &s_nvsPassStatus);
+          s_mode = SECRETS_MENU;
+          break;
+        case 2:  // Connect
           WifiMgr::reconnect();
           { unsigned long t0 = millis(); bool ok = false;
             while (millis() - t0 < 15000UL) {
@@ -601,17 +612,6 @@ void loop() {
             }
           }
           s_gStatus = 0; s_gChecked = false;
-          break;
-        case 1:  // Secrets
-          s_wifiSubSel = 0;
-          WifiMgr::nvsCredentials(s_nvsSsid, sizeof(s_nvsSsid), &s_nvsPassStatus);
-          s_mode = SECRETS_MENU;
-          break;
-        case 2:  // Enabled/Disabled toggle
-          s_wifiEnabled = !s_wifiEnabled;
-          { Preferences p; p.begin("brew", false); p.putInt("wifi_en", s_wifiEnabled ? 1 : 0); p.end(); }
-          UI::showSaved();
-          ESP.restart();
           break;
         case 3:  // Back
           s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false;

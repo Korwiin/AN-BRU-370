@@ -457,7 +457,8 @@ void UI::showBleActive(bool connected) {
 
 void UI::showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
                       bool wifiEnabled, uint8_t gStatus) {
-  static const char* kItems[] = { "Connect", "Secrets", nullptr, "Back" };
+  const char* toggleLabel = wifiEnabled ? "DISABLE" : "ENABLE";
+  const char* kItems[] = { toggleLabel, "Secrets", "Connect", "Back" };
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
 
@@ -485,12 +486,10 @@ void UI::showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
   u8g2.drawStr(0, 32, gStr);
 
   // Right panel (x=65+)
-  const char* toggleLabel = wifiEnabled ? "Enabled" : "Disabled";
   for (int i = 0; i < 4; i++) {
     int y = 8 + i * 8;
-    const char* label = (i == 2) ? toggleLabel : kItems[i];
-    if (i == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, label); }
-    else          { u8g2.drawStr(71, y, label); }
+    if (i == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, kItems[i]); }
+    else          { u8g2.drawStr(71, y, kItems[i]); }
   }
   u8g2.sendBuffer();
 }
