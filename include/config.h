@@ -12,8 +12,8 @@
 #define DCSBIOS_CMD_PORT    7778
 
 // Device identity
-#define FIRMWARE_VERSION     "0.32"
-#define FIRMWARE_VERSION_INT  32  // plain decimal — keep in sync with FIRMWARE_VERSION
+#define FIRMWARE_VERSION     "0.50"
+#define FIRMWARE_VERSION_INT  50  // plain decimal — keep in sync with FIRMWARE_VERSION
 #define DEVICE_NAME         "Brew370"
 
 // OTA updates
