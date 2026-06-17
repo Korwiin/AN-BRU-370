@@ -132,8 +132,9 @@ static void executeMenuItem() {
     case 6:  // Reboot
       ESP.restart();
       break;
-    case 7:  // EXIT
-      s_mode = MACRO_MENU;
+    case 7:  // EXIT — macros only when WiFi is off or DCS is live
+      s_mode = (!s_wifiEnabled || s_wifiCancelled || DcsBios::isConnected())
+               ? MACRO_MENU : BOOT_STATUS;
       return;
   }
   s_menuSel = 0; s_menuOffset = 0;
