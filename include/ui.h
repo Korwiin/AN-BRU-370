@@ -15,11 +15,6 @@ struct BootStatusInfo {
 namespace UI {
   void begin();
 
-  void showSplash();   // boot splash with centered version string
-  // Redraws splash title with bottom-row WiFi status.
-  // wifiOk=false: draws a 1px progress bar of `fill` pixels (0..128) at y=31.
-  // wifiOk=true:  clears bottom strip and shows "WiFi Connected" centered at y=31.
-  void showSplashProgress(int fill, bool wifiOk);
   // Renders six-phase WiFi/DCS boot status screen. Call each loop() tick during BOOT_STATUS.
   void showBootStatus(const BootStatusInfo& s);
   void sleep();        // power down OLED (setPowerSave 1)
