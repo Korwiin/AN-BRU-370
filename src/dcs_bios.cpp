@@ -151,9 +151,10 @@ static uint8_t dialDigit(uint16_t raw) {
 }
 
 uint32_t DcsBios::fuelLbs() {
-  return (uint32_t)(dialDigit(s_fuel10K) * 10000u
-                  + dialDigit(s_fuel1K)  * 1000u
-                  + dialDigit(s_fuel100) * 100u);
+  uint32_t sub1K = (uint32_t)s_fuel100 * 1000u / 65535u;  // 0-999 continuous
+  return dialDigit(s_fuel10K) * 10000u
+       + dialDigit(s_fuel1K)  * 1000u
+       + sub1K;
 }
 
 uint8_t DcsBios::chaffCount()      { return s_chaff; }
