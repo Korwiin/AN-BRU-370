@@ -752,8 +752,8 @@ void loop() {
       case BOOT_STATUS:       break;  // handled inline — returns early before this switch
       case AIRCRAFT_STATUS:
         UI::showAircraftStatus(DcsBios::fuelLbs(),
-                               DcsBios::chaffCount(),
-                               DcsBios::flareCount(),
+                               DcsBios::chaffStr(),
+                               DcsBios::flareStr(),
                                DcsBios::ecmTransmitting()); break;
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;
       case SETTINGS:          UI::showSettingsMenu(s_menuSel, s_menuOffset,

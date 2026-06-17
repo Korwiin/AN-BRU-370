@@ -193,7 +193,7 @@ void UI::showStoresConfig(bool flashState) {
 }
 
 
-void UI::showAircraftStatus(uint32_t fuelLbs, uint8_t chaff, uint8_t flare, bool ecmTx) {
+void UI::showAircraftStatus(uint32_t fuelLbs, const char* chaff, const char* flare, bool ecmTx) {
   u8g2.clearBuffer();
 
   // --- Top zone: fuel number, large font, centered ---
@@ -210,22 +210,28 @@ void UI::showAircraftStatus(uint32_t fuelLbs, uint8_t chaff, uint8_t flare, bool
   // --- Bottom zone: CH / FL / JAMMING row ---
   u8g2.setFont(u8g2_font_5x7_tr);
 
-  // Brackets signal low count (≤10); no inverse rendering
-  char chStr[10], flStr[10];
-  if (chaff == 0xFF)     snprintf(chStr, sizeof(chStr), "CH: --");
-  else if (chaff <= 10)  snprintf(chStr, sizeof(chStr), "[CH: %u]", (unsigned)chaff);
-  else                   snprintf(chStr, sizeof(chStr), "CH: %u", (unsigned)chaff);
+  // Trim leading spaces from DCS string; all-spaces = not received → "--"
+  auto trimmed = [](const char* s) -> const char* {
+    while (*s == ' ') s++;
+    return *s ? s : "--";
+  };
 
-  if (flare == 0xFF)     snprintf(flStr, sizeof(flStr), "FL: --");
-  else if (flare <= 10)  snprintf(flStr, sizeof(flStr), "[FL: %u]", (unsigned)flare);
-  else                   snprintf(flStr, sizeof(flStr), "FL: %u", (unsigned)flare);
+  // Blink text at ~2 Hz if DCS string starts with "Lo" (BINGO threshold reached)
+  bool blinkOn = (millis() / 250) % 2 == 0;
 
-  u8g2.drawStr(0, 32, chStr);
-  int flW = u8g2.getStrWidth(flStr);
-  u8g2.drawStr((128 - flW) / 2, 32, flStr);
+  const char* chDisp = trimmed(chaff);
+  bool chLow = (chDisp[0] == 'L' && chDisp[1] == 'o');
+  if (!chLow || blinkOn)
+    u8g2.drawStr(0, 32, chDisp);
+
+  const char* flDisp = trimmed(flare);
+  bool flLow = (flDisp[0] == 'L' && flDisp[1] == 'o');
+  int flW = u8g2.getStrWidth(flDisp);
+  if (!flLow || blinkOn)
+    u8g2.drawStr((128 - flW) / 2, 32, flDisp);
 
   // JAMMING: right-justified, blinks ~2 Hz when ECM transmitting
-  if (ecmTx && (millis() / 250) % 2 == 0) {
+  if (ecmTx && blinkOn) {
     const char* jmrStr = "JAMMING";
     int jw = u8g2.getStrWidth(jmrStr);
     u8g2.drawStr(128 - jw, 32, jmrStr);

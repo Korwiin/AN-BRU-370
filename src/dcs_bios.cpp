@@ -14,10 +14,8 @@ static uint8_t s_storesConfigSw    = 0xFF;
 static uint16_t s_fuel10K  = 0;
 static uint16_t s_fuel1K   = 0;
 static uint16_t s_fuel100  = 0;
-static char     s_chBuf[5] = "    ";
-static char     s_flBuf[5] = "    ";
-static uint8_t  s_chaff    = 0xFF;
-static uint8_t  s_flare    = 0xFF;
+static char s_chBuf[5] = "    ";
+static char s_flBuf[5] = "    ";
 static bool     s_ecmTx    = false;
 
 // Binary frame parser state machine
@@ -55,12 +53,6 @@ static void processWord(uint16_t addr, uint16_t word) {
     s_chBuf[2] = (char)(word & 0xFF);
     s_chBuf[3] = (char)(word >> 8);
     s_chBuf[4] = '\0';
-    // DCS formats low counts as "Lo10", "Lo 9" etc — scan to first digit
-    int val = -1;
-    for (int i = 0; i < 4; i++) {
-      if (s_chBuf[i] >= '0' && s_chBuf[i] <= '9') { val = atoi(&s_chBuf[i]); break; }
-    }
-    s_chaff = (val >= 0) ? (uint8_t)constrain(val, 0, 254) : 0xFF;
   }
   if (addr == DCSBIOS_ADDR_FL_AMT_0) {
     s_flBuf[0] = (char)(word & 0xFF);
@@ -70,11 +62,6 @@ static void processWord(uint16_t addr, uint16_t word) {
     s_flBuf[2] = (char)(word & 0xFF);
     s_flBuf[3] = (char)(word >> 8);
     s_flBuf[4] = '\0';
-    int val = -1;
-    for (int i = 0; i < 4; i++) {
-      if (s_flBuf[i] >= '0' && s_flBuf[i] <= '9') { val = atoi(&s_flBuf[i]); break; }
-    }
-    s_flare = (val >= 0) ? (uint8_t)constrain(val, 0, 254) : 0xFF;
   }
 
   if (addr == DCSBIOS_ADDR_ECM_TX) { s_ecmTx = (word & DCSBIOS_MASK_ECM_TX) != 0; }
@@ -166,7 +153,7 @@ uint32_t DcsBios::fuelLbs() {
        + sub1K;
 }
 
-uint8_t DcsBios::chaffCount()      { return s_chaff; }
-uint8_t DcsBios::flareCount()      { return s_flare; }
-bool    DcsBios::ecmTransmitting() { return s_ecmTx; }
+const char* DcsBios::chaffStr()     { return s_chBuf; }
+const char* DcsBios::flareStr()     { return s_flBuf; }
+bool        DcsBios::ecmTransmitting() { return s_ecmTx; }
 

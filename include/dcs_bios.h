@@ -53,8 +53,8 @@ namespace DcsBios {
   bool    rwrMslLaunch();
   bool    storesConfigLight();
   uint8_t storesConfigSw();
-  uint32_t fuelLbs();
-  uint8_t  chaffCount();
-  uint8_t  flareCount();
-  bool     ecmTransmitting();
+  uint32_t    fuelLbs();
+  const char* chaffStr();   // raw 4-char DCS string e.g. "  60", "Lo10"; "    " = not received
+  const char* flareStr();
+  bool        ecmTransmitting();
 }
