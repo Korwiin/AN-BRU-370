@@ -466,6 +466,8 @@ void loop() {
 
   } else if (s_mode == AIRCRAFT_STATUS) {
     if (Encoder::shortPressed()) s_mode = MACRO_MENU;
+    if (Encoder::longPressed()) { s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0; }
+    if (delta != 0) s_mode = MACRO_MENU;
 
   } else if (s_mode == MACRO_MENU) {
     s_currentMacro = (s_currentMacro + delta + numMacros) % numMacros;
