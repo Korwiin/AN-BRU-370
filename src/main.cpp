@@ -108,6 +108,14 @@ static void otaProgressCb(int percent) {
   UI::showFirmwareUpdating(percent);
 }
 
+// Deauth from AP before restarting so the router releases the session cleanly.
+// Prevents WIFI_REASON_AUTH_EXPIRE (error 2) on the next boot connection attempt.
+static void safeRestart() {
+  WiFi.mode(WIFI_OFF);
+  delay(500);
+  ESP.restart();
+}
+
 static void executeMenuItem() {
   switch (s_menuSel) {
     case 0:  // Knob direction
@@ -134,7 +142,7 @@ static void executeMenuItem() {
       s_mode = FIRMWARE_CHECKING;
       return;
     case 6:  // Reboot
-      ESP.restart();
+      safeRestart();
       break;
     case 7:  // EXIT — macros only when WiFi is off or DCS is live
       s_mode = (!s_wifiEnabled || s_wifiCancelled || DcsBios::isConnected())
@@ -542,7 +550,7 @@ void loop() {
         p.putInt("scrW", s_screenW); p.putInt("scrH", s_screenH);
         p.end();
         UI::showSaved();   // includes 600ms delay — enough to read "SAVED"
-        ESP.restart();
+        safeRestart();
       }
     }
     if (Encoder::longPressed()) { s_mode = MOUSE_TUNE_MENU; UI::flashScreen(); }
@@ -603,7 +611,7 @@ void loop() {
           s_wifiEnabled = !s_wifiEnabled;
           { Preferences p; p.begin("brew", false); p.putInt("wifi_en", s_wifiEnabled ? 1 : 0); p.end(); }
           UI::showSaved();
-          ESP.restart();
+          safeRestart();
           break;
         case 1:  // Secrets
           s_wifiSubSel = 0;
@@ -648,13 +656,13 @@ void loop() {
         case 0:  // Zeroize
           WifiMgr::clearOverride();
           UI::showSaved();
-          ESP.restart();
+          safeRestart();
           break;
         case 1:  // BLE TERM — launch directly, no confirm dialog
           { bool saved = WifiMgr::runBleSetup(
               []() { UI::showBleActive(WifiMgr::isBleClientConnected()); },
               []() { Encoder::readDelta(); return Encoder::longPressed(); });
-            if (saved) ESP.restart();
+            if (saved) safeRestart();
           }
           s_wifiSubSel = 0;
           WifiMgr::nvsCredentials(s_nvsSsid, sizeof(s_nvsSsid), &s_nvsPassStatus);
