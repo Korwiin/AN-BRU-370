@@ -147,7 +147,7 @@ bool    DcsBios::storesConfigLight() { return s_storesConfigLight; }
 uint8_t DcsBios::storesConfigSw()    { return s_storesConfigSw; }
 
 static uint8_t dialDigit(uint16_t raw) {
-  return (uint8_t)(((uint32_t)raw * 10u + 32767u) / 65535u) % 10u;
+  return (uint8_t)min(((uint32_t)raw * 10u + 32767u) / 65535u, (uint32_t)9u);
 }
 
 uint32_t DcsBios::fuelLbs() {
