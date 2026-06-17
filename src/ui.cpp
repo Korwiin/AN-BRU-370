@@ -230,7 +230,7 @@ void UI::showStoresConfig(bool flashState) {
 }
 
 
-void UI::showAircraftStatus(uint16_t fuelLbs, uint8_t chaff, uint8_t flare, bool ecmTx) {
+void UI::showAircraftStatus(uint32_t fuelLbs, uint8_t chaff, uint8_t flare, bool ecmTx) {
   u8g2.clearBuffer();
 
   // --- Top zone: fuel number, large font, centered ---

@@ -39,7 +39,7 @@ namespace UI {
   void showMissileLaunch(bool flashState);
   void showStoresConfig(bool flashState);
 
-  void showAircraftStatus(uint16_t fuelLbs, uint8_t chaff, uint8_t flare, bool ecmTx);
+  void showAircraftStatus(uint32_t fuelLbs, uint8_t chaff, uint8_t flare, bool ecmTx);
   void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED
   void flashScreen();            // brief invert flash for button feedback
 
