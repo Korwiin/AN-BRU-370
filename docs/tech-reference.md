@@ -29,7 +29,7 @@ All keys are integers unless noted. Two namespaces are used.
 |---|---|---|---|
 | `brightness` | int | 20 | OLED brightness (0–255) |
 | `encrev` | int | 1 | Encoder direction reversed (0=normal, 1=reversed) |
-| `sleep` | int | 45 | OLED sleep timeout in seconds |
+| `sleep` | int | 45 | OLED sleep timeout in seconds (0=never) |
 | `scrW` | int | 1920 | Target screen width in pixels |
 | `scrH` | int | 1080 | Target screen height in pixels |
 | `apxX` | int | scrW / 4 | Map Pin Tool X (absolute screen pixels) |
@@ -44,7 +44,7 @@ All keys are integers unless noted. Two namespaces are used.
 
 Mouse position defaults are recalculated at runtime from `scrW`/`scrH`; they are not stored unless the user calibrates them.
 
-Keys `lbX` and `lbY` (old relative-delta label offset) may exist in NVS as harmless orphans from earlier firmware. They are never read.
+Stale keys `lbX`, `lbY` (old relative-delta label offset) and `aptX`, `aptY`, `amcX`, `amcY` (old 0–4095 space) may exist in NVS as harmless orphans from earlier firmware. They are never read.
 
 ### Namespace `brew_wifi` (credentials)
 
@@ -73,6 +73,8 @@ No compile-time credential defaults. Credentials are NVS-only; configure at runt
 
 All verified against `F-16C_50.json` v0.11.4.
 
+### Lights and Switches
+
 | Signal | Address | Mask | Shift | Notes |
 |---|---|---|---|---|
 | STORES_CONFIG_SW | `0x4400` | `0x0080` | 7 | 0=CAT I, 1=CAT III |
@@ -80,7 +82,26 @@ All verified against `F-16C_50.json` v0.11.4.
 | STORES CONFIG light | `0x4478` | `0x0001` | — | bit test |
 | RWR MSL LAUNCH light | `0x4480` | `0x0004` | — | bit test |
 
-`LIGHT_STORES_CONFIG` (`0x4478`) and `MASTER_CAUTION` (`0x447A`) are adjacent addresses that arrive in the same export frame. Any code that depends on the Stores Config light clearing must be checked **before** the `mcConfirmed` gate, or it will be skipped when MC clears in the same frame.
+`LIGHT_STORES_CONFIG` (`0x4478`) and `MASTER_CAUTION` (`0x447A`) are adjacent addresses that arrive in the same export frame. The SC light check must be placed **before** the `mcConfirmed` gate, or it will be skipped when both clear in the same frame.
+
+### Aircraft Status Signals
+
+| Signal | Address | Mask / Notes |
+|---|---|---|
+| Fuel 10,000s dial | `0x44EE` | uint16 → 0–9 via `dialDigit()` |
+| Fuel 1,000s dial | `0x44F0` | uint16 → 0–9 via `dialDigit()` |
+| Fuel 100s dial | `0x44F2` | uint16 → 0–999 (continuous range, full precision) |
+| Chaff amount chars [0..1] | `0x45A8` | two ASCII bytes packed |
+| Chaff amount chars [2..3] | `0x45AA` | two ASCII bytes packed; 4-char string complete on arrival |
+| Flare amount chars [0..1] | `0x45AC` | same layout as chaff |
+| Flare amount chars [2..3] | `0x45AE` | |
+| ECM TX (green) light | `0x4544` | `0x4000` bit test |
+
+`dialDigit(raw)` maps a uint16 (0–65535) to 0–9, clamped at 9.
+
+Fuel display: `lbs = dialDigit(10K)*10000 + dialDigit(1K)*1000 + (fuel100 * 1000 / 65535)`. Rendered with comma separator (e.g. `12,345 lb`).
+
+CMDS strings are raw 4-character ASCII from DCS (e.g. `"  60"`, `"Lo10"`). A `Lo` prefix triggers value blink; the `Lo` label itself does not blink.
 
 ### Commands Sent
 
@@ -98,19 +119,25 @@ ANT ELEV is **not** modeled in DCS-BIOS for the F-16C.
 
 | Constant | Value | Purpose |
 |---|---|---|
-| `kWifiConnectTimeoutMs` | 30 000 ms | Splash-screen Wi-Fi connect window |
+| USB settle | 3 000 ms | Wait for USB-OTG enumeration before starting Wi-Fi |
+| `kWifiBootTimeoutMs` | 15 000 ms | Per-attempt Wi-Fi connect window in BOOT_STATUS |
+| Boot max attempts | 3 | Total BOOT_STATUS attempts before marking failed |
+| Boot auto-exit delay | 1 500 ms | Wait after IP+DCS live before auto-transitioning to home |
+| Macro menu idle timeout | 15 000 ms | Auto-return to AIRCRAFT_STATUS when DCS connected |
 | `SC_RETRY_MS` | 500 ms | Stores Config switch command retry interval |
 | `SC_LIGHT_TIMEOUT_MS` | 3 000 ms | Stores Config light-clear timeout before SC_GAVE_UP |
 | MC debounce | 200 ms | Minimum time MC must be high before alert triggers |
 | RWR debounce | 200 ms | Minimum time RWR must be high before alert triggers |
 | MC flash interval | 200 ms | OLED flash toggle rate for Master Caution |
 | RWR flash interval | 100 ms | OLED flash toggle rate for Missile Launch |
+| Wi-Fi watchdog | 5 000 ms | Runtime interval to check for driver give-up |
+| Manual Connect timeout | 15 000 ms | Wi-Fi → Connect item timeout |
 
 ---
 
 ## HID Digitizer (Absolute Pointer)
 
-The device presents a `Usage(Pen)` digitizer, not `Usage(Mouse)`. This is required — `Usage(Mouse)` is intercepted by `mouhid.sys` which applies a ~16 px minimum-displacement filter to absolute reports that cannot be disabled by any Windows setting.
+The device presents a `Usage(Pen)` digitizer, not `Usage(Mouse)`. This is required — `Usage(Mouse)` is intercepted by `mouhid.sys` which applies a ~16 px minimum-displacement dead zone to absolute reports that cannot be disabled by any Windows setting.
 
 | Parameter | Value |
 |---|---|
@@ -126,8 +153,25 @@ The device presents a `Usage(Pen)` digitizer, not `Usage(Mouse)`. This is requir
 
 ## Firmware Versioning
 
-`FIRMWARE_VERSION` (string) and `FIRMWARE_VERSION_BCD` (BCD integer) in `include/config.h` must be updated together on every version bump.
+`FIRMWARE_VERSION` (string) and `FIRMWARE_VERSION_INT` (plain decimal integer) in `include/config.h` must be updated together on every version bump.
 
-Example: `"0.13"` → `0x0013`
+Example: `FIRMWARE_VERSION "0.57"` → `FIRMWARE_VERSION_INT 57`
+
+The OTA manifest compares the server's `version` field (integer) against `FIRMWARE_VERSION_INT`. They must match exactly — the manifest integer is **not** BCD.
 
 `config.h` is committed. No setup step required — it contains no credentials.
+
+---
+
+## OTA Manifest
+
+Format: JSON at `OTA_MANIFEST_URL` (defined in `config.h`).
+
+```json
+{
+  "version": 57,
+  "url": "https://github.com/.../releases/download/v0.57/firmware.bin"
+}
+```
+
+`version` is a plain integer matching `FIRMWARE_VERSION_INT`. A device only prompts to update when the server version is strictly greater than the device version.
