@@ -8,10 +8,10 @@
 
 ## System Overview
 
-The AN/BRU-370 is a USB composite HID + Wi-Fi peripheral that bridges physical cockpit controls to DCS World. It presents two HID interfaces: a CDC serial port (for programming) and an absolute digitizer (for map interactions). Over Wi-Fi it receives cockpit state from DCS-BIOS and sends switch commands back.
+The AN/BRU-370 is a USB composite HID + Wi-Fi peripheral that bridges physical cockpit controls to DCS World. It presents two HID interfaces: a keyboard and Pen/pointer for map interactions. Over Wi-Fi it receives cockpit state from DCS-BIOS and sends switch commands back.
 
 Physical controls:
-- **Rotary encoder** — navigation, value adjustment, and absolute pointer control
+- **Rotary encoder** — Menu navigation, settings adjustment, and sending actions to DCS-BIOS
 
 ---
 
@@ -37,7 +37,7 @@ If Wi-Fi is enabled and credentials exist, the device enters the BOOT_STATUS sta
 | SSID | ssid | Associated with the configured network |
 | ETH | eth | Ethernet/layer-2 connected |
 | IP | ip | IP address assigned (DHCP) |
-| DNS | dns | DNS resolved |
+| DNS | dns | DNS resolved github for update checks |
 | DCS | dcs | DCS-BIOS packets received |
 
 Up to 3 attempts are made, each with a 15-second timeout. If all 3 fail, the boot status screen shows the last failure reason and the device stays in BOOT_STATUS (accessible from Settings via long press).
