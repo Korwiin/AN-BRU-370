@@ -34,6 +34,14 @@ constexpr uint16_t DCSBIOS_ADDR_FL_AMT_1  = 0x45AE;  // chars [2..3]; parse on a
 constexpr uint16_t DCSBIOS_ADDR_ECM_TX    = 0x4544;
 constexpr uint16_t DCSBIOS_MASK_ECM_TX    = 0x4000;
 
+// Landing gear down-and-locked lights
+// Gear N (bit 14) and Gear L (bit 15) share address 0x447A with MC_LIGHT
+constexpr uint16_t DCSBIOS_MASK_LIGHT_GEAR_N = 0x4000;
+constexpr uint16_t DCSBIOS_MASK_LIGHT_GEAR_L = 0x8000;
+constexpr uint16_t DCSBIOS_ADDR_GEAR_LIGHT_R = 0x447C;
+constexpr uint16_t DCSBIOS_MASK_LIGHT_GEAR_R = 0x0001;
+constexpr uint16_t DCSBIOS_ADDR_SPEEDBRAKE   = 0x44D4;
+
 #define DCSBIOS_CMD_MC_RESET           "MASTER_CAUTION"
 #define DCSBIOS_CMD_CMDS_DISPENSE      "CMDS_DISPENSE_BTN"
 #define DCSBIOS_CMD_STORES_CONFIG_SW   "STORES_CONFIG_SW"
@@ -57,4 +65,9 @@ namespace DcsBios {
   const char* chaffStr();   // raw 4-char DCS string e.g. "  60", "Lo10"; "    " = not received
   const char* flareStr();
   bool        ecmTransmitting();
+
+  bool     gearNose();    // true when nose gear down and locked
+  bool     gearLeft();    // true when left main gear down and locked
+  bool     gearRight();   // true when right main gear down and locked
+  uint16_t speedbrake();  // 0=stowed, 0xFFFF=fully open
 }

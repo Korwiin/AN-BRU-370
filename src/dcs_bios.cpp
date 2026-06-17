@@ -17,6 +17,10 @@ static uint16_t s_fuel100  = 0;
 static char s_chBuf[5] = "    ";
 static char s_flBuf[5] = "    ";
 static bool     s_ecmTx    = false;
+static bool     s_gearN      = false;
+static bool     s_gearL      = false;
+static bool     s_gearR      = false;
+static uint16_t s_speedbrake = 0;
 
 // Binary frame parser state machine
 enum ParseState { SYNC0, SYNC1, SYNC2, SYNC3,
@@ -33,6 +37,8 @@ static void processWord(uint16_t addr, uint16_t word) {
   }
   if (addr == DCSBIOS_ADDR_MC_LIGHT) {
     s_mcLight = (word & DCSBIOS_MASK_MC_LIGHT) != 0;
+    s_gearN   = (word & DCSBIOS_MASK_LIGHT_GEAR_N) != 0;
+    s_gearL   = (word & DCSBIOS_MASK_LIGHT_GEAR_L) != 0;
   }
   if (addr == DCSBIOS_ADDR_RWR_MSL_LAUNCH) {
     s_rwrMslLaunch = (word & DCSBIOS_MASK_RWR_MSL_LAUNCH) != 0;
@@ -65,6 +71,12 @@ static void processWord(uint16_t addr, uint16_t word) {
   }
 
   if (addr == DCSBIOS_ADDR_ECM_TX) { s_ecmTx = (word & DCSBIOS_MASK_ECM_TX) != 0; }
+  if (addr == DCSBIOS_ADDR_GEAR_LIGHT_R) {
+    s_gearR = (word & DCSBIOS_MASK_LIGHT_GEAR_R) != 0;
+  }
+  if (addr == DCSBIOS_ADDR_SPEEDBRAKE) {
+    s_speedbrake = word;
+  }
 }
 
 static void processBuf() {
@@ -156,4 +168,9 @@ uint32_t DcsBios::fuelLbs() {
 const char* DcsBios::chaffStr()     { return s_chBuf; }
 const char* DcsBios::flareStr()     { return s_flBuf; }
 bool        DcsBios::ecmTransmitting() { return s_ecmTx; }
+
+bool     DcsBios::gearNose()   { return s_gearN; }
+bool     DcsBios::gearLeft()   { return s_gearL; }
+bool     DcsBios::gearRight()  { return s_gearR; }
+uint16_t DcsBios::speedbrake() { return s_speedbrake; }
 
