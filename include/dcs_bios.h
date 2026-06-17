@@ -19,6 +19,21 @@ constexpr uint16_t DCSBIOS_ADDR_STORES_CONFIG_SW = 0x4400;
 constexpr uint16_t DCSBIOS_MASK_STORES_CONFIG_SW = 0x0080;
 constexpr uint8_t  DCSBIOS_SHFT_STORES_CONFIG_SW = 7;
 
+// Fuel totalizer dials — each uint16 maps dial position 0–9 to 0–65535
+constexpr uint16_t DCSBIOS_ADDR_FUEL_10K  = 0x44EE;
+constexpr uint16_t DCSBIOS_ADDR_FUEL_1K   = 0x44F0;
+constexpr uint16_t DCSBIOS_ADDR_FUEL_100  = 0x44F2;
+
+// CMDS chaff/flare amount strings — 4 ASCII chars each, 2 words each
+constexpr uint16_t DCSBIOS_ADDR_CH_AMT_0  = 0x45A8;  // chars [0..1]
+constexpr uint16_t DCSBIOS_ADDR_CH_AMT_1  = 0x45AA;  // chars [2..3]; parse on arrival
+constexpr uint16_t DCSBIOS_ADDR_FL_AMT_0  = 0x45AC;  // chars [0..1]
+constexpr uint16_t DCSBIOS_ADDR_FL_AMT_1  = 0x45AE;  // chars [2..3]; parse on arrival
+
+// ECM transmit light (green) — 1 when jammer pod is actively transmitting
+constexpr uint16_t DCSBIOS_ADDR_ECM_TX    = 0x4544;
+constexpr uint16_t DCSBIOS_MASK_ECM_TX    = 0x4000;
+
 #define DCSBIOS_CMD_MC_RESET           "MASTER_CAUTION"
 #define DCSBIOS_CMD_CMDS_DISPENSE      "CMDS_DISPENSE_BTN"
 #define DCSBIOS_CMD_STORES_CONFIG_SW   "STORES_CONFIG_SW"
@@ -38,4 +53,8 @@ namespace DcsBios {
   bool    rwrMslLaunch();
   bool    storesConfigLight();
   uint8_t storesConfigSw();
+  uint16_t fuelLbs();
+  uint8_t  chaffCount();
+  uint8_t  flareCount();
+  bool     ecmTransmitting();
 }

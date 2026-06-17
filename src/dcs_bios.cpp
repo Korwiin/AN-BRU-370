@@ -11,6 +11,14 @@ static bool    s_mcLight = false;
 static bool    s_rwrMslLaunch = false;
 static bool    s_storesConfigLight = false;
 static uint8_t s_storesConfigSw    = 0xFF;
+static uint16_t s_fuel10K  = 0;
+static uint16_t s_fuel1K   = 0;
+static uint16_t s_fuel100  = 0;
+static char     s_chBuf[5] = "    ";
+static char     s_flBuf[5] = "    ";
+static uint8_t  s_chaff    = 0xFF;
+static uint8_t  s_flare    = 0xFF;
+static bool     s_ecmTx    = false;
 
 // Binary frame parser state machine
 enum ParseState { SYNC0, SYNC1, SYNC2, SYNC3,
@@ -34,6 +42,33 @@ static void processWord(uint16_t addr, uint16_t word) {
   if (addr == DCSBIOS_ADDR_STORES_CONFIG_LIGHT) {
     s_storesConfigLight = (word & DCSBIOS_MASK_STORES_CONFIG_LIGHT) != 0;
   }
+
+  if (addr == DCSBIOS_ADDR_FUEL_10K)  { s_fuel10K = word; }
+  if (addr == DCSBIOS_ADDR_FUEL_1K)   { s_fuel1K  = word; }
+  if (addr == DCSBIOS_ADDR_FUEL_100)  { s_fuel100 = word; }
+
+  if (addr == DCSBIOS_ADDR_CH_AMT_0) {
+    s_chBuf[0] = (char)(word & 0xFF);
+    s_chBuf[1] = (char)(word >> 8);
+  }
+  if (addr == DCSBIOS_ADDR_CH_AMT_1) {
+    s_chBuf[2] = (char)(word & 0xFF);
+    s_chBuf[3] = (char)(word >> 8);
+    s_chBuf[4] = '\0';
+    s_chaff = (uint8_t)constrain(atoi(s_chBuf), 0, 254);
+  }
+  if (addr == DCSBIOS_ADDR_FL_AMT_0) {
+    s_flBuf[0] = (char)(word & 0xFF);
+    s_flBuf[1] = (char)(word >> 8);
+  }
+  if (addr == DCSBIOS_ADDR_FL_AMT_1) {
+    s_flBuf[2] = (char)(word & 0xFF);
+    s_flBuf[3] = (char)(word >> 8);
+    s_flBuf[4] = '\0';
+    s_flare = (uint8_t)constrain(atoi(s_flBuf), 0, 254);
+  }
+
+  if (addr == DCSBIOS_ADDR_ECM_TX) { s_ecmTx = (word & DCSBIOS_MASK_ECM_TX) != 0; }
 }
 
 static void processBuf() {
@@ -110,4 +145,18 @@ bool    DcsBios::masterCaution() { return s_mcLight; }
 bool    DcsBios::rwrMslLaunch()  { return s_rwrMslLaunch; }
 bool    DcsBios::storesConfigLight() { return s_storesConfigLight; }
 uint8_t DcsBios::storesConfigSw()    { return s_storesConfigSw; }
+
+static uint8_t dialDigit(uint16_t raw) {
+  return (uint8_t)(((uint32_t)raw * 10u + 32767u) / 65535u) % 10u;
+}
+
+uint16_t DcsBios::fuelLbs() {
+  return (uint16_t)(dialDigit(s_fuel10K) * 10000u
+                  + dialDigit(s_fuel1K)  * 1000u
+                  + dialDigit(s_fuel100) * 100u);
+}
+
+uint8_t DcsBios::chaffCount()      { return s_chaff; }
+uint8_t DcsBios::flareCount()      { return s_flare; }
+bool    DcsBios::ecmTransmitting() { return s_ecmTx; }
 
