@@ -28,6 +28,7 @@ enum ScState : uint8_t {
 
 static MenuState s_mode           = BOOT_STATUS;
 static int  s_currentMacro        = 0;
+static unsigned long s_macroLastInput = 0;
 static int  s_menuSel             = 0;
 static int  s_menuOffset          = 0;
 static bool s_encReversed         = true;
@@ -465,11 +466,13 @@ void loop() {
     return;
 
   } else if (s_mode == AIRCRAFT_STATUS) {
-    if (Encoder::shortPressed()) s_mode = MACRO_MENU;
+    if (Encoder::shortPressed()) { s_mode = MACRO_MENU; s_macroLastInput = millis(); }
     if (Encoder::longPressed()) { s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0; }
-    if (delta != 0) s_mode = MACRO_MENU;
+    if (delta != 0) { s_mode = MACRO_MENU; s_macroLastInput = millis(); }
 
   } else if (s_mode == MACRO_MENU) {
+    if (delta != 0 || Encoder::shortPressed() || Encoder::longPressed())
+      s_macroLastInput = millis();
     s_currentMacro = (s_currentMacro + delta + numMacros) % numMacros;
     if (Encoder::shortPressed()) { UI::flashScreen(); executeMacro(s_currentMacro); }
     if (Encoder::longPressed()) {
@@ -715,6 +718,11 @@ void loop() {
       if (Encoder::shortPressed()) { s_mode = SETTINGS; s_menuSel = 5; s_menuOffset = 2; }
     }
   }
+
+  // Macro menu auto-return: 15 s idle while DCS is streaming → back to aircraft status
+  if (s_mode == MACRO_MENU && DcsBios::isConnected() &&
+      millis() - s_macroLastInput > 15000UL)
+    s_mode = AIRCRAFT_STATUS;
 
   // OLED sleep check
   if (!s_oledSleeping && s_sleepSecs > 0 &&
