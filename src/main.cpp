@@ -60,6 +60,7 @@ static bool s_wifiEnabled    = true;
 static int           s_bootAttempt  = 0;   // 0=not started; 1-3=current attempt
 static unsigned long s_bootDeadline = 0;   // millis()+15s, set after beginAttempt() succeeds
 static bool          s_bootFailed   = false;
+static unsigned long s_bootDoneAt   = 0;   // millis() when ph.ip && dcsLive first both true
 
 static OTA::CheckResult  s_otaResult        = {};
 static char              s_otaError[24]      = {0};
@@ -279,7 +280,6 @@ void loop() {
     UI::wake();
     s_oledSleeping = false;
     s_lastActivity = millis();
-    s_mode = BOOT_STATUS;
     return;
   }
   if (!s_oledSleeping && (encActivity || dcsActivity)) {
@@ -449,9 +449,15 @@ void loop() {
       s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0;
       return;
     }
-    if (ph.ip && dcsLive && (delta != 0 || Encoder::shortPressed())) {
-      s_mode = homeMode();
-      return;
+    // Auto-exit 1.5s after all phases complete; encoder input exits immediately
+    if (ph.ip && dcsLive) {
+      if (s_bootDoneAt == 0) s_bootDoneAt = millis();
+      if (millis() - s_bootDoneAt >= 1500UL || delta != 0 || Encoder::shortPressed()) {
+        s_mode = homeMode();
+        return;
+      }
+    } else {
+      s_bootDoneAt = 0;
     }
 
     // Draw
