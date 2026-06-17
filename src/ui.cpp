@@ -210,27 +210,33 @@ void UI::showAircraftStatus(uint32_t fuelLbs, const char* chaff, const char* fla
   // --- Bottom zone: CH / FL / JAMMING row ---
   u8g2.setFont(u8g2_font_5x7_tr);
 
-  // Trim leading spaces from DCS string; all-spaces = not received → "--"
+  // Trim leading spaces; all-spaces = not received → "--"
   auto trimmed = [](const char* s) -> const char* {
     while (*s == ' ') s++;
     return *s ? s : "--";
   };
 
-  // Blink text at ~2 Hz if DCS string starts with "Lo" (BINGO threshold reached)
   bool blinkOn = (millis() / 250) % 2 == 0;
 
-  const char* chDisp = trimmed(chaff);
-  bool chLow = (chDisp[0] == 'L' && chDisp[1] == 'o');
+  // CH:<value> left-justified — label always visible, value blinks if "Lo"
+  const char* chVal = trimmed(chaff);
+  bool chLow = (chVal[0] == 'L' && chVal[1] == 'o');
+  int chLabelW = u8g2.getStrWidth("CH:");
+  u8g2.drawStr(0, 32, "CH:");
   if (!chLow || blinkOn)
-    u8g2.drawStr(0, 32, chDisp);
+    u8g2.drawStr(chLabelW, 32, chVal);
 
-  const char* flDisp = trimmed(flare);
-  bool flLow = (flDisp[0] == 'L' && flDisp[1] == 'o');
-  int flW = u8g2.getStrWidth(flDisp);
+  // FL:<value> centered on full "FL:<value>" width — label always visible, value blinks if "Lo"
+  const char* flVal = trimmed(flare);
+  bool flLow = (flVal[0] == 'L' && flVal[1] == 'o');
+  int flLabelW = u8g2.getStrWidth("FL:");
+  int flValW   = u8g2.getStrWidth(flVal);
+  int flX = (128 - flLabelW - flValW) / 2;
+  u8g2.drawStr(flX, 32, "FL:");
   if (!flLow || blinkOn)
-    u8g2.drawStr((128 - flW) / 2, 32, flDisp);
+    u8g2.drawStr(flX + flLabelW, 32, flVal);
 
-  // JAMMING: right-justified, blinks ~2 Hz when ECM transmitting
+  // JAMMING: right-justified, always blinks when ECM transmitting
   if (ecmTx && blinkOn) {
     const char* jmrStr = "JAMMING";
     int jw = u8g2.getStrWidth(jmrStr);
