@@ -207,33 +207,38 @@ void UI::showAircraftStatus(uint32_t fuelLbs, const char* chaff, const char* fla
   int fy = (32 + u8g2.getAscent()) / 2;
   u8g2.drawStr((128 - fw) / 2, fy, fuelStr);
 
+#ifndef RELEASE_BUILD
+  // Show fw value in top-left for 5 s so it can be read off the OLED
+  static unsigned long s_fwShowUntil = 0;
+  static bool s_fwArmed = false;
+  if (!s_fwArmed && fuelLbs > 0) { s_fwArmed = true; s_fwShowUntil = millis() + 5000UL; }
+  if (s_fwArmed && millis() < s_fwShowUntil) {
+    u8g2.setFont(u8g2_font_5x7_tr);
+    char dbg[10]; snprintf(dbg, sizeof(dbg), "fw=%d", fw);
+    u8g2.drawStr(0, 7, dbg);
+  }
+#endif
+
   // --- Bottom zone: CH / FL / JAMMING row ---
   u8g2.setFont(u8g2_font_5x7_tr);
 
-  // Trim leading spaces; all-spaces = not received → "--"
-  auto trimmed = [](const char* s) -> const char* {
-    while (*s == ' ') s++;
-    return *s ? s : "--";
-  };
-
   bool blinkOn = (millis() / 250) % 2 == 0;
 
-  // CH:<value> left-justified — label always visible, value blinks if "Lo"
-  const char* chVal = trimmed(chaff);
-  bool chLow = (chVal[0] == 'L' && chVal[1] == 'o');
+  // CH:XXXX — raw 4-char DCS string; leading spaces provide natural gap between label and digits
+  bool chLow = (chaff[0] == 'L' && chaff[1] == 'o');
   int chLabelW = u8g2.getStrWidth("CH:");
   u8g2.drawStr(0, 32, "CH:");
   if (!chLow || blinkOn)
-    u8g2.drawStr(chLabelW, 32, chVal);
+    u8g2.drawStr(chLabelW, 32, chaff);
 
-  // FL:<value> — label centered, value flows right; label never moves during blink
-  const char* flVal = trimmed(flare);
-  bool flLow = (flVal[0] == 'L' && flVal[1] == 'o');
+  // FL:XXXX — centered as fixed 7-char block; width anchored to "FL:    " so label never moves
+  bool flLow = (flare[0] == 'L' && flare[1] == 'o');
+  int flBlockW = u8g2.getStrWidth("FL:    ");  // fixed reference: 3 label + 4 value chars
   int flLabelW = u8g2.getStrWidth("FL:");
-  int flX = (128 - flLabelW) / 2;
+  int flX = (128 - flBlockW) / 2;
   u8g2.drawStr(flX, 32, "FL:");
   if (!flLow || blinkOn)
-    u8g2.drawStr(flX + flLabelW, 32, flVal);
+    u8g2.drawStr(flX + flLabelW, 32, flare);
 
   // JAMMING: right-justified, always blinks when ECM transmitting
   if (ecmTx && blinkOn) {
