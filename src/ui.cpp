@@ -226,12 +226,11 @@ void UI::showAircraftStatus(uint32_t fuelLbs, const char* chaff, const char* fla
   if (!chLow || blinkOn)
     u8g2.drawStr(chLabelW, 32, chVal);
 
-  // FL:<value> centered on full "FL:<value>" width — label always visible, value blinks if "Lo"
+  // FL:<value> — label centered, value flows right; label never moves during blink
   const char* flVal = trimmed(flare);
   bool flLow = (flVal[0] == 'L' && flVal[1] == 'o');
   int flLabelW = u8g2.getStrWidth("FL:");
-  int flValW   = u8g2.getStrWidth(flVal);
-  int flX = (128 - flLabelW - flValW) / 2;
+  int flX = (128 - flLabelW) / 2;
   u8g2.drawStr(flX, 32, "FL:");
   if (!flLow || blinkOn)
     u8g2.drawStr(flX + flLabelW, 32, flVal);
