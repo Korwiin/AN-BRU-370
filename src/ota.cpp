@@ -62,7 +62,7 @@ OTA::CheckResult OTA::check() {
   if (!vp) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
   vp = strchr(vp, ':');
   if (!vp) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
-  result.versionBCD = (uint16_t)atoi(vp + 1);
+  result.versionInt = (uint16_t)atoi(vp + 1);
 
   const char* up = strstr(src, "\"url\"");
   if (!up) { strlcpy(result.error, "Bad manifest", sizeof(result.error)); WiFi.setSleep(true); return result; }
@@ -77,7 +77,7 @@ OTA::CheckResult OTA::check() {
   memcpy(result.url, up, len);
   result.url[len] = '\0';
 
-  result.available = (result.versionBCD > FIRMWARE_VERSION_BCD);
+  result.available = (result.versionInt > FIRMWARE_VERSION_INT);
   WiFi.setSleep(true);
   return result;
 }
