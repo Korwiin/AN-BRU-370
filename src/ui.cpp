@@ -181,28 +181,6 @@ void UI::showWifiConnected(const char* ssid) {
   delay(1000);
 }
 
-void UI::showSyncing() {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 16, "SYNCING...");
-  u8g2.sendBuffer();
-}
-
-void UI::showSynced() {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 16, "SYNCED");
-  u8g2.sendBuffer();
-  delay(800);
-}
-
-void UI::showSyncFailed() {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_6x10_tr);
-  u8g2.drawStr(0, 16, "SYNC FAILED");
-  u8g2.sendBuffer();
-}
-
 void UI::showMasterCaution(bool flashState) {
   u8g2.clearBuffer();
   if (flashState) {
@@ -251,6 +229,65 @@ void UI::showStoresConfig(bool flashState) {
   u8g2.sendBuffer();
 }
 
+
+void UI::showAircraftStatus(uint16_t fuelLbs, uint8_t chaff, uint8_t flare, bool ecmTx) {
+  u8g2.clearBuffer();
+
+  // --- Top zone: fuel number, large font, centered ---
+  u8g2.setFont(u8g2_font_t0_22b_mr);
+  char fuelStr[8];
+  snprintf(fuelStr, sizeof(fuelStr), "%u", (unsigned)fuelLbs);
+  int fw = u8g2.getStrWidth(fuelStr);
+  int fy = (32 + u8g2.getAscent()) / 2;  // vertically center in top 75%
+  u8g2.drawStr((128 - fw) / 2, fy, fuelStr);
+
+  // --- Bottom zone: CH / FL / JAMMING row ---
+  u8g2.setFont(u8g2_font_5x7_tr);
+
+  // Format CH and FL strings
+  char chStr[8], flStr[8];
+  if (chaff == 0xFF) snprintf(chStr, sizeof(chStr), "CH: --");
+  else               snprintf(chStr, sizeof(chStr), "CH: %u", (unsigned)chaff);
+  if (flare == 0xFF) snprintf(flStr, sizeof(flStr), "FL: --");
+  else               snprintf(flStr, sizeof(flStr), "FL: %u", (unsigned)flare);
+
+  int asc = u8g2.getAscent();
+  int yBox = 32 - asc;  // top of character cells
+
+  // Helper: draw text, inversed if `inv` is true
+  auto drawItem = [&](int x, const char* s, bool inv) {
+    int w = u8g2.getStrWidth(s);
+    if (inv) {
+      u8g2.setDrawColor(1);
+      u8g2.drawBox(x, yBox, w, asc);
+      u8g2.setFontMode(1);
+      u8g2.setDrawColor(0);
+      u8g2.drawStr(x, 32, s);
+      u8g2.setDrawColor(1);
+      u8g2.setFontMode(0);
+    } else {
+      u8g2.drawStr(x, 32, s);
+    }
+  };
+
+  // CH: left-aligned
+  bool chInv = (chaff != 0xFF && chaff <= 10);
+  drawItem(0, chStr, chInv);
+
+  // FL: centered
+  int flW = u8g2.getStrWidth(flStr);
+  bool flInv = (flare != 0xFF && flare <= 10);
+  drawItem((128 - flW) / 2, flStr, flInv);
+
+  // JAMMING: right-justified, only when ECM is transmitting (always inverse)
+  if (ecmTx) {
+    const char* jmrStr = "JAMMING";
+    int jw = u8g2.getStrWidth(jmrStr);
+    drawItem(128 - jw, jmrStr, true);
+  }
+
+  u8g2.sendBuffer();
+}
 
 void UI::showMacroMenu(int idx) {
   Macro* m = &macros[idx];
