@@ -195,13 +195,14 @@ void UI::showStoresConfig(bool flashState) {
 
 static void drawGearTriangle(bool n, bool l, bool r) {
   if (n) u8g2.drawDisc(15,  5, 3);
-  if (l) u8g2.drawDisc( 8, 21, 3);
-  if (r) u8g2.drawDisc(23, 21, 3);
+  if (l) u8g2.drawDisc( 8, 19, 3);
+  if (r) u8g2.drawDisc(23, 19, 3);
 }
 
 static void drawSpeedbrake(uint16_t val) {
-  if (val <= 0x0200) return;
-  const char* str = (val >= 0x7FFF) ? "***" : "...";
+  // DCS-BIOS defineFloat range {-1,1}: stowed (game 0.0) = 0x7FFF, full open = 0xFFFF
+  if (val < 0x8000) return;
+  const char* str = (val >= 0xC000) ? "***" : "...";
   int sw = u8g2.getStrWidth(str);
   u8g2.drawStr(128 - sw, 8,  str);
   u8g2.drawStr(128 - sw, 16, str);
