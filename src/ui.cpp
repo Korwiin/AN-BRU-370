@@ -202,11 +202,9 @@ static void drawGearTriangle(bool n, bool l, bool r) {
 static void drawSpeedbrake(uint16_t val) {
   // DCS-BIOS defineFloat range {-1,1}: stowed (game 0.0) = 0x7FFF, full open = 0xFFFF
   if (val < 0x8000) return;
-  const char* str = (val >= 0xC000) ? "***" : "...";
-  int sw = u8g2.getStrWidth(str);
-  u8g2.drawStr(128 - sw, 8,  str);
-  u8g2.drawStr(128 - sw, 16, str);
-  u8g2.drawStr(128 - sw, 24, str);
+  u8g2.drawStr(97, 8,  "***");
+  u8g2.drawStr(97, 16, "***");
+  u8g2.drawStr(97, 24, "***");
 }
 
 void UI::showAircraftStatus(uint32_t fuelLbs,
