@@ -120,6 +120,24 @@ static void safeRestart() {
   ESP.restart();
 }
 
+// Warm the WiFi radio (matching OTA behaviour) then count down 5 s before
+// rebooting. SP cancels. Keeps the radio fully awake so Eero's WPA3 session
+// state is active — not idle — when the deauth fires, matching the condition
+// under which OTA reboots reliably reconnect.
+static void rebootWithCountdown() {
+  WiFi.setSleep(false);
+  for (int secs = 5; secs > 0; secs--) {
+    UI::showRebootCountdown(secs);
+    unsigned long t0 = millis();
+    while (millis() - t0 < 1000UL) {
+      Encoder::readDelta();
+      if (Encoder::shortPressed()) return;  // SP = cancel
+      delay(50);
+    }
+  }
+  safeRestart();
+}
+
 static void executeMenuItem() {
   switch (s_menuSel) {
     case 0:  // Knob direction
@@ -146,7 +164,7 @@ static void executeMenuItem() {
       s_mode = FIRMWARE_CHECKING;
       return;
     case 6:  // Reboot
-      safeRestart();
+      rebootWithCountdown();
       break;
     case 7:  // EXIT — macros only when WiFi is off or DCS is live
       s_mode = (!s_wifiEnabled || s_wifiCancelled || DcsBios::isConnected())

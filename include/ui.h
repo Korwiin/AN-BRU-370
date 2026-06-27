@@ -48,6 +48,7 @@ namespace UI {
   void showMouseCalibrate(int axis, uint16_t val, const char* label);
   void showScreenEdit(int digits[8], int digitPos);
   void showSaved();
+  void showRebootCountdown(int secs);  // 5-s countdown before reboot; SP=Cancel
   void showSerialActive();
   void showBleActive(bool connected);    // displayed while NimBLE UART session is running
   void showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,

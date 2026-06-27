@@ -540,6 +540,16 @@ void UI::showSaved() {
   delay(600);
 }
 
+void UI::showRebootCountdown(int secs) {
+  char buf[20];
+  snprintf(buf, sizeof(buf), "Rebooting in %ds", secs);
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr((128 - u8g2.getStrWidth(buf))      / 2, 12, buf);
+  u8g2.drawStr((128 - u8g2.getStrWidth("SP=Cancel")) / 2, 27, "SP=Cancel");
+  u8g2.sendBuffer();
+}
+
 void UI::setContrast(uint8_t value) {
   u8g2.setContrast(value);
 }
