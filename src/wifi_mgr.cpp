@@ -129,6 +129,7 @@ bool WifiMgr::beginAttempt(int n) {
   delay(500);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname("ANBRU-370");  // after mode set so it takes effect
+  delay(100);                      // allow lwIP netif to commit hostname before DHCP fires
 
   // Clear any DISCONNECTED events that fired during the mode cycle (e.g. ASSOC_LEAVE on retry)
   // Without this, s_phase_failReason is non-zero from the mode-OFF teardown on retry attempts,
