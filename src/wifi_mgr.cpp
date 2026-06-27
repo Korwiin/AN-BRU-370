@@ -2,6 +2,7 @@
 #include "encoder.h"
 #include "config.h"
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <Preferences.h>
 #include <NimBLEDevice.h>
 
@@ -104,6 +105,20 @@ static void registerEventHandler() {
   });
 }
 
+// Connect using WPA2 only. Setting pmf_cfg.capable = false disables PMF, which
+// WPA3 SAE requires. Eero in WPA2/WPA3 transition mode falls back to WPA2.
+// Uses esp_wifi directly so we can set pmf_cfg — WiFi.begin() hardcodes capable=true.
+static void wpa2Connect() {
+  wifi_config_t cfg = {};
+  strlcpy((char*)cfg.sta.ssid,     s_ssid, sizeof(cfg.sta.ssid));
+  strlcpy((char*)cfg.sta.password, s_pass, sizeof(cfg.sta.password));
+  cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+  cfg.sta.pmf_cfg.capable    = false;
+  cfg.sta.pmf_cfg.required   = false;
+  esp_wifi_set_config(WIFI_IF_STA, &cfg);
+  esp_wifi_connect();
+}
+
 bool WifiMgr::beginAttempt(int n) {
   (void)n;
   loadCredentials();
@@ -124,16 +139,15 @@ bool WifiMgr::beginAttempt(int n) {
   WiFi.setAutoConnect(false);
   WiFi.setAutoReconnect(false);  // disabled during boot; re-enabled after IP acquired in main.cpp
 
-  // Radio cycle — clears stale hardware state
+  // Radio cycle — hostname must be set BEFORE WiFi.mode(WIFI_STA) so it is
+  // applied when the netif is created (documented Arduino ESP32 requirement).
   WiFi.mode(WIFI_OFF);
   delay(500);
+  WiFi.setHostname("ANBRU-370");
   WiFi.mode(WIFI_STA);
-  WiFi.setHostname("ANBRU-370");  // after mode set so it takes effect
-  delay(100);                      // allow lwIP netif to commit hostname before DHCP fires
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);  // DHCP + hostname in DISCOVER
 
   // Clear any DISCONNECTED events that fired during the mode cycle (e.g. ASSOC_LEAVE on retry)
-  // Without this, s_phase_failReason is non-zero from the mode-OFF teardown on retry attempts,
-  // causing needRetry to fire immediately before the new WiFi.begin() has time to complete.
   s_phase_failReason = 0;
   s_connected = false;
 
@@ -147,7 +161,7 @@ bool WifiMgr::beginAttempt(int n) {
   }
   s_phase_rf = true;
 
-  WiFi.begin(s_ssid, s_pass);
+  wpa2Connect();
   return true;
 }
 
@@ -165,7 +179,8 @@ static void startConnect() {
   delay(100);
   WiFi.setHostname("ANBRU-370");
   WiFi.mode(WIFI_STA);
-  WiFi.begin(s_ssid, s_pass);
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  wpa2Connect();
 }
 
 WifiMgr::WifiPhase WifiMgr::getPhase() {
@@ -236,16 +251,16 @@ void WifiMgr::reconnect() {
   s_phase_ip     = false;
   s_phase_eth    = false;
   s_phase_failReason = 0;
-  WiFi.setAutoReconnect(false);  // prevent framework from competing during reconnect
+  WiFi.setAutoReconnect(false);
   WiFi.mode(WIFI_OFF);
   delay(500);
+  WiFi.setHostname("ANBRU-370");  // before WiFi.mode(WIFI_STA) — applied at netif creation
   WiFi.mode(WIFI_STA);
-  WiFi.setHostname("ANBRU-370");
-  delay(100);                    // allow lwIP netif to commit hostname before DHCP fires
-  s_phase_failReason = 0;        // clear mode-cycle disconnect events
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  s_phase_failReason = 0;
   s_connected = false;
-  WiFi.setAutoReconnect(true);   // re-enable for runtime drop recovery
-  WiFi.begin(s_ssid, s_pass);
+  WiFi.setAutoReconnect(true);
+  wpa2Connect();
 }
 
 void WifiMgr::saveCredentials(const char* ssid, const char* pass) {
