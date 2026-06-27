@@ -11,7 +11,10 @@ int mouseParams[8] = {875, 50, 2048, 2048, 0, 0, 0, 0};
 
 static void openMapAndSelectPin() {
   HID::Keyboard.releaseAll();
-  HID::pressKey(KEY_F10);
+  HID::Keyboard.press(KEY_LEFT_CTRL);
+  HID::Keyboard.press(KEY_F10);
+  delay(50);
+  HID::Keyboard.releaseAll();
   delay(30);
   HID::moveAbs((uint16_t)mouseParams[0], (uint16_t)mouseParams[1]);
   HID::mouseClick();
@@ -34,20 +37,22 @@ static void dropPinAndLabel(const char* label) {
 static void executeAWACS()       { openMapAndSelectPin(); dropPinAndLabel("magic11"); }
 static void executeFCAP()        { openMapAndSelectPin(); dropPinAndLabel("fcap"); }
 static void executeREAPER()      { openMapAndSelectPin(); dropPinAndLabel("1688 reaper"); }
+static void executeCREAPER()     { openMapAndSelectPin(); dropPinAndLabel("1688 CREAPER"); }
 
 static void executeCDRP(int idx);
-static void executeCDRPAlpha()   { executeCDRP(3); }
-static void executeCDRPBravo()   { executeCDRP(4); }
-static void executeCDRPCharlie() { executeCDRP(5); }
-static void executeCDRPDelta()   { executeCDRP(6); }
-static void executeCDRPEcho()    { executeCDRP(7); }
-static void executeCDRPFoxtrot() { executeCDRP(8); }
-static void executeCDRPGamma()   { executeCDRP(9); }
+static void executeCDRPAlpha()   { executeCDRP(4); }
+static void executeCDRPBravo()   { executeCDRP(5); }
+static void executeCDRPCharlie() { executeCDRP(6); }
+static void executeCDRPDelta()   { executeCDRP(7); }
+static void executeCDRPEcho()    { executeCDRP(8); }
+static void executeCDRPFoxtrot() { executeCDRP(9); }
+static void executeCDRPGamma()   { executeCDRP(10); }
 
 Macro macros[] = {
   {"AWACS",        "magic11",      executeAWACS},
   {"FCAP",         "fcap",         executeFCAP},
   {"REAPER",       "1688 reaper",  executeREAPER},
+  {"CREAPER",      "1688 CREAPER", executeCREAPER},
   {"CDRP ALPHA",   "CDRP-ALPHA",   executeCDRPAlpha},
   {"CDRP BRAVO",   "CDRP-BETA",    executeCDRPBravo},
   {"CDRP CHARLIE", "CDRP-CHARLIE", executeCDRPCharlie},
