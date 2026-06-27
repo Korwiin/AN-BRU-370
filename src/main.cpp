@@ -61,6 +61,7 @@ static int           s_bootAttempt  = 0;   // 0=not started; 1-3=current attempt
 static unsigned long s_bootDeadline = 0;   // millis()+15s, set after beginAttempt() succeeds
 static bool          s_bootFailed   = false;
 static unsigned long s_bootDoneAt   = 0;   // millis() when ph.ip && dcsLive first both true
+static unsigned long s_retryAfter   = 0;   // non-zero: backoff expiry before next beginAttempt()
 
 static OTA::CheckResult  s_otaResult        = {};
 static char              s_otaError[24]      = {0};
@@ -113,7 +114,7 @@ static void safeRestart() {
   WiFi.setSleep(false);          // wake radio from modem sleep — deauth won't transmit if duty-cycling
   delay(100);
   WiFi.disconnect(false, true);  // explicit deauth + erase stored AP config from driver
-  delay(500);                    // give AP time to receive and clear its session record
+  delay(1000);                   // give AP time to receive and clear its WPA3 SAE session
   WiFi.mode(WIFI_OFF);
   delay(200);
   ESP.restart();
@@ -433,16 +434,25 @@ void loop() {
                        (ph.failReasonCode != 0) ||
                        (s_bootDeadline > 0 && millis() > s_bootDeadline);
       if (needRetry) {
-        if (s_bootAttempt < 3) {
-          if (WifiMgr::beginAttempt(s_bootAttempt + 1)) {
-            s_bootAttempt++;
-            s_bootDeadline = millis() + 15000UL;
+        // AUTH_EXPIRE (2): AP needs time to fully clear its WPA3 SAE session between
+        // attempts. Rapid-fire retries prevent Eero from completing teardown, causing
+        // all 3 attempts to fail. Back off 3 s before the next beginAttempt().
+        if (s_retryAfter == 0 && ph.failReasonCode == 2)
+          s_retryAfter = millis() + 3000UL;
+        bool backoffDone = (s_retryAfter == 0 || millis() >= s_retryAfter);
+        if (backoffDone) {
+          s_retryAfter = 0;
+          if (s_bootAttempt < 3) {
+            if (WifiMgr::beginAttempt(s_bootAttempt + 1)) {
+              s_bootAttempt++;
+              s_bootDeadline = millis() + 15000UL;
+            } else {
+              s_bootAttempt++;
+            }
+            ph = WifiMgr::getPhase();
           } else {
-            s_bootAttempt++;
+            s_bootFailed = true;
           }
-          ph = WifiMgr::getPhase();
-        } else {
-          s_bootFailed = true;
         }
       }
     }
