@@ -110,8 +110,10 @@ static void otaProgressCb(int percent) {
 
 // Deauth from AP before restarting so the router releases the session cleanly.
 static void safeRestart() {
-  WiFi.disconnect(false, true);  // send deauth frame; erase stored AP config from driver
-  delay(300);
+  WiFi.setSleep(false);          // wake radio from modem sleep — deauth won't transmit if duty-cycling
+  delay(100);
+  WiFi.disconnect(false, true);  // explicit deauth + erase stored AP config from driver
+  delay(500);                    // give AP time to receive and clear its session record
   WiFi.mode(WIFI_OFF);
   delay(200);
   ESP.restart();

@@ -258,6 +258,7 @@ void WifiMgr::reconnect() {
   delay(500);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname("ANBRU-370");
+  delay(100);                    // allow lwIP netif to commit hostname before DHCP fires
   s_phase_failReason = 0;        // clear mode-cycle disconnect events
   s_connected = false;
   WiFi.setAutoReconnect(true);   // re-enable for runtime drop recovery
