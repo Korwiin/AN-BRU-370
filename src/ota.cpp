@@ -139,8 +139,10 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
              (int)written, totalBytes, (int)Update.getError());
     return false;
   }
+  WiFi.setSleep(false);          // wake radio from modem sleep — deauth won't transmit if radio is duty-cycling
+  delay(100);
   WiFi.disconnect(false, true);  // explicit deauth + erase stored AP config from driver
-  delay(300);
+  delay(500);                    // give AP time to receive and clear its session record
   WiFi.mode(WIFI_OFF);
   delay(200);
   ESP.restart();
