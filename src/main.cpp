@@ -109,10 +109,11 @@ static void otaProgressCb(int percent) {
 }
 
 // Deauth from AP before restarting so the router releases the session cleanly.
-// Prevents WIFI_REASON_AUTH_EXPIRE (error 2) on the next boot connection attempt.
 static void safeRestart() {
+  WiFi.disconnect(false, true);  // send deauth frame; erase stored AP config from driver
+  delay(300);
   WiFi.mode(WIFI_OFF);
-  delay(500);
+  delay(200);
   ESP.restart();
 }
 
@@ -450,6 +451,7 @@ void loop() {
       DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
                      "255.255.255.255", DCSBIOS_CMD_PORT);
       s_dcsBiosStarted = true;
+      WiFi.setAutoReconnect(true);  // enable runtime drop recovery after boot connects
     }
 
     // Exit conditions

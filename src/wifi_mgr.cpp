@@ -118,16 +118,22 @@ bool WifiMgr::beginAttempt(int n) {
   s_phase_failReason = 0;
   s_connected = false;
 
-  // Driver config — set before any radio operation
+  // Driver config
   WiFi.persistent(false);
   WiFi.setAutoConnect(false);
-  WiFi.setAutoReconnect(true);
-  WiFi.setHostname("ANBRU-370");
+  WiFi.setAutoReconnect(false);  // disabled during boot; re-enabled after IP acquired in main.cpp
 
   // Radio cycle — clears stale hardware state
   WiFi.mode(WIFI_OFF);
   delay(500);
   WiFi.mode(WIFI_STA);
+  WiFi.setHostname("ANBRU-370");  // after mode set so it takes effect
+
+  // Clear any DISCONNECTED events that fired during the mode cycle (e.g. ASSOC_LEAVE on retry)
+  // Without this, s_phase_failReason is non-zero from the mode-OFF teardown on retry attempts,
+  // causing needRetry to fire immediately before the new WiFi.begin() has time to complete.
+  s_phase_failReason = 0;
+  s_connected = false;
 
   // RF check
   String mac = WiFi.macAddress();
@@ -247,9 +253,14 @@ void WifiMgr::reconnect() {
   s_phase_ip     = false;
   s_phase_eth    = false;
   s_phase_failReason = 0;
+  WiFi.setAutoReconnect(false);  // prevent framework from competing during reconnect
   WiFi.mode(WIFI_OFF);
   delay(500);
   WiFi.mode(WIFI_STA);
+  WiFi.setHostname("ANBRU-370");
+  s_phase_failReason = 0;        // clear mode-cycle disconnect events
+  s_connected = false;
+  WiFi.setAutoReconnect(true);   // re-enable for runtime drop recovery
   WiFi.begin(s_ssid, s_pass);
 }
 
