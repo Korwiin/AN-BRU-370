@@ -95,6 +95,10 @@ static void registerEventHandler() {
         s_connected = true;
         break;
       case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+        // Re-disable PMF immediately after the framework's first_connect auto-retry
+        // fires WiFi.begin() (which re-enables PMF). Our handler runs right after
+        // the library's _eventCallback, before the association exchange starts.
+        esp_wifi_disable_pmf_config(WIFI_IF_STA);
         s_phase_failReason = info.wifi_sta_disconnected.reason;
         s_phase_ip  = false;
         s_phase_eth = false;
@@ -103,20 +107,6 @@ static void registerEventHandler() {
       default: break;
     }
   });
-}
-
-// Connect using WPA2 only. Setting pmf_cfg.capable = false disables PMF, which
-// WPA3 SAE requires. Eero in WPA2/WPA3 transition mode falls back to WPA2.
-// Uses esp_wifi directly so we can set pmf_cfg — WiFi.begin() hardcodes capable=true.
-static void wpa2Connect() {
-  wifi_config_t cfg = {};
-  strlcpy((char*)cfg.sta.ssid,     s_ssid, sizeof(cfg.sta.ssid));
-  strlcpy((char*)cfg.sta.password, s_pass, sizeof(cfg.sta.password));
-  cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-  cfg.sta.pmf_cfg.capable    = false;
-  cfg.sta.pmf_cfg.required   = false;
-  esp_wifi_set_config(WIFI_IF_STA, &cfg);
-  esp_wifi_connect();
 }
 
 bool WifiMgr::beginAttempt(int n) {
@@ -161,7 +151,8 @@ bool WifiMgr::beginAttempt(int n) {
   }
   s_phase_rf = true;
 
-  wpa2Connect();
+  WiFi.begin(s_ssid, s_pass);
+  esp_wifi_disable_pmf_config(WIFI_IF_STA);  // disable PMF before RSN IE is built for association
   return true;
 }
 
@@ -180,7 +171,8 @@ static void startConnect() {
   WiFi.setHostname("ANBRU-370");
   WiFi.mode(WIFI_STA);
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-  wpa2Connect();
+  WiFi.begin(s_ssid, s_pass);
+  esp_wifi_disable_pmf_config(WIFI_IF_STA);
 }
 
 WifiMgr::WifiPhase WifiMgr::getPhase() {
@@ -260,7 +252,8 @@ void WifiMgr::reconnect() {
   s_phase_failReason = 0;
   s_connected = false;
   WiFi.setAutoReconnect(true);
-  wpa2Connect();
+  WiFi.begin(s_ssid, s_pass);
+  esp_wifi_disable_pmf_config(WIFI_IF_STA);
 }
 
 void WifiMgr::saveCredentials(const char* ssid, const char* pass) {
