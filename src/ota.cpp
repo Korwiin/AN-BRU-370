@@ -139,8 +139,10 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
              (int)written, totalBytes, (int)Update.getError());
     return false;
   }
-  WiFi.mode(WIFI_OFF);  // triggers esp_wifi_stop(); sends deauth frame to AP before reset
-  delay(500);
+  WiFi.disconnect(false, true);  // explicit deauth + erase stored AP config from driver
+  delay(300);
+  WiFi.mode(WIFI_OFF);
+  delay(200);
   ESP.restart();
   return true;  // never reached
 }
