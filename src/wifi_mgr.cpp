@@ -85,7 +85,8 @@ static void registerEventHandler() {
   WiFi.onEvent([](WiFiEvent_t ev, WiFiEventInfo_t info) {
     switch (ev) {
       case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-        s_phase_eth = true;
+        s_phase_ssid = true;  // SSID was found; confirmed by successful association
+        s_phase_eth  = true;
         break;
       case ARDUINO_EVENT_WIFI_STA_GOT_IP:
         s_phase_ip  = true;
@@ -145,25 +146,14 @@ bool WifiMgr::beginAttempt(int n) {
   }
   s_phase_rf = true;
 
-  // Blocking SSID scan (~2-3 s)
-  int numNets = WiFi.scanNetworks(false, false);
-  if (numNets < 0) {
-    s_phase_ssidFail = true;
-    WiFi.scanDelete();
-    return false;
-  }
-  bool found = false;
-  for (int i = 0; i < numNets && !found; i++) {
-    if (strcmp(WiFi.SSID(i).c_str(), s_ssid) == 0) found = true;
-  }
-  WiFi.scanDelete();
-  if (!found) {
-    s_phase_ssidFail = true;
-    return false;
-  }
-  s_phase_ssid = true;
-
-  // All pre-checks passed — start association
+  // Full-channel scan sorted by RSSI so the driver connects to the strongest
+  // Eero node in the mesh. WIFI_FAST_SCAN (the library default) stops at the
+  // first AP found, which may not be the nearest node. WIFI_ALL_CHANNEL_SCAN
+  // surveys all nodes before associating, eliminating the probe-request storm
+  // that the previous explicit WiFi.scanNetworks() was generating during
+  // Eero's WPA3 SAE session teardown window.
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
   WiFi.begin(s_ssid, s_pass);
   return true;
 }
@@ -182,6 +172,8 @@ static void startConnect() {
   delay(100);
   WiFi.setHostname("ANBRU-370");
   WiFi.mode(WIFI_STA);
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
   WiFi.begin(s_ssid, s_pass);
 }
 
@@ -262,6 +254,8 @@ void WifiMgr::reconnect() {
   s_phase_failReason = 0;        // clear mode-cycle disconnect events
   s_connected = false;
   WiFi.setAutoReconnect(true);   // re-enable for runtime drop recovery
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
   WiFi.begin(s_ssid, s_pass);
 }
 
