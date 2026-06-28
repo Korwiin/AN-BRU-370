@@ -1,6 +1,5 @@
 #pragma once
 #include <Arduino.h>
-#include <WiFiUdp.h>
 
 // DCS-BIOS F-16C verified identifiers (F-16C_50.json v0.11.4)
 // RWR MSL LAUNCH at 0x4480 (F_16C_50_LIGHT_RWR_MSL_LAUNCH, Addresses.h line 15956).
