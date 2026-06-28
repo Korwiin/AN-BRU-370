@@ -293,10 +293,10 @@ void loop() {
     }
   }
 
-  // Runtime WiFi watchdog — every 5 s after boot completes.
+  // Runtime WiFi watchdog — every 60 s after boot completes.
   // setAutoReconnect(true) handles transient drops; this catches driver give-up.
   static unsigned long s_lastWatchdog = 0;
-  if (s_mode != BOOT_STATUS && millis() - s_lastWatchdog >= 5000UL) {
+  if (s_mode != BOOT_STATUS && millis() - s_lastWatchdog >= 60000UL) {
     s_lastWatchdog = millis();
     if (WifiMgr::isConnected() && WiFi.status() != WL_CONNECTED) {
       WifiMgr::reconnect();
