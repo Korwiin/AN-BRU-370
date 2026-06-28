@@ -1,9 +1,22 @@
 #include "dcs_bios.h"
 #include <WiFi.h>
+#include <AsyncUDP.h>
 
-static WiFiUDP   s_udp;
-static uint16_t  s_cmdPort;
-static IPAddress s_senderIp;   // DCS PC's unicast IP, captured from first received packet
+// ── Ring buffer ──────────────────────────────────────────────────────────────
+// Single-producer (Core 0 AsyncUDP callback) / single-consumer (Core 1 loop).
+// portMUX spinlock protects the push path only; pop advances s_tail on Core 1.
+static constexpr uint8_t  RING_SLOTS    = 4;
+static constexpr uint16_t RING_PKT_MAX  = 512;
+
+struct RingSlot { uint8_t data[RING_PKT_MAX]; uint16_t len; IPAddress remoteIP; };
+static RingSlot          s_ring[RING_SLOTS];
+static volatile uint8_t  s_head = 0;   // written by Core 0
+static volatile uint8_t  s_tail = 0;   // written by Core 1
+static portMUX_TYPE      s_mux  = portMUX_INITIALIZER_UNLOCKED;
+
+static AsyncUDP   s_udp;
+static uint16_t   s_cmdPort;
+static IPAddress  s_senderIp;
 static unsigned long s_lastRx = 0;
 
 // Decoded state — 0xFF = not yet received
@@ -138,21 +151,48 @@ static void processByte(uint8_t b) {
 void DcsBios::begin(const char* mcastAddr, uint16_t listenPort,
                     const char* /*cmdHost*/, uint16_t cmdPort) {
   s_cmdPort  = cmdPort;
-  s_senderIp = IPAddress(0, 0, 0, 0);  // reset on re-init; repopulated from first packet
+  s_senderIp = IPAddress(0, 0, 0, 0);
+
+  // Reset ring buffer on re-init (e.g. after WiFi reconnect).
+  portENTER_CRITICAL(&s_mux);
+  s_head = s_tail = 0;
+  portEXIT_CRITICAL(&s_mux);
+
   IPAddress mcast;
   mcast.fromString(mcastAddr);
-  s_udp.beginMulticast(mcast, listenPort);
+
+  s_udp.listenMulticast(mcast, listenPort);
+
+  s_udp.onPacket([](AsyncUDPPacket pkt) {
+    // Core 0 — push raw bytes into ring buffer; do NOT parse here.
+    portENTER_CRITICAL_ISR(&s_mux);
+    uint8_t next = (s_head + 1) % RING_SLOTS;
+    if (next != s_tail) {                          // drop if full
+      uint16_t len = pkt.length() < RING_PKT_MAX ? (uint16_t)pkt.length() : RING_PKT_MAX;
+      memcpy(s_ring[s_head].data, pkt.data(), len);
+      s_ring[s_head].len      = len;
+      s_ring[s_head].remoteIP = pkt.remoteIP();
+      s_head = next;
+    }
+    portEXIT_CRITICAL_ISR(&s_mux);
+  });
 }
 
-bool DcsBios::update() {
-  int pktSize = s_udp.parsePacket();
-  if (pktSize <= 0) return false;
-  s_lastRx = millis();
-  s_senderIp = s_udp.remoteIP();  // capture DCS PC's unicast IP for command replies
-  s_parse = SYNC0;  // each UDP packet starts fresh with the 0x55×4 sync header
-  while (s_udp.available()) processByte((uint8_t)s_udp.read());
+// Core 1 only — drains ring buffer, parses bytes, updates shared state.
+static bool drainRing() {
+  if (s_head == s_tail) return false;      // empty — fast path
+  while (s_tail != s_head) {
+    RingSlot& slot = s_ring[s_tail];
+    s_lastRx   = millis();
+    s_senderIp = slot.remoteIP;
+    s_parse    = SYNC0;                    // each UDP packet is a fresh frame
+    for (uint16_t i = 0; i < slot.len; i++) processByte(slot.data[i]);
+    s_tail = (s_tail + 1) % RING_SLOTS;   // Core 1 owns tail; no lock needed
+  }
   return true;
 }
+
+bool DcsBios::update() { return drainRing(); }
 
 bool DcsBios::isConnected() {
   return s_lastRx > 0 && (millis() - s_lastRx < 3000);
@@ -163,10 +203,12 @@ bool DcsBios::hasData() {
 }
 
 void DcsBios::sendCommand(const char* id, uint16_t value) {
-  if (s_senderIp == IPAddress(0, 0, 0, 0)) return;  // no packet received yet; sender unknown
-  s_udp.beginPacket(s_senderIp, s_cmdPort);
-  s_udp.printf("%s %u\n", id, value);
-  s_udp.endPacket();
+  if (s_senderIp == IPAddress(0, 0, 0, 0)) return;  // sender not yet known
+  char buf[80];
+  int  len = snprintf(buf, sizeof(buf), "%s %u\n", id, value);
+  if (len > 0 && len < (int)sizeof(buf))
+    s_udp.writeTo(reinterpret_cast<const uint8_t*>(buf), (size_t)len,
+                  s_senderIp, s_cmdPort);
 }
 
 bool    DcsBios::masterCaution() { return s_mcLight; }
