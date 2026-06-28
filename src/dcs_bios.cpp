@@ -195,5 +195,5 @@ bool    DcsBios::mwsOn()        { return s_mwsOn; }
 bool    DcsBios::hdptLeft()     { return s_hdptL; }
 bool    DcsBios::hdptRight()    { return s_hdptR; }
 uint8_t DcsBios::cmdsModeKnob() { return s_cmdsModeKnob; }
-bool    DcsBios::rwrPowerLight(){ return s_rwrPwrLight; }
+bool    DcsBios::rwrPowerLight() { return s_rwrPwrLight; }
 
