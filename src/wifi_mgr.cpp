@@ -240,18 +240,13 @@ const char* WifiMgr::activeIP() {
 void WifiMgr::reconnect() {
   loadCredentials();
   registerEventHandler();
-  s_connected    = false;
-  s_phase_ip     = false;
-  s_phase_eth    = false;
+  s_connected        = false;
+  s_phase_ip         = false;
+  s_phase_eth        = false;
   s_phase_failReason = 0;
-  WiFi.setAutoReconnect(false);
-  WiFi.mode(WIFI_OFF);
-  delay(500);
-  WiFi.setHostname("ANBRU-370");  // before WiFi.mode(WIFI_STA) — applied at netif creation
-  WiFi.mode(WIFI_STA);
-  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-  s_phase_failReason = 0;
-  s_connected = false;
+  // Stay in WIFI_STA — no WIFI_OFF cycling. Cycling tears down the lwIP PCB,
+  // kills in-flight TCP (OTA), and resets the AP's stale-session cleanup timer.
+  // setAutoReconnect keeps the arduino-esp32 stack retrying internally.
   WiFi.setAutoReconnect(true);
   WiFi.begin(s_ssid, s_pass);
   esp_wifi_disable_pmf_config(WIFI_IF_STA);
