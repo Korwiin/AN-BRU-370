@@ -470,11 +470,12 @@ void loop() {
                        (ph.failReasonCode != 0) ||
                        (s_bootDeadline > 0 && millis() > s_bootDeadline);
       if (needRetry) {
-        // AUTH_EXPIRE (2): AP needs time to fully clear its WPA3 SAE session between
-        // attempts. Rapid-fire retries prevent Eero from completing teardown, causing
-        // all 3 attempts to fail. Back off 3 s before the next beginAttempt().
+        // AUTH_EXPIRE (2): AP retains a stale session for our MAC after a power-cut
+        // (no deauth was sent). The AP needs ~20 s to clear it. Without this backoff
+        // all retries land inside the cleanup window and all fail. 20 s is enough for
+        // Eero to fully expire the stale session before the next WiFi.begin() call.
         if (s_retryAfter == 0 && ph.failReasonCode == 2)
-          s_retryAfter = millis() + 3000UL;
+          s_retryAfter = millis() + 20000UL;
         bool backoffDone = (s_retryAfter == 0 || millis() >= s_retryAfter);
         if (backoffDone) {
           s_retryAfter = 0;

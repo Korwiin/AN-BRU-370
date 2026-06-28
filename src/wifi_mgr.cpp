@@ -114,7 +114,6 @@ static void registerEventHandler() {
 }
 
 bool WifiMgr::beginAttempt(int n) {
-  (void)n;
   loadCredentials();
   if (s_ssid[0] == '\0') {
     s_phase_ssidFail = true;
@@ -122,39 +121,37 @@ bool WifiMgr::beginAttempt(int n) {
   }
   registerEventHandler();
 
-  // Reset all phase flags for this attempt
+  // Reset phase flags for this attempt
   s_phase_rf = s_phase_ssid = s_phase_eth = s_phase_ip = s_phase_dns = false;
   s_phase_rfFail = s_phase_ssidFail = false;
   s_phase_failReason = 0;
   s_connected = false;
 
-  // Driver config
   WiFi.persistent(false);
   WiFi.setAutoConnect(false);
   WiFi.setAutoReconnect(false);  // disabled during boot; re-enabled after IP acquired in main.cpp
 
-  // Radio cycle — hostname must be set BEFORE WiFi.mode(WIFI_STA) so it is
-  // applied when the netif is created (documented Arduino ESP32 requirement).
-  WiFi.mode(WIFI_OFF);
-  delay(500);
-  WiFi.setHostname("ANBRU-370");
-  WiFi.mode(WIFI_STA);
-  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);  // DHCP + hostname in DISCOVER
+  if (n == 1) {
+    // First attempt: full radio init aligned with CockpitOS pattern.
+    // No WIFI_OFF cycling — the radio is already off on cold boot, and cycling
+    // it on retries sends management frames that reset the AP's stale-session
+    // cleanup timer, causing AUTH_EXPIRE to repeat across all attempts.
+    // Hostname must be set BEFORE WiFi.mode(WIFI_STA) — applied at netif creation.
+    WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);  // lower TX power; improves USB/RF coexistence on S3
+    WiFi.setHostname("ANBRU-370");
+    WiFi.mode(WIFI_STA);
+    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);  // DHCP + hostname in DISCOVER
 
-  // Clear any DISCONNECTED events that fired during the mode cycle (e.g. ASSOC_LEAVE on retry)
-  s_phase_failReason = 0;
-  s_connected = false;
-
-  // RF check
-  String mac = WiFi.macAddress();
-  bool macOk = (mac.length() >= 11 && mac != "00:00:00:00:00:00");
-  bool statusOk = (WiFi.status() != WL_CONNECTED);
-  if (!macOk || !statusOk) {
-    s_phase_rfFail = true;
-    return false;
+    String mac = WiFi.macAddress();
+    if (mac.length() < 11 || mac == "00:00:00:00:00:00") {
+      s_phase_rfFail = true;
+      return false;
+    }
   }
-  s_phase_rf = true;
+  // Retries (n > 1): already in WIFI_STA — just re-issue WiFi.begin() to
+  // restart association without disturbing the AP's ongoing session cleanup.
 
+  s_phase_rf = true;
   WiFi.begin(s_ssid, s_pass);
   esp_wifi_disable_pmf_config(WIFI_IF_STA);  // disable PMF before RSN IE is built for association
   return true;
