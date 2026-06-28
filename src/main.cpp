@@ -294,12 +294,18 @@ void loop() {
   }
 
   // Runtime WiFi watchdog — every 60 s after boot completes.
-  // setAutoReconnect(true) handles transient drops; this catches driver give-up.
+  // Tier 1 (desync): driver thinks connected but stack disagrees → reconnect()
+  // Tier 2 (long outage): been offline ≥60 s, AP session expired → reconnectFull()
   static unsigned long s_lastWatchdog = 0;
   if (s_mode != BOOT_STATUS && millis() - s_lastWatchdog >= 60000UL) {
     s_lastWatchdog = millis();
-    if (WifiMgr::isConnected() && WiFi.status() != WL_CONNECTED) {
+    bool wifiUp = (WiFi.status() == WL_CONNECTED);
+    if (WifiMgr::isConnected() && !wifiUp) {
+      // Driver desync: simplified reconnect stays in WIFI_STA
       WifiMgr::reconnect();
+    } else if (!WifiMgr::isConnected() && !wifiUp && s_wifiEnabled && !s_wifiCancelled) {
+      // Long outage (≥60 s offline): AP session has expired, full reset is safe
+      WifiMgr::reconnectFull();
     }
   }
 

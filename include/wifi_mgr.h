@@ -43,8 +43,12 @@ namespace WifiMgr {
   // Returns device IP as "192.168.1.5" or "--" if not connected.
   const char* activeIP();
 
-  // Silent runtime reconnect. Called by watchdog and Settings→Connect.
+  // Silent runtime reconnect. Called by watchdog for driver-desync (stays in WIFI_STA).
   void reconnect();
+
+  // Full radio reset for long outages (≥60 s offline). Cycles WIFI_OFF safely
+  // because the AP session has expired. Use reconnect() for driver-desync only.
+  void reconnectFull();
 
   // Returns true (once) after a WiFi disconnect event — caller should
   // tear down any sockets that depend on the WiFi link.
