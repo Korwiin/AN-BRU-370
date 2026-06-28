@@ -2,8 +2,8 @@
 #include <WiFi.h>
 
 static WiFiUDP   s_udp;
-static char      s_cmdHost[20];
 static uint16_t  s_cmdPort;
+static IPAddress s_senderIp;   // DCS PC's unicast IP, captured from first received packet
 static unsigned long s_lastRx = 0;
 
 // Decoded state — 0xFF = not yet received
@@ -136,9 +136,9 @@ static void processByte(uint8_t b) {
 }
 
 void DcsBios::begin(const char* mcastAddr, uint16_t listenPort,
-                    const char* cmdHost,   uint16_t cmdPort) {
-  strlcpy(s_cmdHost, cmdHost, sizeof(s_cmdHost));
-  s_cmdPort = cmdPort;
+                    const char* /*cmdHost*/, uint16_t cmdPort) {
+  s_cmdPort  = cmdPort;
+  s_senderIp = IPAddress(0, 0, 0, 0);  // reset on re-init; repopulated from first packet
   IPAddress mcast;
   mcast.fromString(mcastAddr);
   s_udp.beginMulticast(mcast, listenPort);
@@ -148,6 +148,7 @@ bool DcsBios::update() {
   int pktSize = s_udp.parsePacket();
   if (pktSize <= 0) return false;
   s_lastRx = millis();
+  s_senderIp = s_udp.remoteIP();  // capture DCS PC's unicast IP for command replies
   s_parse = SYNC0;  // each UDP packet starts fresh with the 0x55×4 sync header
   while (s_udp.available()) processByte((uint8_t)s_udp.read());
   return true;
@@ -162,7 +163,8 @@ bool DcsBios::hasData() {
 }
 
 void DcsBios::sendCommand(const char* id, uint16_t value) {
-  s_udp.beginPacket(s_cmdHost, s_cmdPort);
+  if (s_senderIp == IPAddress(0, 0, 0, 0)) return;  // no packet received yet; sender unknown
+  s_udp.beginPacket(s_senderIp, s_cmdPort);
   s_udp.printf("%s %u\n", id, value);
   s_udp.endPacket();
 }
