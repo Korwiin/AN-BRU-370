@@ -14,6 +14,8 @@
 enum MenuState {
   BOOT_STATUS,
   AIRCRAFT_STATUS,
+  NOT_READY,       // MWS=OFF: new-plane alert
+  SETUP_RUNNING,   // executing 5-step setup sequence
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
   MOUSE_TUNE_MENU, WIFI_MENU, SECRETS_MENU,
   MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y,
@@ -50,6 +52,10 @@ static bool          s_rwrActive     = false;
 static bool          s_rwrFlash      = false;
 static unsigned long s_rwrFlashTimer = 0;
 static bool s_wasDcsConnected     = false;
+static bool          s_wasMwsOn   = false;
+static uint8_t       s_setupStep  = 0;    // 0=idle, 1–5=current step
+static unsigned long s_setupSent  = 0;    // millis() of last command send
+static unsigned long s_setupStart = 0;    // millis() of step entry (for timeout)
 static unsigned long s_lastOled   = 0;
 static bool s_oledSleeping        = false;
 static unsigned long s_lastActivity = 0;
@@ -227,7 +233,8 @@ static const char* kCalibLabelY[] = {
 };
 
 static MenuState homeMode() {
-  return DcsBios::isConnected() ? AIRCRAFT_STATUS : MACRO_MENU;
+  if (!DcsBios::isConnected()) return MACRO_MENU;
+  return DcsBios::mwsOn() ? AIRCRAFT_STATUS : NOT_READY;
 }
 
 void setup() {
@@ -419,12 +426,23 @@ void loop() {
   // Normal operation
   bool nowConnected = DcsBios::isConnected();
   if (nowConnected && !s_wasDcsConnected) {
-    if (s_mode == MACRO_MENU) s_mode = AIRCRAFT_STATUS;
+    if (s_mode == MACRO_MENU) s_mode = homeMode();
   }
   if (!nowConnected && s_wasDcsConnected) {
-    if (s_mode == AIRCRAFT_STATUS) s_mode = MACRO_MENU;
+    if (s_mode == AIRCRAFT_STATUS || s_mode == NOT_READY) s_mode = MACRO_MENU;
+    if (s_mode == SETUP_RUNNING) { s_setupStep = 0; s_mode = MACRO_MENU; }
   }
   s_wasDcsConnected = nowConnected;
+
+  // NOT_READY ↔ AIRCRAFT_STATUS when MWS flag changes while DCS stays connected
+  bool nowMwsOn = nowConnected && DcsBios::mwsOn();
+  if (nowMwsOn && !s_wasMwsOn) {
+    if (s_mode == NOT_READY) s_mode = AIRCRAFT_STATUS;
+  }
+  if (!nowMwsOn && s_wasMwsOn) {
+    if (s_mode == AIRCRAFT_STATUS) s_mode = NOT_READY;
+  }
+  s_wasMwsOn = nowMwsOn;
 
   // Menu state machine
   if (s_mode == BOOT_STATUS) {
@@ -515,6 +533,65 @@ void loop() {
     if (Encoder::shortPressed()) { s_mode = MACRO_MENU; s_macroLastInput = millis(); }
     if (Encoder::longPressed()) { s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0; }
     if (delta != 0) { s_mode = MACRO_MENU; s_macroLastInput = millis(); }
+
+  } else if (s_mode == NOT_READY) {
+    if (Encoder::shortPressed()) {
+      s_setupStep = 0;
+      s_mode      = SETUP_RUNNING;
+    }
+    if (Encoder::longPressed()) {
+      DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW, 1);
+      // s_mode transitions via s_wasMwsOn check when DCS echoes MWS=ON
+    }
+
+  } else if (s_mode == SETUP_RUNNING) {
+    // Entry: fire initial send on first tick (s_setupStep still 0)
+    if (s_setupStep == 0) {
+      s_setupStep  = 1;
+      s_setupStart = s_setupSent = millis();
+      DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L, 1);
+    }
+
+    // Verify current step against DCS feedback
+    bool confirmed = false;
+    switch (s_setupStep) {
+      case 1: confirmed = DcsBios::hdptLeft();           break;
+      case 2: confirmed = DcsBios::hdptRight();          break;
+      case 3: confirmed = DcsBios::cmdsModeKnob() == 3; break;
+      case 4: confirmed = DcsBios::rwrPowerLight();      break;
+      case 5: confirmed = DcsBios::mwsOn();              break;
+      default: break;
+    }
+
+    if (confirmed) {
+      if (s_setupStep >= 5) {
+        s_setupStep = 0;
+        s_mode      = AIRCRAFT_STATUS;
+      } else {
+        s_setupStep++;
+        s_setupStart = s_setupSent = millis();
+        switch (s_setupStep) {
+          case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,    1); break;
+          case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB, 3); break;
+          case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,  1); break;
+          case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,       1); break;
+          default: break;
+        }
+      }
+    } else if (millis() - s_setupStart >= SETUP_TIMEOUT_MS) {
+      s_setupStep = 0;
+      s_mode      = NOT_READY;
+    } else if (millis() - s_setupSent >= SETUP_RETRY_MS) {
+      s_setupSent = millis();
+      switch (s_setupStep) {
+        case 1: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L,     1); break;
+        case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,     1); break;
+        case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB, 3); break;
+        case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,   1); break;
+        case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,        1); break;
+        default: break;
+      }
+    }
 
   } else if (s_mode == MACRO_MENU) {
     if (delta != 0 || Encoder::shortPressed() || Encoder::longPressed())
@@ -791,6 +868,14 @@ void loop() {
                                DcsBios::gearLeft(),
                                DcsBios::gearRight(),
                                DcsBios::speedbrake()); break;
+      case NOT_READY:
+        UI::showNotReady((millis() / 750) % 2 == 0);
+        break;
+      case SETUP_RUNNING: {
+        uint8_t displayStep = (s_setupStep == 0) ? 1 : s_setupStep;
+        UI::showSetupRunning(displayStep, (millis() / 250) % 2 == 0);
+        break;
+      }
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;
       case SETTINGS:          UI::showSettingsMenu(s_menuSel, s_menuOffset,
                                 s_encReversed, WifiMgr::isConnected(),
