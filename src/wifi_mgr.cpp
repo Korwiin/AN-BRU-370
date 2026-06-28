@@ -31,6 +31,7 @@ static volatile bool    s_phase_rfFail     = false;
 static volatile bool    s_phase_ssidFail   = false;
 static volatile uint8_t s_phase_failReason = 0;
 static bool             s_eventRegistered  = false;
+static volatile bool    s_disconnectedEvent = false;
 
 static void loadCredentials() {
   Preferences prefs;
@@ -107,6 +108,7 @@ static void registerEventHandler() {
         s_phase_ip  = false;
         s_phase_eth = false;
         s_connected = false;
+        s_disconnectedEvent = true;   // consumed by WifiMgr::consumeDisconnect()
         break;
       default: break;
     }
@@ -266,6 +268,12 @@ void WifiMgr::clearOverride() {
   prefs.remove("ssid");
   prefs.remove("pass");
   prefs.end();
+}
+
+bool WifiMgr::consumeDisconnect() {
+  if (!s_disconnectedEvent) return false;
+  s_disconnectedEvent = false;
+  return true;
 }
 
 class BleServerCb : public NimBLEServerCallbacks {

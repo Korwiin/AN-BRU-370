@@ -303,6 +303,11 @@ void loop() {
     }
   }
 
+  // Reset DCS-BIOS socket on WiFi disconnect so begin() is re-called on reconnect.
+  if (WifiMgr::consumeDisconnect()) {
+    s_dcsBiosStarted = false;
+  }
+
   bool dcsActivity = DcsBios::update();
   bool dcsLive     = DcsBios::isConnected();
   bool mc          = dcsLive && DcsBios::masterCaution();

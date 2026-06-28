@@ -46,6 +46,10 @@ namespace WifiMgr {
   // Silent runtime reconnect. Called by watchdog and Settings→Connect.
   void reconnect();
 
+  // Returns true (once) after a WiFi disconnect event — caller should
+  // tear down any sockets that depend on the WiFi link.
+  bool consumeDisconnect();
+
   void saveCredentials(const char* ssid, const char* pass);
   void clearOverride();
   bool hasCredentials();
