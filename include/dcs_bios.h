@@ -42,12 +42,37 @@ constexpr uint16_t DCSBIOS_ADDR_GEAR_LIGHT_R = 0x447C;
 constexpr uint16_t DCSBIOS_MASK_LIGHT_GEAR_R = 0x0001;
 constexpr uint16_t DCSBIOS_ADDR_SPEEDBRAKE   = 0x44D4;
 
+// New-plane setup — MWS source switch used as configuration flag
+constexpr uint16_t DCSBIOS_ADDR_MWS_SW        = 0x445A;
+constexpr uint16_t DCSBIOS_MASK_MWS_SW        = 0x1000;
+
+// Sensor panel hardpoints — HAD=Left, TGP=Right (share address 0x4424)
+constexpr uint16_t DCSBIOS_ADDR_HDPT          = 0x4424;
+constexpr uint16_t DCSBIOS_MASK_HDPT_L        = 0x2000;
+constexpr uint16_t DCSBIOS_MASK_HDPT_R        = 0x4000;
+
+// CMDS MODE knob — SEMI is position 3 (OFF=0 STBY=1 MAN=2 SEMI=3 AUTO=4 BYP=5)
+constexpr uint16_t DCSBIOS_ADDR_CMDS_MODE     = 0x445E;
+constexpr uint16_t DCSBIOS_MASK_CMDS_MODE     = 0x00E0;
+constexpr uint8_t  DCSBIOS_SHFT_CMDS_MODE     = 5;
+
+// RWR POWER light — green indicator, used to verify RWR setup step
+constexpr uint16_t DCSBIOS_ADDR_RWR_PWR_LIGHT = 0x447E;
+constexpr uint16_t DCSBIOS_MASK_RWR_PWR_LIGHT = 0x8000;
+
 #define DCSBIOS_CMD_MC_RESET           "MASTER_CAUTION"
 #define DCSBIOS_CMD_CMDS_DISPENSE      "CMDS_DISPENSE_BTN"
 #define DCSBIOS_CMD_STORES_CONFIG_SW   "STORES_CONFIG_SW"
+#define DCSBIOS_CMD_HDPT_SW_L      "HDPT_SW_L"
+#define DCSBIOS_CMD_HDPT_SW_R      "HDPT_SW_R"
+#define DCSBIOS_CMD_CMDS_MODE_KNB  "CMDS_MODE_KNB"
+#define DCSBIOS_CMD_RWR_PWR_BTN    "RWR_PWR_BTN"
+#define DCSBIOS_CMD_MWS_SW         "CMDS_MWS_SOURCHE_SW"
 
 constexpr uint32_t SC_RETRY_MS         = 500;
 constexpr uint32_t SC_LIGHT_TIMEOUT_MS = 3000;
+constexpr uint32_t SETUP_RETRY_MS   = 500;
+constexpr uint32_t SETUP_TIMEOUT_MS = 3000;
 
 namespace DcsBios {
   void begin(const char* mcastAddr, uint16_t listenPort,
@@ -70,4 +95,10 @@ namespace DcsBios {
   bool     gearLeft();    // true when left main gear down and locked
   bool     gearRight();   // true when right main gear down and locked
   uint16_t speedbrake();  // 0=stowed, 0xFFFF=fully open
+
+  bool    mwsOn();           // true when CMDS_MWS_SOURCHE_SW reads 1
+  bool    hdptLeft();        // true when left hardpoint (HAD) switch is ON
+  bool    hdptRight();       // true when right hardpoint (TGP) switch is ON
+  uint8_t cmdsModeKnob();    // CMDS MODE knob position: SEMI=3
+  bool    rwrPowerLight();   // true when RWR POWER light is lit
 }

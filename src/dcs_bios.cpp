@@ -21,6 +21,11 @@ static bool     s_gearN      = false;
 static bool     s_gearL      = false;
 static bool     s_gearR      = false;
 static uint16_t s_speedbrake = 0;
+static bool     s_mwsOn        = false;
+static bool     s_hdptL        = false;
+static bool     s_hdptR        = false;
+static uint8_t  s_cmdsModeKnob = 0xFF;   // 0xFF = not yet received
+static bool     s_rwrPwrLight  = false;
 
 // Binary frame parser state machine
 enum ParseState { SYNC0, SYNC1, SYNC2, SYNC3,
@@ -76,6 +81,19 @@ static void processWord(uint16_t addr, uint16_t word) {
   }
   if (addr == DCSBIOS_ADDR_SPEEDBRAKE) {
     s_speedbrake = word;
+  }
+  if (addr == DCSBIOS_ADDR_MWS_SW) {
+    s_mwsOn = (word & DCSBIOS_MASK_MWS_SW) != 0;
+  }
+  if (addr == DCSBIOS_ADDR_HDPT) {
+    s_hdptL = (word & DCSBIOS_MASK_HDPT_L) != 0;
+    s_hdptR = (word & DCSBIOS_MASK_HDPT_R) != 0;
+  }
+  if (addr == DCSBIOS_ADDR_CMDS_MODE) {
+    s_cmdsModeKnob = (word & DCSBIOS_MASK_CMDS_MODE) >> DCSBIOS_SHFT_CMDS_MODE;
+  }
+  if (addr == DCSBIOS_ADDR_RWR_PWR_LIGHT) {
+    s_rwrPwrLight = (word & DCSBIOS_MASK_RWR_PWR_LIGHT) != 0;
   }
 }
 
@@ -173,4 +191,9 @@ bool     DcsBios::gearNose()   { return s_gearN; }
 bool     DcsBios::gearLeft()   { return s_gearL; }
 bool     DcsBios::gearRight()  { return s_gearR; }
 uint16_t DcsBios::speedbrake() { return s_speedbrake; }
+bool    DcsBios::mwsOn()        { return s_mwsOn; }
+bool    DcsBios::hdptLeft()     { return s_hdptL; }
+bool    DcsBios::hdptRight()    { return s_hdptR; }
+uint8_t DcsBios::cmdsModeKnob() { return s_cmdsModeKnob; }
+bool    DcsBios::rwrPowerLight(){ return s_rwrPwrLight; }
 
