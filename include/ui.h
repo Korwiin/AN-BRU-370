@@ -38,6 +38,8 @@ namespace UI {
                           const char* chaff, const char* flare, bool ecmTx,
                           bool gearN, bool gearL, bool gearR,
                           uint16_t speedbrake);
+  void showNotReady(bool flashState);
+  void showSetupRunning(uint8_t step, bool blinkOn);
   void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED
   void flashScreen();            // brief invert flash for button feedback
 

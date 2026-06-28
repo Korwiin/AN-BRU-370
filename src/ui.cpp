@@ -192,6 +192,51 @@ void UI::showStoresConfig(bool flashState) {
   u8g2.sendBuffer();
 }
 
+void UI::showNotReady(bool flashState) {
+  u8g2.clearBuffer();
+  if (flashState) {
+    u8g2.setDrawColor(1);
+    u8g2.drawBox(0, 0, 128, 32);
+    u8g2.setDrawColor(0);
+  }
+  u8g2.setFont(u8g2_font_9x15B_tr);
+  int w = u8g2.getStrWidth("NOT READY");
+  u8g2.drawStr((128 - w) / 2, 16, "NOT READY");
+  u8g2.setFont(u8g2_font_5x7_tr);
+  int w4 = u8g2.getStrWidth("SP= Setup  LP= FORCE");
+  u8g2.drawStr((128 - w4) / 2, 32, "SP= Setup  LP= FORCE");
+  if (flashState) u8g2.setDrawColor(1);
+  u8g2.sendBuffer();
+}
+
+void UI::showSetupRunning(uint8_t step, bool blinkOn) {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+
+  // Line 1: "SETUP X/5" centered
+  char hdr[12];
+  snprintf(hdr, sizeof(hdr), "SETUP %u/5", (unsigned)step);
+  u8g2.drawStr((128 - u8g2.getStrWidth(hdr)) / 2, 8, hdr);
+
+  // Line 3: accumulating labels — current step blinks, completed steps solid
+  // X positions built by accumulating label+gap widths
+  int xHad  = 0;
+  int xTgp  = xHad  + u8g2.getStrWidth("HAD  ");
+  int xCmds = xTgp  + u8g2.getStrWidth("TGP  ");
+  int xRwr  = xCmds + u8g2.getStrWidth("CMDS  ");
+
+  // A label is visible when: (a) its step is past (solid) or (b) it is the
+  // current step and blinkOn is true
+  if ((step > 1) || (step == 1 && blinkOn)) u8g2.drawStr(xHad,  24, "HAD");
+  if ((step > 2) || (step == 2 && blinkOn)) u8g2.drawStr(xTgp,  24, "TGP");
+  if ((step > 3) || (step == 3 && blinkOn)) u8g2.drawStr(xCmds, 24, "CMDS");
+  if ((step > 4) || (step == 4 && blinkOn)) u8g2.drawStr(xRwr,  24, "RWR");
+
+  // Line 4: "MWS" blinks on step 5 only
+  if (step == 5 && blinkOn) u8g2.drawStr(0, 32, "MWS");
+
+  u8g2.sendBuffer();
+}
 
 static void drawGearTriangle(bool n, bool l, bool r) {
   if (n) u8g2.drawDisc(15,  5, 3);
