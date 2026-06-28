@@ -77,7 +77,7 @@ constexpr uint32_t SETUP_TIMEOUT_MS = 3000;
 namespace DcsBios {
   void begin(const char* mcastAddr, uint16_t listenPort,
              const char* cmdHost,   uint16_t cmdPort);  // cmdHost ignored; sender IP learned from first packet
-  bool update();
+  bool process();   // drain ring buffer and parse; call from Core 1 / loop() only
   bool isConnected();
   bool hasData();   // true while DCS-BIOS packets received (same 3s window as isConnected)
   void sendCommand(const char* identifier, uint16_t value);

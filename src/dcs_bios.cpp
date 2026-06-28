@@ -150,6 +150,7 @@ static void processByte(uint8_t b) {
 
 void DcsBios::begin(const char* mcastAddr, uint16_t listenPort,
                     const char* /*cmdHost*/, uint16_t cmdPort) {
+  s_udp.close();  // close prior socket before re-bind on reconnect
   s_cmdPort  = cmdPort;
   s_senderIp = IPAddress(0, 0, 0, 0);
 
@@ -192,7 +193,7 @@ static bool drainRing() {
   return true;
 }
 
-bool DcsBios::update() { return drainRing(); }
+bool DcsBios::process() { return drainRing(); }
 
 bool DcsBios::isConnected() {
   return s_lastRx > 0 && (millis() - s_lastRx < 3000);

@@ -312,7 +312,7 @@ void loop() {
     s_dcsBiosStarted = false;
   }
 
-  bool dcsActivity = inOtaMode() ? false : DcsBios::update();
+  bool dcsActivity = inOtaMode() ? false : DcsBios::process();
   bool dcsLive     = inOtaMode() ? false : DcsBios::isConnected();
   bool mc          = dcsLive && DcsBios::masterCaution();
   bool rwr         = dcsLive && DcsBios::rwrMslLaunch();
