@@ -95,10 +95,14 @@ static void registerEventHandler() {
         s_connected = true;
         break;
       case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-        // Re-disable PMF immediately after the framework's first_connect auto-retry
-        // fires WiFi.begin() (which re-enables PMF). Our handler runs right after
-        // the library's _eventCallback, before the association exchange starts.
-        esp_wifi_disable_pmf_config(WIFI_IF_STA);
+        // Re-disable PMF after first_connect's WiFi.begin() re-enables it, but
+        // ONLY for non-voluntary disconnects. ASSOC_LEAVE (8) means we sent the
+        // DISASSOC ourselves (safeRestart, OTA, mode cycle between boot attempts).
+        // Calling disable_pmf on an active WPA2 session being torn down corrupts
+        // the deassociation, leaving Eero with stale state → MISSING_ACKS (34).
+        if (info.wifi_sta_disconnected.reason != WIFI_REASON_ASSOC_LEAVE) {
+          esp_wifi_disable_pmf_config(WIFI_IF_STA);
+        }
         s_phase_failReason = info.wifi_sta_disconnected.reason;
         s_phase_ip  = false;
         s_phase_eth = false;
