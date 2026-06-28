@@ -6,10 +6,8 @@
 // Passed to UI::showBootStatus() each frame during boot.
 struct BootStatusInfo {
   bool rf, ssid, eth, ip, dns, dcs;
-  bool rfFail, ssidFail;   // show X instead of -- for these phases
-  int attempt;             // 1-3; 0 = USB settle (show all --)
-  bool failed;             // all 3 attempts exhausted
-  const char* failReason;  // nullptr if no failure yet
+  bool rfFail, ssidFail;
+  const char* failReason;  // nullptr = none; shown while retrying
 };
 
 namespace UI {

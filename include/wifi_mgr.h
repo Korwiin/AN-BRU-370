@@ -2,24 +2,22 @@
 #include <Arduino.h>
 
 namespace WifiMgr {
-  // Per-attempt phase flags — set by event handler or beginAttempt().
+  // Per-attempt phase flags — set by event handler or startWifi().
   // Read via getPhase() which takes a snapshot of the volatile flags.
   struct WifiPhase {
-    bool rf;              // radio initialised + WL_IDLE_STATUS confirmed
-    bool ssid;            // our SSID found in blocking scan
+    bool rf;              // radio initialised + MAC confirmed
+    bool ssid;            // our SSID found; confirmed by successful association
     bool eth;             // Layer 2 association (WIFI_STA_CONNECTED event)
     bool ip;              // DHCP complete (WIFI_STA_GOT_IP event)
     bool dns;             // DNS server assigned (checked at GOT_IP)
-    bool rfFail;          // RF check failed (bad MAC or stale WL_CONNECTED)
-    bool ssidFail;        // our SSID not found in scan
+    bool rfFail;          // RF check failed (bad MAC)
+    bool ssidFail;        // no credentials stored
     uint8_t failReasonCode; // from WIFI_STA_DISCONNECTED reason field (0 = none)
   };
 
-  // Start one connection attempt. Blocks ~500 ms (radio cycle) + ~2-3 s (scan).
-  // Resets all phase flags, cycles radio, checks RF, scans for SSID.
-  // If SSID found, calls WiFi.begin() and returns true; caller polls getPhase().ip.
-  // Returns false if RF check or SSID scan fails (check getPhase().rfFail/.ssidFail).
-  bool beginAttempt(int n);
+  // Starts WiFi in STA mode with auto-reconnect enabled. Call once at boot.
+  // Returns false if no credentials or RF check fails.
+  bool startWifi();
 
   // Snapshot of current phase flags (safe to call from loop() tick).
   WifiPhase getPhase();

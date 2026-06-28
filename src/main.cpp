@@ -63,11 +63,8 @@ static bool s_wifiCancelled  = false;
 static bool s_dcsBiosStarted = false;
 static bool s_wifiEnabled    = true;
 
-static int           s_bootAttempt  = 0;   // 0=not started; 1-3=current attempt
-static unsigned long s_bootDeadline = 0;   // millis()+15s, set after beginAttempt() succeeds
-static bool          s_bootFailed   = false;
+static bool          s_bootStarted  = false;
 static unsigned long s_bootDoneAt   = 0;   // millis() when ph.ip && dcsLive first both true
-static unsigned long s_retryAfter   = 0;   // non-zero: backoff expiry before next beginAttempt()
 
 static OTA::CheckResult  s_otaResult        = {};
 static char              s_otaError[24]      = {0};
@@ -463,64 +460,24 @@ void loop() {
       return;
     }
 
+    if (!s_bootStarted) {
+      s_bootStarted = WifiMgr::startWifi();
+    }
+
     WifiMgr::WifiPhase ph = WifiMgr::getPhase();
 
-    // Attempt 0 → start attempt 1 (blocks ~3s for radio cycle + scan)
-    if (s_bootAttempt == 0) {
-      if (WifiMgr::beginAttempt(1)) {
-        s_bootAttempt = 1;
-        s_bootDeadline = millis() + 15000UL;
-      } else {
-        s_bootAttempt = 1;  // mark attempted; failure flags are set, retry fires next tick
-      }
-      ph = WifiMgr::getPhase();
-    }
-
-    // Detect failure and retry
-    if (!s_bootFailed && !ph.ip) {
-      bool needRetry = ph.rfFail || ph.ssidFail ||
-                       (ph.failReasonCode != 0) ||
-                       (s_bootDeadline > 0 && millis() > s_bootDeadline);
-      if (needRetry) {
-        // AUTH_EXPIRE (2): AP retains a stale session for our MAC after a power-cut
-        // (no deauth was sent). The AP needs ~20 s to clear it. Without this backoff
-        // all retries land inside the cleanup window and all fail. 20 s is enough for
-        // Eero to fully expire the stale session before the next WiFi.begin() call.
-        if (s_retryAfter == 0 && ph.failReasonCode == 2)
-          s_retryAfter = millis() + 20000UL;
-        bool backoffDone = (s_retryAfter == 0 || millis() >= s_retryAfter);
-        if (backoffDone) {
-          s_retryAfter = 0;
-          if (s_bootAttempt < 3) {
-            if (WifiMgr::beginAttempt(s_bootAttempt + 1)) {
-              s_bootAttempt++;
-              s_bootDeadline = millis() + 15000UL;
-            } else {
-              s_bootAttempt++;
-            }
-            ph = WifiMgr::getPhase();
-          } else {
-            s_bootFailed = true;
-          }
-        }
-      }
-    }
-
-    // Start DCS-BIOS on first IP assignment; clear failed flag if IP arrived late
-    if (ph.ip) s_bootFailed = false;
+    // Start DCS-BIOS on first IP assignment
     if (ph.ip && !s_dcsBiosStarted) {
       DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
                      "255.255.255.255", DCSBIOS_CMD_PORT);
       s_dcsBiosStarted = true;
-      WiFi.setAutoReconnect(true);  // enable runtime drop recovery after boot connects
     }
 
-    // Exit conditions
     if (Encoder::longPressed()) {
       s_mode = SETTINGS; s_menuSel = 0; s_menuOffset = 0;
       return;
     }
-    // Auto-exit 1.5s after all phases complete; encoder input exits immediately
+
     if (ph.ip && dcsLive) {
       if (s_bootDoneAt == 0) s_bootDoneAt = millis();
       if (millis() - s_bootDoneAt >= 1500UL || delta != 0 || Encoder::shortPressed()) {
@@ -531,12 +488,10 @@ void loop() {
       s_bootDoneAt = 0;
     }
 
-    // Draw
     bool dcs = DcsBios::hasData();
     BootStatusInfo bsi = {
       ph.rf, ph.ssid, ph.eth, ph.ip, ph.dns, dcs,
       ph.rfFail, ph.ssidFail,
-      s_bootAttempt, s_bootFailed,
       WifiMgr::failReasonStr()
     };
     UI::showBootStatus(bsi);

@@ -78,7 +78,7 @@ void UI::showBootStatus(const BootStatusInfo& s) {
   u8g2.drawStr(kCtr,                  24, "DNS:");
   u8g2.drawStr(kRight - kGap - wDCS, 24, "DCS:");
 
-  bool connecting = (s.attempt > 0 && !s.failed && !s.ip);
+  bool connecting = !s.ip;
 
   // Phase symbols — blink the current bottleneck
   drawPhase(wRF  + kGap,        16, s.rf,   s.rfFail,   connecting && !s.rf && !s.rfFail);
@@ -90,25 +90,16 @@ void UI::showBootStatus(const BootStatusInfo& s) {
 
   // Line 4 (y=32): status text
   static const char kSpin[] = { '-', '\\', '|', '/' };
-  if (s.attempt == 0) {
-    // USB settle — blank
-  } else if (s.failed) {
-    char line[32];
-    const char* reason = s.failReason ? s.failReason : "WiFi error";
-    snprintf(line, sizeof(line), "%.16s LP=Set", reason);
-    u8g2.drawStr(0, 32, line);
-  } else if (s.ip && !s.dcs) {
+  if (s.ip && !s.dcs) {
     char line[22];
     snprintf(line, sizeof(line), "Waiting for DCS %c", kSpin[(millis() / 1000) % 4]);
     int w = u8g2.getStrWidth(line);
     u8g2.drawStr((128 - w) / 2, 32, line);
-  } else if (s.ip) {
-    // DCS live — blank
-  } else if (s.attempt > 1) {
-    char line[28];
-    snprintf(line, sizeof(line), "Attempt %d/3  Retrying...", s.attempt);
+  } else if (!s.ip && s.failReason) {
+    char line[32];
+    snprintf(line, sizeof(line), "%.12s LP=Set", s.failReason);
     u8g2.drawStr(0, 32, line);
-  } else {
+  } else if (!s.ip) {
     u8g2.drawStr(0, 32, "Connecting...");
   }
 

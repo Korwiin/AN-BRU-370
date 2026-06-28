@@ -115,7 +115,7 @@ static void registerEventHandler() {
   });
 }
 
-bool WifiMgr::beginAttempt(int n) {
+bool WifiMgr::startWifi() {
   loadCredentials();
   if (s_ssid[0] == '\0') {
     s_phase_ssidFail = true;
@@ -123,7 +123,6 @@ bool WifiMgr::beginAttempt(int n) {
   }
   registerEventHandler();
 
-  // Reset phase flags for this attempt
   s_phase_rf = s_phase_ssid = s_phase_eth = s_phase_ip = s_phase_dns = false;
   s_phase_rfFail = s_phase_ssidFail = false;
   s_phase_failReason = 0;
@@ -131,31 +130,26 @@ bool WifiMgr::beginAttempt(int n) {
 
   WiFi.persistent(false);
   WiFi.setAutoConnect(false);
-  WiFi.setAutoReconnect(false);  // disabled during boot; re-enabled after IP acquired in main.cpp
 
-  if (n == 1) {
-    // First attempt: full radio init aligned with CockpitOS pattern.
-    // No WIFI_OFF cycling — the radio is already off on cold boot, and cycling
-    // it on retries sends management frames that reset the AP's stale-session
-    // cleanup timer, causing AUTH_EXPIRE to repeat across all attempts.
-    // Hostname must be set BEFORE WiFi.mode(WIFI_STA) — applied at netif creation.
-    WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);  // lower TX power; improves USB/RF coexistence on S3
-    WiFi.setHostname("ANBRU-370");
-    WiFi.mode(WIFI_STA);
-    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);  // DHCP + hostname in DISCOVER
+  // Mainstream ESP32 pattern aligned with CockpitOS: TX power before mode, hostname
+  // before mode(STA), setAutoReconnect(true) from the start. The stack retries
+  // indefinitely — no attempt counter, no backoff. Eero stale-session clears in
+  // ~60 s; the auto-retry connects cleanly without any timing management on our side.
+  WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
+  WiFi.setHostname("ANBRU-370");
+  WiFi.mode(WIFI_STA);
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
 
-    String mac = WiFi.macAddress();
-    if (mac.length() < 11 || mac == "00:00:00:00:00:00") {
-      s_phase_rfFail = true;
-      return false;
-    }
+  String mac = WiFi.macAddress();
+  if (mac.length() < 11 || mac == "00:00:00:00:00:00") {
+    s_phase_rfFail = true;
+    return false;
   }
-  // Retries (n > 1): already in WIFI_STA — just re-issue WiFi.begin() to
-  // restart association without disturbing the AP's ongoing session cleanup.
-
   s_phase_rf = true;
+
+  WiFi.setAutoReconnect(true);
   WiFi.begin(s_ssid, s_pass);
-  esp_wifi_disable_pmf_config(WIFI_IF_STA);  // disable PMF before RSN IE is built for association
+  esp_wifi_disable_pmf_config(WIFI_IF_STA);
   return true;
 }
 
