@@ -88,6 +88,7 @@ static int s_screenDigits[8] = {0};
 static int s_screenDigitPos  = 0;
 
 static MenuState homeMode();
+static bool inOtaMode() { return s_mode >= FIRMWARE_CHECKING; }
 
 static void loadNvs() {
   Preferences prefs;
@@ -297,7 +298,7 @@ void loop() {
   // Tier 1 (desync): driver thinks connected but stack disagrees → reconnect()
   // Tier 2 (long outage): been offline ≥60 s, AP session expired → reconnectFull()
   static unsigned long s_lastWatchdog = 0;
-  if (s_mode != BOOT_STATUS && millis() - s_lastWatchdog >= 60000UL) {
+  if (s_mode != BOOT_STATUS && !inOtaMode() && millis() - s_lastWatchdog >= 60000UL) {
     s_lastWatchdog = millis();
     bool wifiUp = (WiFi.status() == WL_CONNECTED);
     if (WifiMgr::isConnected() && !wifiUp) {
@@ -314,8 +315,8 @@ void loop() {
     s_dcsBiosStarted = false;
   }
 
-  bool dcsActivity = DcsBios::update();
-  bool dcsLive     = DcsBios::isConnected();
+  bool dcsActivity = inOtaMode() ? false : DcsBios::update();
+  bool dcsLive     = inOtaMode() ? false : DcsBios::isConnected();
   bool mc          = dcsLive && DcsBios::masterCaution();
   bool rwr         = dcsLive && DcsBios::rwrMslLaunch();
 
@@ -815,7 +816,6 @@ void loop() {
       snprintf(ver, sizeof(ver), "Current Firmware v%s", FIRMWARE_VERSION);
       UI::showFirmwareChecking(ver, WiFi.RSSI());
       s_otaResult = OTA::check();
-      s_lastActivity = millis();  // blocking check can outlast sleep timer; reset so result stays visible
       if (s_otaResult.error[0]) {
         strlcpy(s_otaError, s_otaResult.error, sizeof(s_otaError));
         s_otaPerformFailed = false;
@@ -839,7 +839,6 @@ void loop() {
   } else if (s_mode == FIRMWARE_UPDATING) {
     UI::showFirmwareUpdating(0);
     if (!OTA::perform(s_otaResult.url, otaProgressCb)) {
-      s_lastActivity = millis();  // perform() blocks loop(); reset so error screen stays visible
       strlcpy(s_otaError, OTA::performError(), sizeof(s_otaError));
       s_otaPerformFailed = true;
       s_mode = FIRMWARE_ERROR;
@@ -859,8 +858,17 @@ void loop() {
       millis() - s_macroLastInput > 15000UL)
     s_mode = AIRCRAFT_STATUS;
 
+  // Reset sleep timer when returning from OTA flow so the result screen
+  // gets a full timeout window regardless of how long the download took.
+  {
+    static MenuState s_prevMode = BOOT_STATUS;
+    if (s_prevMode >= FIRMWARE_CHECKING && s_mode < FIRMWARE_CHECKING)
+      s_lastActivity = millis();
+    s_prevMode = s_mode;
+  }
+
   // OLED sleep check
-  if (!s_oledSleeping && s_sleepSecs > 0 &&
+  if (!s_oledSleeping && !inOtaMode() && s_sleepSecs > 0 &&
       millis() - s_lastActivity > (unsigned long)s_sleepSecs * 1000UL) {
     UI::sleep();
     s_oledSleeping = true;
