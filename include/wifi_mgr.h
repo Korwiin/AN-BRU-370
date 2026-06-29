@@ -58,6 +58,11 @@ namespace WifiMgr {
   bool isBleClientConnected();
 
   int  rssi();
+
+  // Returns "WPA2" or "WPA3" based on connected AP's auth mode.
+  // Only valid when isConnected(). Returns nullptr if not connected.
+  const char* authModeStr();
+
   bool checkInternet();
   void nvsCredentials(char* ssidOut, size_t ssidLen, uint8_t* passStatus);
 

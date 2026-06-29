@@ -55,6 +55,16 @@ bool WifiMgr::isBleClientConnected() { return s_bleClientConn; }
 
 int WifiMgr::rssi() { return WiFi.RSSI(); }
 
+const char* WifiMgr::authModeStr() {
+  if (!s_connected) return nullptr;
+  wifi_ap_record_t ap;
+  if (esp_wifi_sta_get_ap_info(&ap) != ESP_OK) return "WPA2";
+  // WPA3_PSK is pure WPA3. All WPA2-capable modes (including WPA2/WPA3
+  // transition) negotiate WPA2 because we disable PMF via
+  // esp_wifi_disable_pmf_config() — PMF is mandatory for WPA3 SAE.
+  return (ap.authmode == WIFI_AUTH_WPA3_PSK) ? "WPA3" : "WPA2";
+}
+
 bool WifiMgr::checkInternet() {
   static bool          s_result    = false;
   static unsigned long s_lastCheck = 0;
@@ -187,17 +197,22 @@ WifiMgr::WifiPhase WifiMgr::getPhase() {
 
 const char* WifiMgr::failReasonStr() {
   switch (s_phase_failReason) {
-    case 200: return "AP unreachable";
-    case 201: return "SSID not found";
+    case   2: return "Auth retry";
+    case  15: return "WPA2 failed";
+    case  24: return "Cipher error";
+    case 200: return "AP lost";
+    case 201: return "AP not found";
     case 202: return "Wrong password";
-    case 204: return "Auth timeout";
+    case 203: return "Assoc failed";
+    case 204: return "WPA2 failed";
+    case 205: return "Conn failed";
     default:  break;
   }
-  if (s_phase_rfFail)   return "RF init failed";
-  if (s_phase_ssidFail) return "SSID not found";
+  if (s_phase_rfFail)   return "RF failed";
+  if (s_phase_ssidFail) return "No credentials";
   if (s_phase_failReason > 0) {
-    static char buf[18];
-    snprintf(buf, sizeof(buf), "WiFi error %u", (unsigned)s_phase_failReason);
+    static char buf[12];
+    snprintf(buf, sizeof(buf), "Error %u", (unsigned)s_phase_failReason);
     return buf;
   }
   return nullptr;
