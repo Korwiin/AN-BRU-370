@@ -113,23 +113,11 @@ static void otaProgressCb(int percent) {
   UI::showFirmwareUpdating(percent);
 }
 
-// Deauth from AP before restarting so the router releases the session cleanly.
 static void safeRestart() {
-  WiFi.setSleep(false);          // wake radio from modem sleep — deauth won't transmit if duty-cycling
-  delay(100);
-  WiFi.disconnect(false, true);  // explicit deauth + erase stored AP config from driver
-  delay(1000);                   // give AP time to receive and clear its WPA3 SAE session
-  WiFi.mode(WIFI_OFF);
-  delay(200);
   ESP.restart();
 }
 
-// Warm the WiFi radio (matching OTA behaviour) then count down 5 s before
-// rebooting. SP cancels. Keeps the radio fully awake so Eero's WPA3 session
-// state is active — not idle — when the deauth fires, matching the condition
-// under which OTA reboots reliably reconnect.
 static void rebootWithCountdown() {
-  WiFi.setSleep(false);
   for (int secs = 5; secs > 0; secs--) {
     UI::showRebootCountdown(secs);
     unsigned long t0 = millis();
