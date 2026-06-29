@@ -27,14 +27,15 @@ static void drawCross(int x, int y) {
   u8g2.drawLine(x+4, y-4, x,   y);
 }
 
-// Draws a phase indicator symbol. done→check, fail→X, inProgress+blink→"..", else "--".
-static void drawPhase(int x, int y, bool done, bool fail, bool inProgress) {
-  if (fail) {
-    drawCross(x, y);
-  } else if (done) {
+// Draws a phase indicator symbol.
+// done→checkmark, inProgress→spinner (-\|/ at 250ms/frame), else "--".
+static void drawPhase(int x, int y, bool done, bool inProgress) {
+  if (done) {
     drawCheck(x, y);
-  } else if (inProgress && ((millis() % 600) < 300)) {
-    u8g2.drawStr(x, y, "..");
+  } else if (inProgress) {
+    static const char kSpin[] = { '-', '\\', '|', '/' };
+    char s[2] = { kSpin[(millis() / 250) % 4], '\0' };
+    u8g2.drawStr(x, y, s);
   } else {
     u8g2.drawStr(x, y, "--");
   }
@@ -44,64 +45,40 @@ void UI::showBootStatus(const BootStatusInfo& s) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
 
-  // Line 1 (y=8): title left, firmware version right
+  // Line 1 (y=8): device name left, firmware version right
   u8g2.drawStr(0, 8, "AN/BRU-370");
   {
     char ver[10];
     snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
-    int vw = u8g2.getStrWidth(ver);
-    u8g2.drawStr(128 - vw, 8, ver);
+    u8g2.drawStr(128 - u8g2.getStrWidth(ver), 8, ver);
   }
 
-  // Layout: left=RF:/IP:, center=SSID:/DNS:, right=ETH:/DCS:
-  // kSymW = max symbol width (2-char string at 5px/char = 10px)
-  const int kGap   = 1;
-  const int kSymW  = 10;
-  const int kRight = 128 - kSymW;   // x of right-column symbols
+  // Line 2 (y=16): intentional empty gap
 
-  // Center column: anchor to the widest center item (SSID: + sym = 36px)
-  const int wSSID  = u8g2.getStrWidth("SSID:");
-  const int wDNS   = u8g2.getStrWidth("DNS:");
-  const int wETH   = u8g2.getStrWidth("ETH:");
-  const int wDCS   = u8g2.getStrWidth("DCS:");
-  const int wRF    = u8g2.getStrWidth("RF:");
-  const int wIP    = u8g2.getStrWidth("IP:");
-  const int kCtr   = (128 - (wSSID + kGap + kSymW)) / 2;  // left edge of center column
+  // Line 3 (y=24): 3 indicators — WiFi | IP | DCS
+  // Three evenly-spaced label+symbol pairs across 128 px.
+  const int kGap = 2;
+  const int xWL  = 2;                                      // WiFi label x
+  const int xWS  = xWL + u8g2.getStrWidth("WiFi") + kGap; // WiFi symbol x (~24)
+  const int xIL  = 46;                                     // IP label x
+  const int xIS  = xIL + u8g2.getStrWidth("IP")   + kGap; // IP symbol x (~58)
+  const int xDL  = 88;                                     // DCS label x
+  const int xDS  = xDL + u8g2.getStrWidth("DCS")  + kGap; // DCS symbol x (~105)
 
-  // Line 2 (y=16): RF: left | SSID: center | ETH: right
-  u8g2.drawStr(0,                     16, "RF:");
-  u8g2.drawStr(kCtr,                  16, "SSID:");
-  u8g2.drawStr(kRight - kGap - wETH, 16, "ETH:");
+  u8g2.drawStr(xWL, 24, "WiFi");
+  u8g2.drawStr(xIL, 24, "IP");
+  u8g2.drawStr(xDL, 24, "DCS");
 
-  // Line 3 (y=24): IP: left | DNS: center | DCS: right
-  u8g2.drawStr(0,                     24, "IP:");
-  u8g2.drawStr(kCtr,                  24, "DNS:");
-  u8g2.drawStr(kRight - kGap - wDCS, 24, "DCS:");
+  // Spinner on the current active phase; checkmark on done; -- on pending.
+  drawPhase(xWS, 24, s.wifi, !s.wifi);
+  drawPhase(xIS, 24, s.ip,   s.wifi && !s.ip);
+  drawPhase(xDS, 24, s.dcs,  s.ip   && !s.dcs);
 
-  bool connecting = !s.ip;
-
-  // Phase symbols — blink the current bottleneck
-  drawPhase(wRF  + kGap,        16, s.rf,   s.rfFail,   connecting && !s.rf && !s.rfFail);
-  drawPhase(kCtr + wSSID + kGap,16, s.ssid, s.ssidFail, connecting && s.rf && !s.ssid && !s.ssidFail);
-  drawPhase(kRight,             16, s.eth,  false,      connecting && s.ssid && !s.eth);
-  drawPhase(wIP  + kGap,        24, s.ip,   false,      connecting && s.eth && !s.ip);
-  drawPhase(kCtr + wDNS + kGap, 24, s.dns,  false,      false);
-  drawPhase(kRight,             24, s.dcs,  false,      false);
-
-  // Line 4 (y=32): status text
-  static const char kSpin[] = { '-', '\\', '|', '/' };
-  if (s.ip && !s.dcs) {
-    char line[22];
-    snprintf(line, sizeof(line), "Waiting for DCS %c", kSpin[(millis() / 1000) % 4]);
-    int w = u8g2.getStrWidth(line);
-    u8g2.drawStr((128 - w) / 2, 32, line);
-  } else if (!s.ip && s.failReason) {
-    char line[32];
-    snprintf(line, sizeof(line), "%.12s LP=Set", s.failReason);
-    u8g2.drawStr(0, 32, line);
-  } else if (!s.ip) {
-    u8g2.drawStr(0, 32, "Connecting...");
-  }
+  // Line 4 (y=32): failReason takes priority over statusText.
+  // failReason: error string while WiFi retries ("Auth retry", "AP not found", etc.)
+  // statusText: progress info ("WPA2", "WPA3", ".42") when no error.
+  const char* line4 = s.failReason ? s.failReason : s.statusText;
+  if (line4) u8g2.drawStr(0, 32, line4);
 
   u8g2.sendBuffer();
 }

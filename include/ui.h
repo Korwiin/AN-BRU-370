@@ -3,17 +3,19 @@
 #include <U8g2lib.h>
 #include <Wire.h>
 
-// Passed to UI::showBootStatus() each frame during boot.
+// Passed to UI::showBootStatus() each frame during BOOT_STATUS mode.
 struct BootStatusInfo {
-  bool rf, ssid, eth, ip, dns, dcs;
-  bool rfFail, ssidFail;
-  const char* failReason;  // nullptr = none; shown while retrying
+  bool        wifi;        // WiFi associated (STA_CONNECTED event fired)
+  bool        ip;          // DHCP complete (STA_GOT_IP event fired)
+  bool        dcs;         // DCS-BIOS stream alive (hasData())
+  const char* failReason;  // nullptr = none; error string while retrying
+  const char* statusText;  // nullptr = none; "WPA2"/"WPA3" or ".NN" (last IP octet)
 };
 
 namespace UI {
   void begin();
 
-  // Renders six-phase WiFi/DCS boot status screen. Call each loop() tick during BOOT_STATUS.
+  // Renders 3-indicator (WiFi/IP/DCS) boot status screen. Call each loop() tick during BOOT_STATUS.
   void showBootStatus(const BootStatusInfo& s);
   void sleep();        // power down OLED (setPowerSave 1)
   void wake();         // power up OLED (setPowerSave 0)
