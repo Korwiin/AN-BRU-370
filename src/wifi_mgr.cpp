@@ -101,9 +101,10 @@ static void registerEventHandler() {
         s_phase_eth  = true;
         break;
       case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-        s_phase_ip  = true;
-        s_phase_dns = (WiFi.dnsIP() != IPAddress(0, 0, 0, 0));
-        s_connected = true;
+        s_phase_ip         = true;
+        s_phase_dns        = (WiFi.dnsIP() != IPAddress(0, 0, 0, 0));
+        s_phase_failReason = 0;  // clear stale error — connection succeeded
+        s_connected        = true;
         break;
       case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
         // Re-disable PMF after first_connect's WiFi.begin() re-enables it, but
@@ -197,6 +198,7 @@ WifiMgr::WifiPhase WifiMgr::getPhase() {
 
 const char* WifiMgr::failReasonStr() {
   switch (s_phase_failReason) {
+    case   1: return "Reconnecting";
     case   2: return "Auth retry";
     case  15: return "WPA2 failed";
     case  24: return "Cipher error";
