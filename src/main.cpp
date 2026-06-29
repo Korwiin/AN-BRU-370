@@ -456,6 +456,18 @@ void loop() {
       return;
     }
 
+    // If WiFi is stuck (error 39 / TIMEOUT is not in arduino-esp32's reconnectable
+    // list, so auto-reconnect never retries it), restart startWifi() after 5 s.
+    {
+      static unsigned long s_bootRetryAt = 0;
+      if (!ph.ssid && ph.failReasonCode != 0) {
+        if (s_bootRetryAt == 0) s_bootRetryAt = millis() + 5000UL;
+        if (millis() >= s_bootRetryAt) { s_bootRetryAt = 0; s_bootStarted = false; }
+      } else {
+        s_bootRetryAt = 0;
+      }
+    }
+
     if (ph.ip && dcsLive) {
       if (s_bootDoneAt == 0) s_bootDoneAt = millis();
       if (millis() - s_bootDoneAt >= 1500UL || delta != 0 || Encoder::shortPressed()) {

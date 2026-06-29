@@ -200,6 +200,7 @@ const char* WifiMgr::failReasonStr() {
     case   2: return "Auth retry";
     case  15: return "WPA2 failed";
     case  24: return "Cipher error";
+    case  39: return "Conn timeout";
     case 200: return "AP lost";
     case 201: return "AP not found";
     case 202: return "Wrong password";
