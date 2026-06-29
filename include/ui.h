@@ -54,7 +54,7 @@ namespace UI {
   void showSerialActive();
   void showBleActive(bool connected);    // displayed while NimBLE UART session is running
   void showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
-                    bool wifiEnabled, uint8_t gStatus);
+                    uint8_t gStatus);
   void showSecretsMenu(int sel, const char* savedSSID, uint8_t passStatus);
   void showNotImplemented();
   // OTA firmware update screens

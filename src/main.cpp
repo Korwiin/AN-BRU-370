@@ -668,22 +668,16 @@ void loop() {
     }
 
   } else if (s_mode == WIFI_MENU) {
-    s_wifiSubSel = (s_wifiSubSel + delta + 4) % 4;
+    s_wifiSubSel = (s_wifiSubSel + delta + 3) % 3;
 
     if (Encoder::shortPressed()) {
       switch (s_wifiSubSel) {
-        case 0:  // ENABLE / DISABLE toggle
-          s_wifiEnabled = !s_wifiEnabled;
-          { Preferences p; p.begin("brew", false); p.putInt("wifi_en", s_wifiEnabled ? 1 : 0); p.end(); }
-          UI::showSaved();
-          safeRestart();
-          break;
-        case 1:  // Secrets
+        case 0:  // Secrets
           s_wifiSubSel = 0;
           WifiMgr::nvsCredentials(s_nvsSsid, sizeof(s_nvsSsid), &s_nvsPassStatus);
           s_mode = SECRETS_MENU;
           break;
-        case 2:  // Connect
+        case 1:  // Connect
           WifiMgr::reconnect();
           { unsigned long t0 = millis(); bool ok = false;
             while (millis() - t0 < 15000UL) {
@@ -705,13 +699,16 @@ void loop() {
           }
           s_gStatus = 0; s_gChecked = false;
           break;
-        case 3:  // Back
+        case 2:  // Back
           s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false;
           s_mode = SETTINGS;
           break;
       }
     }
-    if (Encoder::longPressed()) { s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false; s_mode = SETTINGS; }
+    if (Encoder::longPressed()) {
+      s_wifiSubSel = 0; s_gStatus = 0; s_gChecked = false;
+      s_mode = SETTINGS;
+    }
 
   } else if (s_mode == SECRETS_MENU) {
     s_wifiSubSel = (s_wifiSubSel + delta + 4) % 4;
@@ -862,7 +859,6 @@ void loop() {
                          WifiMgr::rssi(),
                          WifiMgr::activeSSID(),
                          WifiMgr::activeIP(),
-                         s_wifiEnabled,
                          s_gStatus);
         break;
       case SECRETS_MENU:
