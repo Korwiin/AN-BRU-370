@@ -59,9 +59,7 @@ static unsigned long s_setupStart = 0;    // millis() of step entry (for timeout
 static unsigned long s_lastOled   = 0;
 static bool s_oledSleeping        = false;
 static unsigned long s_lastActivity = 0;
-static bool s_wifiCancelled  = false;
 static bool s_dcsBiosStarted = false;
-static bool s_wifiEnabled    = true;
 
 static bool          s_bootStarted  = false;
 static unsigned long s_bootDoneAt   = 0;   // millis() when ph.ip && dcsLive first both true
@@ -105,7 +103,6 @@ static void loadNvs() {
   mouseParams[5] = prefs.getInt("lbY2", s_screenH / 2);
   mouseParams[6] = prefs.getInt("cdrpX", s_screenW / 5);
   mouseParams[7] = prefs.getInt("cdrpY", s_screenH / 2);
-  s_wifiEnabled  = prefs.getInt("wifi_en", 1);
   prefs.end();
 }
 
@@ -158,9 +155,8 @@ static void executeMenuItem() {
     case 6:  // Reboot
       rebootWithCountdown();
       break;
-    case 7:  // EXIT — macros only when WiFi is off or DCS is live
-      s_mode = (!s_wifiEnabled || s_wifiCancelled || DcsBios::isConnected())
-               ? homeMode() : BOOT_STATUS;
+    case 7:  // EXIT
+      s_mode = homeMode();
       return;
   }
   s_menuSel = 0; s_menuOffset = 0;
@@ -219,7 +215,7 @@ static const char* kCalibLabelY[] = {
 };
 
 static MenuState homeMode() {
-  if (!DcsBios::isConnected()) return MACRO_MENU;
+  if (!DcsBios::isConnected()) return BOOT_STATUS;
   return DcsBios::mwsOn() ? AIRCRAFT_STATUS : NOT_READY;
 }
 
@@ -246,7 +242,6 @@ void setup() {
     while (millis() - settleStart < 3000UL) {
       UI::showBootStatus(bsi);
       Encoder::readDelta();
-      if (Encoder::longPressed()) { s_wifiCancelled = true; break; }
       delay(10);
     }
     Encoder::flush();
@@ -271,7 +266,7 @@ void setup() {
 
 void loop() {
   // Background DCS-BIOS start for post-boot reconnects (boot path uses BOOT_STATUS state)
-  if (s_mode != BOOT_STATUS && !s_dcsBiosStarted && !s_wifiCancelled && s_wifiEnabled) {
+  if (s_mode != BOOT_STATUS && !s_dcsBiosStarted) {
     if (WifiMgr::pollConnect()) {
       DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
                      "255.255.255.255", DCSBIOS_CMD_PORT);
@@ -289,7 +284,7 @@ void loop() {
     if (WifiMgr::isConnected() && !wifiUp) {
       // Driver desync: simplified reconnect stays in WIFI_STA
       WifiMgr::reconnect();
-    } else if (!WifiMgr::isConnected() && !wifiUp && s_wifiEnabled && !s_wifiCancelled) {
+    } else if (!WifiMgr::isConnected() && !wifiUp) {
       // Long outage (≥60 s offline): AP session has expired, full reset is safe
       WifiMgr::reconnectFull();
     }
@@ -426,8 +421,8 @@ void loop() {
     if (s_mode == MACRO_MENU) s_mode = homeMode();
   }
   if (!nowConnected && s_wasDcsConnected) {
-    if (s_mode == AIRCRAFT_STATUS || s_mode == NOT_READY) s_mode = MACRO_MENU;
-    if (s_mode == SETUP_RUNNING) { s_setupStep = 0; s_mode = MACRO_MENU; }
+    if (s_mode == AIRCRAFT_STATUS || s_mode == NOT_READY) s_mode = BOOT_STATUS;
+    if (s_mode == SETUP_RUNNING) { s_setupStep = 0; s_mode = BOOT_STATUS; }
   }
   s_wasDcsConnected = nowConnected;
 
@@ -443,11 +438,6 @@ void loop() {
 
   // Menu state machine
   if (s_mode == BOOT_STATUS) {
-    if (!s_wifiEnabled || s_wifiCancelled) {
-      s_mode = homeMode();
-      return;
-    }
-
     if (!s_bootStarted) {
       s_bootStarted = WifiMgr::startWifi();
     }
@@ -477,11 +467,16 @@ void loop() {
     }
 
     bool dcs = DcsBios::hasData();
-    BootStatusInfo bsi = {
-      ph.rf, ph.ssid, ph.eth, ph.ip, ph.dns, dcs,
-      ph.rfFail, ph.ssidFail,
-      WifiMgr::failReasonStr()
-    };
+    const char* statusText = nullptr;
+    if (ph.ip) {
+      static char ipOctet[5];
+      snprintf(ipOctet, sizeof(ipOctet), ".%u", (unsigned)WiFi.localIP()[3]);
+      statusText = ipOctet;
+    } else if (ph.ssid) {
+      statusText = WifiMgr::authModeStr();
+    }
+    BootStatusInfo bsi = { ph.ssid, ph.ip, dcs,
+                           WifiMgr::failReasonStr(), statusText };
     UI::showBootStatus(bsi);
     return;
 
