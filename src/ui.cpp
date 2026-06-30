@@ -15,32 +15,6 @@ void UI::begin() {
   u8g2.setContrast(20);
 }
 
-// Draws a 5x5 checkmark at (x, y) where y is the text baseline.
-static void drawCheck(int x, int y) {
-  u8g2.drawLine(x,   y-2, x+2, y);
-  u8g2.drawLine(x+2, y,   x+5, y-4);
-}
-
-// Draws a 5x5 X mark at (x, y) where y is the text baseline.
-static void drawCross(int x, int y) {
-  u8g2.drawLine(x,   y-4, x+4, y);
-  u8g2.drawLine(x+4, y-4, x,   y);
-}
-
-// Draws a phase indicator symbol.
-// done→checkmark, inProgress→spinner (-\|/ at 250ms/frame), else "--".
-static void drawPhase(int x, int y, bool done, bool inProgress) {
-  if (done) {
-    drawCheck(x, y);
-  } else if (inProgress) {
-    static const char kSpin[] = { '-', '\\', '|', '/' };
-    char s[2] = { kSpin[(millis() / 250) % 4], '\0' };
-    u8g2.drawStr(x, y, s);
-  } else {
-    u8g2.drawStr(x, y, "--");
-  }
-}
-
 void UI::showBootStatus(const BootStatusInfo& s) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
@@ -56,29 +30,69 @@ void UI::showBootStatus(const BootStatusInfo& s) {
   // Line 2 (y=16): intentional empty gap
 
   // Line 3 (y=24): 3 indicators — WiFi | IP | DCS
-  // Three evenly-spaced label+symbol pairs across 128 px.
+  // Columns shifted +4px each (vs. the original 46/88) to give the WiFi slot
+  // room for 4-character "WPA2"/"WPA3" text without colliding with "IP".
+  static const char kSpin[] = { '-', '\\', '|', '/' };
+  const char spinCh = kSpin[(millis() / 250) % 4];
+
   const int kGap = 2;
-  const int xWL  = 2;                                      // WiFi label x
-  const int xWS  = xWL + u8g2.getStrWidth("WiFi") + kGap; // WiFi symbol x (~24)
-  const int xIL  = 46;                                     // IP label x
-  const int xIS  = xIL + u8g2.getStrWidth("IP")   + kGap; // IP symbol x (~58)
-  const int xDL  = 88;                                     // DCS label x
-  const int xDS  = xDL + u8g2.getStrWidth("DCS")  + kGap; // DCS symbol x (~105)
+  const int xWL  = 2;
+  const int xWS  = xWL + u8g2.getStrWidth("WiFi") + kGap;  // ~24
+  const int xIL  = 50;
+  const int xIS  = xIL + u8g2.getStrWidth("IP")   + kGap;  // ~62
+  const int xDL  = 92;
+  const int xDS  = xDL + u8g2.getStrWidth("DCS")  + kGap;  // ~109
 
   u8g2.drawStr(xWL, 24, "WiFi");
   u8g2.drawStr(xIL, 24, "IP");
   u8g2.drawStr(xDL, 24, "DCS");
 
-  // Spinner on the current active phase; checkmark on done; -- on pending.
-  drawPhase(xWS, 24, s.wifi, !s.wifi);
-  drawPhase(xIS, 24, s.ip,   s.wifi && !s.ip);
-  drawPhase(xDS, 24, s.dcs,  s.ip   && !s.dcs);
+  // WiFi slot: spinner until associated, then auth mode text ("WPA2"/"WPA3").
+  // No pending "--" state — WiFi is the first phase, always either spinning
+  // or done.
+  if (s.wifi) {
+    u8g2.drawStr(xWS, 24, s.authMode ? s.authMode : "");
+  } else {
+    char buf[2] = { spinCh, '\0' };
+    u8g2.drawStr(xWS, 24, buf);
+  }
 
-  // Line 4 (y=32): failReason takes priority over statusText.
-  // failReason: error string while WiFi retries ("Auth retry", "AP not found", etc.)
-  // statusText: progress info ("WPA2", "WPA3", ".42") when no error.
-  const char* line4 = s.failReason ? s.failReason : s.statusText;
-  if (line4) u8g2.drawStr(0, 32, line4);
+  // IP slot: pending "--" until WiFi associates, spinner until IP arrives,
+  // then the last octet as plain digits (e.g. "42").
+  if (s.ip) {
+    u8g2.drawStr(xIS, 24, s.ipOctet ? s.ipOctet : "");
+  } else if (s.wifi) {
+    char buf[2] = { spinCh, '\0' };
+    u8g2.drawStr(xIS, 24, buf);
+  } else {
+    u8g2.drawStr(xIS, 24, "--");
+  }
+
+  // DCS slot: pending "--" until IP arrives, then spins forever — no "done"
+  // state, no checkmark. The boot screen exits ~1.5s after DCS connects, so
+  // a completed-DCS visual is never actually visible; spinning the whole time
+  // it could be live is simpler and equally informative.
+  if (s.ip) {
+    char buf[2] = { spinCh, '\0' };
+    u8g2.drawStr(xDS, 24, buf);
+  } else {
+    u8g2.drawStr(xDS, 24, "--");
+  }
+
+  // Line 4 (y=32): exactly one of three static, centered states.
+  // Priority: failReason (with live retry countdown) > Connecting > Waiting for DCS.
+  char line4[32] = {0};
+  if (s.failReason) {
+    snprintf(line4, sizeof(line4), "%s Retry %d", s.failReason, s.retrySecs);
+  } else if (!s.ip) {
+    snprintf(line4, sizeof(line4), "Connecting ...");
+  } else if (!s.dcs) {
+    snprintf(line4, sizeof(line4), "Waiting for DCS ...");
+  }
+  if (line4[0]) {
+    int w = u8g2.getStrWidth(line4);
+    u8g2.drawStr((128 - w) / 2, 32, line4);
+  }
 
   u8g2.sendBuffer();
 }
