@@ -9,7 +9,9 @@ struct BootStatusInfo {
   bool        ip;          // DHCP complete (STA_GOT_IP event fired)
   bool        dcs;         // DCS-BIOS stream alive (hasData())
   const char* failReason;  // nullptr = none; error string while retrying
-  const char* statusText;  // nullptr = none; "WPA2"/"WPA3" or ".NN" (last IP octet)
+  const char* authMode;    // "WPA2"/"WPA3" — valid once wifi==true; shown in WiFi slot
+  const char* ipOctet;     // last IP octet as plain digits, e.g. "42" — valid once ip==true
+  int         retrySecs;   // countdown remaining (30→0); meaningful only when failReason != nullptr
 };
 
 namespace UI {
