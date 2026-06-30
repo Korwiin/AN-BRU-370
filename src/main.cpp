@@ -63,6 +63,7 @@ static bool s_dcsBiosStarted = false;
 
 static bool          s_bootStarted  = false;
 static unsigned long s_bootDoneAt   = 0;   // millis() when ph.ip && dcsLive first both true
+static unsigned long s_bootRetryAt  = 0;   // 0 = no retry pending; else millis() deadline for next startWifi()
 
 static OTA::CheckResult  s_otaResult        = {};
 static char              s_otaError[24]      = {0};
@@ -457,15 +458,13 @@ void loop() {
     }
 
     // If WiFi is stuck (error 39 / TIMEOUT is not in arduino-esp32's reconnectable
-    // list, so auto-reconnect never retries it), restart startWifi() after 5 s.
-    {
-      static unsigned long s_bootRetryAt = 0;
-      if (!ph.ssid && ph.failReasonCode != 0) {
-        if (s_bootRetryAt == 0) s_bootRetryAt = millis() + 5000UL;
-        if (millis() >= s_bootRetryAt) { s_bootRetryAt = 0; s_bootStarted = false; }
-      } else {
-        s_bootRetryAt = 0;
-      }
+    // list, so auto-reconnect never retries it), restart startWifi() after 30 s.
+    // s_bootRetryAt is file-scope so the countdown can be read below for display.
+    if (!ph.ssid && ph.failReasonCode != 0) {
+      if (s_bootRetryAt == 0) s_bootRetryAt = millis() + 30000UL;
+      if (millis() >= s_bootRetryAt) { s_bootRetryAt = 0; s_bootStarted = false; }
+    } else {
+      s_bootRetryAt = 0;
     }
 
     if (ph.ip && dcsLive) {
@@ -479,16 +478,25 @@ void loop() {
     }
 
     bool dcs = DcsBios::hasData();
-    const char* statusText = nullptr;
+
+    const char* authMode = nullptr;
+    const char* ipOctet  = nullptr;
+    static char ipOctetBuf[5];
     if (ph.ip) {
-      static char ipOctet[5];
-      snprintf(ipOctet, sizeof(ipOctet), ".%u", (unsigned)WiFi.localIP()[3]);
-      statusText = ipOctet;
+      snprintf(ipOctetBuf, sizeof(ipOctetBuf), "%u", (unsigned)WiFi.localIP()[3]);
+      ipOctet = ipOctetBuf;
     } else if (ph.ssid) {
-      statusText = WifiMgr::authModeStr();
+      authMode = WifiMgr::authModeStr();
     }
+
+    int retrySecs = 0;
+    if (s_bootRetryAt > 0) {
+      unsigned long remainingMs = (s_bootRetryAt > millis()) ? (s_bootRetryAt - millis()) : 0;
+      retrySecs = (int)(remainingMs / 1000UL);
+    }
+
     BootStatusInfo bsi = { ph.ssid, ph.ip, dcs,
-                           WifiMgr::failReasonStr(), statusText };
+                           WifiMgr::failReasonStr(), authMode, ipOctet, retrySecs };
     UI::showBootStatus(bsi);
     return;
 
