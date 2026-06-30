@@ -40,11 +40,10 @@ All keys are integers unless noted. Two namespaces are used.
 | `lbY2` | int | scrH / 2 | Pin Label Y (absolute screen pixels) |
 | `cdrpX` | int | scrW / 5 | Click Out X (absolute screen pixels) |
 | `cdrpY` | int | scrH / 2 | Click Out Y (absolute screen pixels) |
-| `wifi_en` | int | 1 | Wi-Fi enabled (0=disabled, 1=enabled) |
 
 Mouse position defaults are recalculated at runtime from `scrW`/`scrH`; they are not stored unless the user calibrates them.
 
-Stale keys `lbX`, `lbY` (old relative-delta label offset) and `aptX`, `aptY`, `amcX`, `amcY` (old 0–4095 space) may exist in NVS as harmless orphans from earlier firmware. They are never read.
+Stale keys `lbX`, `lbY` (old relative-delta label offset), `aptX`, `aptY`, `amcX`, `amcY` (old 0–4095 space), and `wifi_en` (WiFi disable toggle, removed 2026-06-29 — WiFi is now a mandatory core function) may exist in NVS as harmless orphans from earlier firmware. They are never read.
 
 ### Namespace `brew_wifi` (credentials)
 
@@ -63,9 +62,10 @@ No compile-time credential defaults. Credentials are NVS-only; configure at runt
 |---|---|---|
 | Multicast listen address | `239.255.50.10` | `DCSBIOS_MCAST_ADDR` in `config.h` |
 | Listen port | `5010` | `DCSBIOS_MCAST_PORT` |
-| Command host | `255.255.255.255` (broadcast) | hardcoded in `DcsBios::begin()` call |
+| Command host | unicast — sender IP captured from last received export packet | `DcsBios::begin()`'s `cmdHost` arg is accepted but ignored; see decision log 2026-06-29 |
 | Command port | `7778` | `DCSBIOS_CMD_PORT` |
 | Stream timeout | 3 s | hardcoded in `DcsBios::isConnected()` |
+| Transport | `AsyncUDP` (Core 0 callback → ring buffer → `DcsBios::process()` on Core 1) | migrated from `WiFiUDP` polling — see decision log 2026-06-29 |
 
 ---
 
@@ -120,8 +120,7 @@ ANT ELEV is **not** modeled in DCS-BIOS for the F-16C.
 | Constant | Value | Purpose |
 |---|---|---|
 | USB settle | 3 000 ms | Wait for USB-OTG enumeration before starting Wi-Fi |
-| `kWifiBootTimeoutMs` | 15 000 ms | Per-attempt Wi-Fi connect window in BOOT_STATUS |
-| Boot max attempts | 3 | Total BOOT_STATUS attempts before marking failed |
+| Boot retry (`WIFI_REASON_TIMEOUT`) | 30 000 ms | App-level retry for reason 39, which arduino-esp32's auto-reconnect never retries (see decision log 2026-06-29). Live countdown shown on the boot screen. |
 | Boot auto-exit delay | 1 500 ms | Wait after IP+DCS live before auto-transitioning to home |
 | Macro menu idle timeout | 15 000 ms | Auto-return to AIRCRAFT_STATUS when DCS connected |
 | `SC_RETRY_MS` | 500 ms | Stores Config switch command retry interval |
@@ -130,8 +129,10 @@ ANT ELEV is **not** modeled in DCS-BIOS for the F-16C.
 | RWR debounce | 200 ms | Minimum time RWR must be high before alert triggers |
 | MC flash interval | 200 ms | OLED flash toggle rate for Master Caution |
 | RWR flash interval | 100 ms | OLED flash toggle rate for Missile Launch |
-| Wi-Fi watchdog | 5 000 ms | Runtime interval to check for driver give-up |
+| Wi-Fi watchdog | 60 000 ms | Runtime interval. Two-tier: driver desync (`isConnected() && !wifiUp`) → `reconnect()`; confirmed long outage (`!isConnected() && !wifiUp`) → `reconnectFull()` (full WIFI_OFF radio reset — safe at this point since any AP session has expired) |
 | Manual Connect timeout | 15 000 ms | Wi-Fi → Connect item timeout |
+
+Boot WiFi connect itself has **no attempt limit or timeout** — `startWifi()` is called once with `setAutoReconnect(true)`, and the arduino-esp32 stack retries indefinitely (decision log 2026-06-29). The boot screen shows live progress; there is no "boot failed" terminal state.
 
 ---
 

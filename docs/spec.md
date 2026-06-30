@@ -2,7 +2,7 @@
 
 **Device:** AN/BRU-370 cockpit panel controller for DCS World F-16C (Viper)
 **Platform:** ESP32-S3 Super Mini (DWEII)
-**Current firmware:** v0.57
+**Current firmware:** v0.87
 
 ---
 
@@ -19,9 +19,7 @@ Physical controls:
 
 ### USB Settle (3 seconds)
 
-On power-up the OLED shows a boot status grid with all six phases marked `--`. This 3-second window allows USB-OTG enumeration to complete before the Wi-Fi radio starts (shared PMU; see decision log).
-
-Long-pressing the encoder during this window cancels Wi-Fi for the current session.
+On power-up the OLED shows the boot status screen with all indicators pending. This 3-second window allows USB-OTG enumeration to complete before the Wi-Fi radio starts (shared PMU; see decision log).
 
 ### No Credentials Check
 
@@ -29,18 +27,23 @@ After the settle period, if no Wi-Fi credentials are stored in NVS, the device s
 
 ### Boot Status State
 
-If Wi-Fi is enabled and credentials exist, the device enters the BOOT_STATUS state machine. The OLED shows a 6-phase diagnostic grid:
+The device enters the BOOT_STATUS state machine and calls `startWifi()` once — WiFi is mandatory; there is no disable option. The OLED shows three indicators on one line, each either pending (`--`), spinning (`-\|/` at 250 ms/frame), or showing live data once that phase completes:
 
-| Phase | Label | What it means |
-|---|---|---|
-| RF | radio | Wi-Fi radio initialized |
-| SSID | ssid | Associated with the configured network |
-| ETH | eth | Ethernet/layer-2 connected |
-| IP | ip | IP address assigned (DHCP) |
-| DNS | dns | DNS resolved github for update checks |
-| DCS | dcs | DCS-BIOS packets received |
+| Slot | Pending | Spinning | Done |
+|---|---|---|---|
+| WiFi | *(starts spinning immediately)* | until associated | auth mode text: `WPA2` or `WPA3` |
+| IP | `--` until WiFi associates | until DHCP completes | last octet as plain digits, e.g. `42` |
+| DCS | `--` until IP arrives | continuously once IP arrives — never shows a "done" state (the screen exits ~1.5 s after DCS connects, so a completed visual would never actually be seen) | — |
 
-Up to 3 attempts are made, each with a 15-second timeout. If all 3 fail, the boot status screen shows the last failure reason and the device stays in BOOT_STATUS (accessible from Settings via long press).
+A status line below shows exactly one of three states, centered:
+
+| Condition | Text |
+|---|---|
+| A WiFi failure reason is active | `<reason> Retry N` — N counts down from 30 to 0 each second, then retries |
+| No IP yet, no failure | `Connecting ...` |
+| IP acquired, DCS not yet connected | `Waiting for DCS ...` |
+
+**There is no attempt limit or "boot failed" terminal state.** `WiFi.setAutoReconnect(true)` is enabled from the start; the arduino-esp32 stack retries indefinitely on its own. One exception: `WIFI_REASON_TIMEOUT` (39) is not in arduino-esp32's auto-retry list, so the boot handler restarts `startWifi()` itself after the 30-second countdown if that specific reason is stuck. See decision log 2026-06-29 for why the old 3-attempt-with-WIFI_OFF-cycling system was replaced.
 
 DCS-BIOS starts automatically on IP assignment.
 
@@ -51,9 +54,8 @@ DCS-BIOS starts automatically on IP assignment.
 | IP + DCS both live for 1.5 s | Auto-exits to `homeMode()` |
 | Encoder input (turn or short press) when IP + DCS live | Immediate exit to `homeMode()` |
 | Long press at any time | Opens Settings |
-| Wi-Fi disabled or cancelled | Immediate exit to `homeMode()` |
 
-`homeMode()` returns AIRCRAFT_STATUS if DCS is connected, or MACRO_MENU otherwise.
+`homeMode()` returns `BOOT_STATUS` if DCS is not connected (regardless of cause — initial boot, mid-session WiFi drop, or DCS disconnect), or `AIRCRAFT_STATUS`/`NOT_READY` if DCS is connected (depending on the MWS setup flag). `MACRO_MENU` is no longer a `homeMode()` target — it remains reachable only as a manual navigation choice from Aircraft Status while DCS is connected.
 
 ---
 
@@ -129,7 +131,7 @@ Accessed by **long pressing the encoder** from any home screen (Aircraft Status,
 | 4 | Mouse Tune | Opens Mouse Position Tuning submenu. |
 | 5 | Firmware | Checks for OTA firmware update. |
 | 6 | Reboot | Restarts the ESP32. |
-| 7 | EXIT | Returns to main operating loop. Returns to BOOT_STATUS if Wi-Fi is connecting; otherwise to `homeMode()`. |
+| 7 | EXIT | Returns to `homeMode()` — `BOOT_STATUS` if DCS is not connected, otherwise `AIRCRAFT_STATUS`/`NOT_READY`. |
 
 ---
 
@@ -143,14 +145,13 @@ Accessed by **long pressing the encoder** from any home screen (Aircraft Status,
 - IP address (last two octets: `x.x.N.N`)
 - RSSI and internet reachability check
 
-**Right panel** — 4 items
+**Right panel** — 3 items (WiFi is a mandatory core function — no disable toggle; see decision log 2026-06-29)
 
 | # | Item | Behavior |
 |---|---|---|
-| 0 | WiFi:ON / WiFi:OFF | Toggles Wi-Fi enable state. Saves to NVS and reboots. |
-| 1 | Secrets | Opens the Secrets submenu. |
-| 2 | Connect | Reconnects with saved credentials (15 s timeout). Starts DCS-BIOS on success. |
-| 3 | Back | Returns to Settings. Long press also returns. |
+| 0 | Secrets | Opens the Secrets submenu. |
+| 1 | Connect | Reconnects with saved credentials (15 s timeout). Starts DCS-BIOS on success. |
+| 2 | Back | Returns to Settings. Long press also returns. |
 
 ### Secrets Submenu
 
@@ -176,7 +177,9 @@ Selecting **BLE TERM**:
 
 ### Background Wi-Fi
 
-After boot, if Wi-Fi connects while in a non-BOOT_STATUS state (e.g. after a manual Connect from the menu), DCS-BIOS starts automatically on the first successful connection. A 5-second runtime watchdog checks the Wi-Fi driver state and calls reconnect if the driver has given up.
+After boot, if Wi-Fi connects while in a non-BOOT_STATUS state (e.g. after a manual Connect from the menu), DCS-BIOS starts automatically on the first successful connection. If WiFi drops mid-session, `homeMode()` routes back to `BOOT_STATUS` (showing the same live indicators as initial boot) rather than to a degraded "no WiFi" screen.
+
+A 60-second runtime watchdog checks for two distinct failure modes: driver desync (the app's connection-state tracking disagrees with `WiFi.status()`) triggers a lightweight `reconnect()`; a confirmed long outage (60+ seconds disconnected) triggers `reconnectFull()`, which does a full radio reset — safe at that point because any AP-side session has long since expired. See decision log 2026-06-29 for why a single short-interval watchdog was replaced with this two-tier approach.
 
 ---
 
