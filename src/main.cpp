@@ -482,11 +482,12 @@ void loop() {
     const char* authMode = nullptr;
     const char* ipOctet  = nullptr;
     static char ipOctetBuf[5];
+    if (ph.ssid) {
+      authMode = WifiMgr::authModeStr();
+    }
     if (ph.ip) {
       snprintf(ipOctetBuf, sizeof(ipOctetBuf), "%u", (unsigned)WiFi.localIP()[3]);
       ipOctet = ipOctetBuf;
-    } else if (ph.ssid) {
-      authMode = WifiMgr::authModeStr();
     }
 
     int retrySecs = 0;
