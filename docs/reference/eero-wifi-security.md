@@ -1,4 +1,4 @@
-# Eero WiFi Security — Deauth Protection & Reconnect Behavior
+# Eero WiFi Security — Deauth Protection, Client Steering & Reconnect Behavior
 
 Reference document for the Brew370 AN/BRU-370 project. Compiled 2026-06-29.
 
@@ -52,6 +52,63 @@ Sources:
 - **SA Query procedure**: If the AP has an active PMF session for a client MAC and receives a new Association Request, it rejects it with **Status Code 30** ("Try again later") and includes an **Association Comeback Time** (typically 1–10 seconds, default 1s on enterprise APs). The client must wait before retrying.
 
 Source: [Cisco 802.11w Configuration Guide](https://www.cisco.com/c/en/us/support/docs/wireless-mobility/wireless-lan-wlan/212576-configure-802-11w-management-frame-prote.html)
+
+---
+
+### Eero Client Steering and 802.11k/v/r Roaming
+
+#### What Eero does
+
+Eero uses **802.11v BSS Transition Management (BTM)** for client steering — the mechanism that encourages devices to roam to a better-positioned AP node. Eero's own documentation states:
+
+> *"The option will have the eero suggest which access point a device should connect to, but it cannot require the device to comply."*
+
+BTM is fundamentally a *suggestion* protocol:
+1. Eero sends a **BTM Request** frame listing preferred APs with signal quality data
+2. The client can accept (and roam), decline, or ignore entirely
+3. The AP can optionally set `disassociate-imminent=1` in the BTM frame — this means *"I will disconnect you after N seconds if you don't roam"*. This is the only force mechanism.
+
+**Whether Eero sets `disassociate-imminent=1` is not publicly documented.** If it does, devices that ignore the BTM request will be forcefully disconnected, triggering a reconnect from scratch.
+
+Source: [Eero Help — Why doesn't my device connect to the closest eero?](https://support.eero.com/hc/en-us/articles/360039477051-Why-doesn-t-my-device-connect-to-the-closest-eero)
+
+#### What ESP32-S3 supports (and what it doesn't in practice)
+
+| Protocol | Purpose | ESP-IDF Support | arduino-esp32 default |
+|---|---|---|---|
+| 802.11k | Neighbor reports — let client find candidate APs | Partial (v5.0+) | **Disabled** |
+| 802.11v | BTM — AP suggests roam target | Available (v5.0+) | **Disabled** (`btm_enabled=0`) |
+| 802.11r | Fast BSS Transition — speeds up re-authentication on roam | Available (v5.0+) | **Disabled** (`ft_enabled=0`) |
+
+`WiFi.begin()` in arduino-esp32's `WiFiSTA.cpp` calls `wifi_sta_config()` which hardcodes `btm_enabled=0` and `ft_enabled=0`. **Our ESP32-S3 never opts in to any of these protocols.**
+
+Known open issues confirming practical limitations:
+- [esp-idf #3671](https://github.com/espressif/esp-idf/issues/3671) — "Does ESP32 support seamless roaming?" (2020, still referenced)
+- [esp-idf #11936](https://github.com/espressif/esp-idf/issues/11936) — "Wifi roaming does not work (802.11k/v/r) in STA mode" (open)
+
+Even when explicitly enabled via `esp_wifi_set_config()`, roaming behaviour is unreliable. The ESP32 only roams when the current connection fully drops — it does not proactively roam in response to BTM suggestions.
+
+#### Implication for Brew370 disconnections
+
+When Eero sends a BTM Request to the ESP32-S3:
+1. ESP32 ignores it (no `btm_enabled`)
+2. If Eero has `disassociate-imminent=1`: Eero **forcefully disconnects** the ESP32 after its countdown
+3. ESP32 sees an unexpected disconnect (reason 8 `ASSOC_LEAVE` or similar)
+4. ESP32 reconnects — likely to the same AP node (no 802.11k neighbor data)
+5. Eero may immediately send another BTM request to steer it away again → cycle repeats
+
+This is a plausible cause of **intermittent disconnections that don't follow the auth-failure pattern** — random-looking drops during active use when RF conditions are otherwise fine.
+
+#### Mitigation options
+
+| Option | Effect | Trade-offs |
+|---|---|---|
+| Eero **Compatibility Mode** (Settings → Advanced) | Disables client steering entirely | Also disables WPA3 and band steering |
+| Enable `btm_enabled=1` in ESP-IDF config | ESP32 receives and can respond to BTM requests | Requires ESP-IDF direct API, unreliable per #11936 |
+| Pin the device to a specific AP BSSID | Prevents Eero from steering (device ignores other BSSIDs) | Loses mesh flexibility; breaks if that node goes offline |
+| Accept the behaviour | Most BTM disconnects are brief; reconnect is fast on WPA2 | Occasional UI disruption during DCS sessions |
+
+**Eero Compatibility Mode** is the lowest-effort test: if random disconnections stop after enabling it, BTM steering was the cause.
 
 ---
 
@@ -158,3 +215,10 @@ Our 5-second boot retry (v0.85+) is based on error 39 being a **client-side time
 - [esp-idf Issue #8192 — Deauth reconnect](https://github.com/espressif/esp-idf/issues/8192)
 - [Cut It: Deauth Attacks on PMF in WPA2/WPA3 — Springer](https://link.springer.com/chapter/10.1007/978-3-031-08147-7_16)
 - [On the Robustness of Wi-Fi Deauth Countermeasures — wisec2022.pdf](https://papers.mathyvanhoef.com/wisec2022.pdf)
+- [Eero Help — Why doesn't my device connect to the closest eero?](https://support.eero.com/hc/en-us/articles/360039477051-Why-doesn-t-my-device-connect-to-the-closest-eero)
+- [Eero Help — Compatibility Mode](https://support.eero.com/hc/en-us/articles/27887486808603-Compatibility-Mode)
+- [ESP-IDF Issue #3671 — Does ESP32 support seamless roaming?](https://github.com/espressif/esp-idf/issues/3671)
+- [ESP-IDF Issue #11936 — WiFi roaming does not work (802.11k/v/r) in STA mode](https://github.com/espressif/esp-idf/issues/11936)
+- [ESP-IDF Security and Roaming — ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-guides/wifi-driver/security-and-roaming.html)
+- [802.11v BSS Transition Management — wifiwiki.wordpress.com](https://wifiwiki.wordpress.com/2020/04/27/802-11v-wireless-network-management/)
+- [802.11k, 802.11r, 802.11v Overview — Mist/Juniper](https://www.mist.com/documentation/802-11k-802-11r-802-11v/)
