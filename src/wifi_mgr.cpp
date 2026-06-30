@@ -56,9 +56,12 @@ bool WifiMgr::isBleClientConnected() { return s_bleClientConn; }
 int WifiMgr::rssi() { return WiFi.RSSI(); }
 
 const char* WifiMgr::authModeStr() {
-  if (!s_connected) return nullptr;
+  // esp_wifi_sta_get_ap_info() succeeds as soon as the station is associated
+  // (ARDUINO_EVENT_WIFI_STA_CONNECTED) — does NOT require an IP yet. Do not
+  // gate on s_connected (which only becomes true after GOT_IP) — that would
+  // delay this result until DHCP completes, one event later than needed.
   wifi_ap_record_t ap;
-  if (esp_wifi_sta_get_ap_info(&ap) != ESP_OK) return "WPA2";
+  if (esp_wifi_sta_get_ap_info(&ap) != ESP_OK) return nullptr;  // not associated
   // WPA3_PSK is pure WPA3. All WPA2-capable modes (including WPA2/WPA3
   // transition) negotiate WPA2 because we disable PMF via
   // esp_wifi_disable_pmf_config() — PMF is mandatory for WPA3 SAE.
@@ -199,7 +202,7 @@ WifiMgr::WifiPhase WifiMgr::getPhase() {
 const char* WifiMgr::failReasonStr() {
   switch (s_phase_failReason) {
     case   1: return "Reconnecting";
-    case   2: return "Auth retry";
+    case   2: return "Auth expired";
     case  15: return "WPA2 failed";
     case  24: return "Cipher error";
     case  39: return "Conn timeout";
