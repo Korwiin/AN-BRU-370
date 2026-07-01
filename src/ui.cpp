@@ -133,11 +133,9 @@ void UI::showMasterCaution(bool flashState) {
     u8g2.drawBox(0, 0, 128, 32);
     u8g2.setDrawColor(0);
   }
-  u8g2.setFont(u8g2_font_9x15B_tr);
-  int w1 = u8g2.getStrWidth("MASTER");
-  u8g2.drawStr((128 - w1) / 2, 14, "MASTER");
-  int w2 = u8g2.getStrWidth("CAUTION");
-  u8g2.drawStr((128 - w2) / 2, 30, "CAUTION");
+  u8g2.setFont(u8g2_font_spleen16x32_mr);
+  int w = u8g2.getStrWidth("WARN");
+  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, "WARN");
   if (flashState) u8g2.setDrawColor(1);
   u8g2.sendBuffer();
 }
@@ -149,11 +147,9 @@ void UI::showMissileLaunch(bool flashState) {
     u8g2.drawBox(0, 0, 128, 32);
     u8g2.setDrawColor(0);
   }
-  u8g2.setFont(u8g2_font_9x15B_tr);
-  int w1 = u8g2.getStrWidth("MISSILE");
-  u8g2.drawStr((128 - w1) / 2, 14, "MISSILE");
-  int w2 = u8g2.getStrWidth("LAUNCH");
-  u8g2.drawStr((128 - w2) / 2, 30, "LAUNCH");
+  u8g2.setFont(u8g2_font_spleen16x32_mr);
+  int w = u8g2.getStrWidth("MSL L");
+  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, "MSL L");
   if (flashState) u8g2.setDrawColor(1);
   u8g2.sendBuffer();
 }
@@ -165,11 +161,9 @@ void UI::showStoresConfig(bool flashState) {
     u8g2.drawBox(0, 0, 128, 32);
     u8g2.setDrawColor(0);
   }
-  u8g2.setFont(u8g2_font_9x15B_tr);
-  int w1 = u8g2.getStrWidth("STORES");
-  u8g2.drawStr((128 - w1) / 2, 14, "STORES");
-  int w2 = u8g2.getStrWidth("CONFIG");
-  u8g2.drawStr((128 - w2) / 2, 30, "CONFIG");
+  u8g2.setFont(u8g2_font_spleen16x32_mr);
+  int w = u8g2.getStrWidth("CONFIG");
+  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, "CONFIG");
   if (flashState) u8g2.setDrawColor(1);
   u8g2.sendBuffer();
 }
@@ -181,12 +175,9 @@ void UI::showNotReady(bool flashState) {
     u8g2.drawBox(0, 0, 128, 32);
     u8g2.setDrawColor(0);
   }
-  u8g2.setFont(u8g2_font_9x15B_tr);
-  int w = u8g2.getStrWidth("NOT READY");
-  u8g2.drawStr((128 - w) / 2, 16, "NOT READY");
-  u8g2.setFont(u8g2_font_5x7_tr);
-  int w4 = u8g2.getStrWidth("SP= Setup  LP= FORCE");
-  u8g2.drawStr((128 - w4) / 2, 32, "SP= Setup  LP= FORCE");
+  u8g2.setFont(u8g2_font_spleen16x32_mr);
+  int w = u8g2.getStrWidth("START");
+  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, "START");
   if (flashState) u8g2.setDrawColor(1);
   u8g2.sendBuffer();
 }
@@ -220,41 +211,20 @@ void UI::showSetupRunning(uint8_t step, bool blinkOn) {
   u8g2.sendBuffer();
 }
 
-static void drawGearTriangle(bool n, bool l, bool r) {
-  if (n) u8g2.drawDisc(15,  5, 3);
-  if (l) u8g2.drawDisc( 8, 19, 3);
-  if (r) u8g2.drawDisc(23, 19, 3);
-}
-
-static void drawSpeedbrake(uint16_t val) {
-  // DCS-BIOS defineFloat range {-1,1}: stowed (game 0.0) = 0x7FFF, full open = 0xFFFF
-  if (val < 0x8000) return;
-  u8g2.drawStr(97, 8,  "***");
-  u8g2.drawStr(97, 16, "***");
-  u8g2.drawStr(97, 24, "***");
-}
-
 void UI::showAircraftStatus(uint32_t fuelLbs,
-                            const char* chaff, const char* flare, bool ecmTx,
-                            bool gearN, bool gearL, bool gearR,
-                            uint16_t speedbrake) {
+                            const char* chaff, const char* flare, bool ecmTx) {
   u8g2.clearBuffer();
 
-  // --- Top zone: fuel number, large font, centered ---
-  u8g2.setFont(u8g2_font_t0_22b_mr);
+  // --- Fuel number, large font, top half ---
+  u8g2.setFont(u8g2_font_spleen16x32_mr);
   char fuelStr[8];
   if (fuelLbs >= 1000)
     snprintf(fuelStr, sizeof(fuelStr), "%u,%03u", fuelLbs / 1000, fuelLbs % 1000);
   else
     snprintf(fuelStr, sizeof(fuelStr), "%u", (unsigned)fuelLbs);
-  int fw = u8g2.getStrWidth(fuelStr);
-  int fy = (32 + u8g2.getAscent()) / 2;
-  u8g2.drawStr((128 - fw) / 2, fy, fuelStr);
+  u8g2.drawStr((128 - u8g2.getStrWidth(fuelStr)) / 2, 25, fuelStr);
 
-  // --- Gear triangle (left column x=0-30) and speedbrake grid (right column x=97-127) ---
   u8g2.setFont(u8g2_font_5x7_tr);
-  drawGearTriangle(gearN, gearL, gearR);
-  drawSpeedbrake(speedbrake);
 
   // --- Bottom zone: CH / FL / JAMMING row ---
   bool blinkOn = (millis() / 250) % 2 == 0;
@@ -288,9 +258,9 @@ void UI::showAircraftStatus(uint32_t fuelLbs,
 void UI::showMacroMenu(int idx) {
   Macro* m = &macros[idx];
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_t0_22b_mr);
+  u8g2.setFont(u8g2_font_spleen16x32_mr);
   int w = u8g2.getStrWidth(m->name);
-  u8g2.drawStr((128 - w) / 2, 22, m->name);
+  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, m->name);
   u8g2.sendBuffer();
 }
 
@@ -559,9 +529,9 @@ void UI::showNotImplemented() {
 
 void UI::showSaved() {
   u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_9x15B_tr);
+  u8g2.setFont(u8g2_font_spleen16x32_mr);
   int w = u8g2.getStrWidth("SAVED");
-  u8g2.drawStr((128 - w) / 2, 20, "SAVED");
+  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, "SAVED");
   u8g2.sendBuffer();
   delay(600);
 }

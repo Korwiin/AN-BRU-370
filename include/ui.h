@@ -37,9 +37,7 @@ namespace UI {
   void showStoresConfig(bool flashState);
 
   void showAircraftStatus(uint32_t fuelLbs,
-                          const char* chaff, const char* flare, bool ecmTx,
-                          bool gearN, bool gearL, bool gearR,
-                          uint16_t speedbrake);
+                          const char* chaff, const char* flare, bool ecmTx);
   void showNotReady(bool flashState);
   void showSetupRunning(uint8_t step, bool blinkOn);
   void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED

@@ -839,11 +839,7 @@ void loop() {
         UI::showAircraftStatus(DcsBios::fuelLbs(),
                                DcsBios::chaffStr(),
                                DcsBios::flareStr(),
-                               DcsBios::ecmTransmitting(),
-                               DcsBios::gearNose(),
-                               DcsBios::gearLeft(),
-                               DcsBios::gearRight(),
-                               DcsBios::speedbrake()); break;
+                               DcsBios::ecmTransmitting()); break;
       case NOT_READY:
         UI::showNotReady((millis() / 750) % 2 == 0);
         break;

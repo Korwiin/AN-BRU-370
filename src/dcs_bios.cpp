@@ -30,10 +30,6 @@ static uint16_t s_fuel100  = 0;
 static char s_chBuf[5] = "    ";
 static char s_flBuf[5] = "    ";
 static bool     s_ecmTx    = false;
-static bool     s_gearN      = false;
-static bool     s_gearL      = false;
-static bool     s_gearR      = false;
-static uint16_t s_speedbrake = 0;
 static bool     s_mwsOn        = false;
 static bool     s_hdptL        = false;
 static bool     s_hdptR        = false;
@@ -55,8 +51,6 @@ static void processWord(uint16_t addr, uint16_t word) {
   }
   if (addr == DCSBIOS_ADDR_MC_LIGHT) {
     s_mcLight = (word & DCSBIOS_MASK_MC_LIGHT) != 0;
-    s_gearN   = (word & DCSBIOS_MASK_LIGHT_GEAR_N) != 0;
-    s_gearL   = (word & DCSBIOS_MASK_LIGHT_GEAR_L) != 0;
   }
   if (addr == DCSBIOS_ADDR_RWR_MSL_LAUNCH) {
     s_rwrMslLaunch = (word & DCSBIOS_MASK_RWR_MSL_LAUNCH) != 0;
@@ -89,12 +83,6 @@ static void processWord(uint16_t addr, uint16_t word) {
   }
 
   if (addr == DCSBIOS_ADDR_ECM_TX) { s_ecmTx = (word & DCSBIOS_MASK_ECM_TX) != 0; }
-  if (addr == DCSBIOS_ADDR_GEAR_LIGHT_R) {
-    s_gearR = (word & DCSBIOS_MASK_LIGHT_GEAR_R) != 0;
-  }
-  if (addr == DCSBIOS_ADDR_SPEEDBRAKE) {
-    s_speedbrake = word;
-  }
   if (addr == DCSBIOS_ADDR_MWS_SW) {
     s_mwsOn = (word & DCSBIOS_MASK_MWS_SW) != 0;
   }
@@ -232,10 +220,6 @@ const char* DcsBios::chaffStr()     { return s_chBuf; }
 const char* DcsBios::flareStr()     { return s_flBuf; }
 bool        DcsBios::ecmTransmitting() { return s_ecmTx; }
 
-bool     DcsBios::gearNose()   { return s_gearN; }
-bool     DcsBios::gearLeft()   { return s_gearL; }
-bool     DcsBios::gearRight()  { return s_gearR; }
-uint16_t DcsBios::speedbrake() { return s_speedbrake; }
 bool    DcsBios::mwsOn()        { return s_mwsOn; }
 bool    DcsBios::hdptLeft()     { return s_hdptL; }
 bool    DcsBios::hdptRight()    { return s_hdptR; }
