@@ -16,5 +16,11 @@
 #define FIRMWARE_VERSION_INT  88  // plain decimal — keep in sync with FIRMWARE_VERSION
 #define DEVICE_NAME         "Brew370"
 
+#ifdef DEV_BUILD
+#define DEVICE_HOSTNAME "ANBRU-370RD"
+#else
+#define DEVICE_HOSTNAME "ANBRU-370"
+#endif
+
 // OTA updates
 #define OTA_MANIFEST_URL    "https://raw.githubusercontent.com/Korwiin/AN-BRU-370/main/ota/manifest.json"

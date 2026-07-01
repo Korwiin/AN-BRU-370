@@ -150,7 +150,7 @@ bool WifiMgr::startWifi() {
   // indefinitely — no attempt counter, no backoff. Eero stale-session clears in
   // ~60 s; the auto-retry connects cleanly without any timing management on our side.
   WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
-  WiFi.setHostname("ANBRU-370");
+  WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.mode(WIFI_STA);
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
 
@@ -179,7 +179,7 @@ static void startConnect() {
   s_phase_ip = false;
   WiFi.disconnect(true);
   delay(100);
-  WiFi.setHostname("ANBRU-370");
+  WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.mode(WIFI_STA);
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
   WiFi.begin(s_ssid, s_pass);
@@ -282,7 +282,7 @@ void WifiMgr::reconnectFull() {
   WiFi.setAutoReconnect(false);
   WiFi.mode(WIFI_OFF);
   delay(500);
-  WiFi.setHostname("ANBRU-370");
+  WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.mode(WIFI_STA);
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
   s_phase_failReason = 0;
