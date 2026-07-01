@@ -281,15 +281,16 @@ void loop() {
   static unsigned long s_lastWatchdog = 0;
   if (s_mode != BOOT_STATUS && !inOtaMode() && millis() - s_lastWatchdog >= 60000UL) {
     s_lastWatchdog = millis();
-    if (WifiMgr::isConnected()) {
-      // Tier 1: driver thinks connected but stack may disagree
+    bool wifiUp = (WiFi.status() == WL_CONNECTED);
+    if (WifiMgr::isConnected() && !wifiUp) {
+      // Tier 1 (desync): driver thinks connected but WiFi.status() disagrees
 #ifndef RELEASE_BUILD
       Serial.printf("[%lums] Watchdog tier1: driver desync, calling reconnect()\n",
                     (unsigned long)millis());
 #endif
       WifiMgr::reconnect();
-    } else {
-      // Tier 2: confirmed long outage — full radio reset
+    } else if (!WifiMgr::isConnected() && !wifiUp) {
+      // Tier 2: long outage — full radio reset
 #ifndef RELEASE_BUILD
       Serial.printf("[%lums] Watchdog tier2: long outage, calling reconnectFull()\n",
                     (unsigned long)millis());
