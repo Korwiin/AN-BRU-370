@@ -12,8 +12,8 @@
 #define DCSBIOS_CMD_PORT    7778
 
 // Device identity
-#define FIRMWARE_VERSION     "0.88"
-#define FIRMWARE_VERSION_INT  88  // plain decimal — keep in sync with FIRMWARE_VERSION
+#define FIRMWARE_VERSION     "0.89"
+#define FIRMWARE_VERSION_INT  89  // plain decimal — keep in sync with FIRMWARE_VERSION
 #define DEVICE_NAME         "Brew370"
 
 #ifdef DEV_BUILD
