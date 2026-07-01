@@ -281,12 +281,19 @@ void loop() {
   static unsigned long s_lastWatchdog = 0;
   if (s_mode != BOOT_STATUS && !inOtaMode() && millis() - s_lastWatchdog >= 60000UL) {
     s_lastWatchdog = millis();
-    bool wifiUp = (WiFi.status() == WL_CONNECTED);
-    if (WifiMgr::isConnected() && !wifiUp) {
-      // Driver desync: simplified reconnect stays in WIFI_STA
+    if (WifiMgr::isConnected()) {
+      // Tier 1: driver thinks connected but stack may disagree
+#ifndef RELEASE_BUILD
+      Serial.printf("[%lums] Watchdog tier1: driver desync, calling reconnect()\n",
+                    (unsigned long)millis());
+#endif
       WifiMgr::reconnect();
-    } else if (!WifiMgr::isConnected() && !wifiUp) {
-      // Long outage (≥60 s offline): AP session has expired, full reset is safe
+    } else {
+      // Tier 2: confirmed long outage — full radio reset
+#ifndef RELEASE_BUILD
+      Serial.printf("[%lums] Watchdog tier2: long outage, calling reconnectFull()\n",
+                    (unsigned long)millis());
+#endif
       WifiMgr::reconnectFull();
     }
   }
@@ -457,13 +464,40 @@ void loop() {
       return;
     }
 
-    // If WiFi is stuck (error 39 / TIMEOUT is not in arduino-esp32's reconnectable
-    // list, so auto-reconnect never retries it), restart startWifi() after 30 s.
+    // Timer A: restart startWifi() for reason codes arduino-esp32 will not auto-retry.
+    // Reason 1 (UNSPECIFIED) is emitted during arduino-esp32's own reconnect cycle —
+    // firing Timer A for reason 1 interrupts a running auto-reconnect.
     // s_bootRetryAt is file-scope so the countdown can be read below for display.
-    if (!ph.ssid && ph.failReasonCode != 0) {
-      if (s_bootRetryAt == 0) s_bootRetryAt = millis() + 30000UL;
-      if (millis() >= s_bootRetryAt) { s_bootRetryAt = 0; s_bootStarted = false; }
+    if (!ph.ssid && ph.failReasonCode != 0 && ph.failReasonCode != 1) {
+      if (s_bootRetryAt == 0) {
+        s_bootRetryAt = millis() + 30000UL;
+#ifndef RELEASE_BUILD
+        Serial.printf("[%lums] Timer A armed for reason=%u, fires at %lums\n",
+                      (unsigned long)millis(), (unsigned)ph.failReasonCode,
+                      (unsigned long)s_bootRetryAt);
+#endif
+      }
+      if (millis() >= s_bootRetryAt) {
+#ifndef RELEASE_BUILD
+        Serial.printf("[%lums] Timer A FIRED — restarting startWifi()\n",
+                      (unsigned long)millis());
+#endif
+        s_bootRetryAt  = 0;
+        s_bootStarted  = false;
+      }
     } else {
+      if (s_bootRetryAt != 0) {
+#ifndef RELEASE_BUILD
+        if (ph.failReasonCode == 1) {
+          static unsigned long s_suppressLoggedAt = 0;
+          if (millis() - s_suppressLoggedAt > 5000UL) {
+            s_suppressLoggedAt = millis();
+            Serial.printf("[%lums] Timer A suppressed — reason=1 (auto-reconnect running)\n",
+                          (unsigned long)millis());
+          }
+        }
+#endif
+      }
       s_bootRetryAt = 0;
     }
 

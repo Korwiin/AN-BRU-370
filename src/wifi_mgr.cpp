@@ -100,30 +100,40 @@ static void registerEventHandler() {
   WiFi.onEvent([](WiFiEvent_t ev, WiFiEventInfo_t info) {
     switch (ev) {
       case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-        s_phase_ssid = true;  // SSID was found; confirmed by successful association
+        s_phase_ssid = true;
         s_phase_eth  = true;
+#ifndef RELEASE_BUILD
+        Serial.printf("[%lums] WiFi CONNECTED ssid=%s\n",
+                      (unsigned long)millis(), s_ssid);
+#endif
         break;
       case ARDUINO_EVENT_WIFI_STA_GOT_IP:
         s_phase_ip         = true;
         s_phase_dns        = (WiFi.dnsIP() != IPAddress(0, 0, 0, 0));
-        s_phase_failReason = 0;  // clear stale error — connection succeeded
+        s_phase_failReason = 0;
         s_connected        = true;
+#ifndef RELEASE_BUILD
+        Serial.printf("[%lums] WiFi GOT_IP ip=%s\n",
+                      (unsigned long)millis(), WiFi.localIP().toString().c_str());
+#endif
         break;
-      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-        // Re-disable PMF after first_connect's WiFi.begin() re-enables it, but
-        // ONLY for non-voluntary disconnects. ASSOC_LEAVE (8) means we sent the
-        // DISASSOC ourselves (safeRestart, OTA, mode cycle between boot attempts).
-        // Calling disable_pmf on an active WPA2 session being torn down corrupts
-        // the deassociation, leaving Eero with stale state → MISSING_ACKS (34).
-        if (info.wifi_sta_disconnected.reason != WIFI_REASON_ASSOC_LEAVE) {
+      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
+        uint8_t reason = info.wifi_sta_disconnected.reason;
+        if (reason != WIFI_REASON_ASSOC_LEAVE) {
           esp_wifi_disable_pmf_config(WIFI_IF_STA);
         }
-        s_phase_failReason = info.wifi_sta_disconnected.reason;
-        s_phase_ip  = false;
-        s_phase_eth = false;
-        s_connected = false;
-        s_disconnectedEvent = true;   // consumed by WifiMgr::consumeDisconnect()
+        s_phase_failReason  = reason;
+        s_phase_ip          = false;
+        s_phase_eth         = false;
+        s_connected         = false;
+        s_disconnectedEvent = true;
+#ifndef RELEASE_BUILD
+        Serial.printf("[%lums] WiFi DISCONNECTED reason=%u (%s)\n",
+                      (unsigned long)millis(), (unsigned)reason,
+                      WifiMgr::failReasonStr() ? WifiMgr::failReasonStr() : "unknown");
+#endif
         break;
+      }
       default: break;
     }
   });
@@ -161,9 +171,16 @@ bool WifiMgr::startWifi() {
   }
   s_phase_rf = true;
 
+#ifndef RELEASE_BUILD
+  Serial.printf("[%lums] startWifi() called ssid=%s\n",
+                (unsigned long)millis(), s_ssid);
+#endif
   WiFi.setAutoReconnect(true);
   WiFi.begin(s_ssid, s_pass);
   esp_wifi_disable_pmf_config(WIFI_IF_STA);
+#ifndef RELEASE_BUILD
+  Serial.printf("[%lums] startWifi() done\n", (unsigned long)millis());
+#endif
   return true;
 }
 
