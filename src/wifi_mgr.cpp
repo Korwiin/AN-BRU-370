@@ -2,7 +2,6 @@
 #include "encoder.h"
 #include "config.h"
 #include <WiFi.h>
-#include <esp_wifi.h>
 #include <Preferences.h>
 #include <NimBLEDevice.h>
 
@@ -19,19 +18,7 @@ static portMUX_TYPE           s_bleMux         = portMUX_INITIALIZER_UNLOCKED;
 
 static char s_ssid[64] = {0};
 static char s_pass[64] = {0};
-static bool s_connected = false;
-
-// Phase flags — set from WiFi event task; volatile for safe cross-task reads
-static volatile bool    s_phase_rf         = false;
-static volatile bool    s_phase_ssid       = false;
-static volatile bool    s_phase_eth        = false;
-static volatile bool    s_phase_ip         = false;
-static volatile bool    s_phase_dns        = false;
-static volatile bool    s_phase_rfFail     = false;
-static volatile bool    s_phase_ssidFail   = false;
-static volatile uint8_t s_phase_failReason = 0;
-static bool             s_eventRegistered  = false;
-static volatile bool    s_disconnectedEvent = false;
+static bool s_autoReconnect = true;
 
 static void loadCredentials() {
   Preferences prefs;
@@ -53,35 +40,6 @@ bool WifiMgr::hasCredentials() {
 
 bool WifiMgr::isBleClientConnected() { return s_bleClientConn; }
 
-int WifiMgr::rssi() { return WiFi.RSSI(); }
-
-const char* WifiMgr::authModeStr() {
-  // esp_wifi_sta_get_ap_info() succeeds as soon as the station is associated
-  // (ARDUINO_EVENT_WIFI_STA_CONNECTED) — does NOT require an IP yet. Do not
-  // gate on s_connected (which only becomes true after GOT_IP) — that would
-  // delay this result until DHCP completes, one event later than needed.
-  wifi_ap_record_t ap;
-  if (esp_wifi_sta_get_ap_info(&ap) != ESP_OK) return nullptr;  // not associated
-  // WPA3_PSK is pure WPA3. All WPA2-capable modes (including WPA2/WPA3
-  // transition) negotiate WPA2 because we disable PMF via
-  // esp_wifi_disable_pmf_config() — PMF is mandatory for WPA3 SAE.
-  return (ap.authmode == WIFI_AUTH_WPA3_PSK) ? "WPA3" : "WPA2";
-}
-
-bool WifiMgr::checkInternet() {
-  static bool          s_result    = false;
-  static unsigned long s_lastCheck = 0;
-  static bool          s_hasResult = false;
-  if (!isConnected()) { s_hasResult = false; s_lastCheck = 0; return false; }
-  unsigned long now = millis();
-  if (s_hasResult && now - s_lastCheck < 30000UL) return s_result;
-  IPAddress ip;
-  s_result    = (WiFi.hostByName("raw.githubusercontent.com", ip) == 1);
-  s_lastCheck = now;
-  s_hasResult = true;
-  return s_result;
-}
-
 void WifiMgr::nvsCredentials(char* ssidOut, size_t ssidLen, uint8_t* passStatus) {
   Preferences prefs;
   prefs.begin("brew_wifi", true);
@@ -94,199 +52,48 @@ void WifiMgr::nvsCredentials(char* ssidOut, size_t ssidLen, uint8_t* passStatus)
   else                          *passStatus = 2;
 }
 
-static void registerEventHandler() {
-  if (s_eventRegistered) return;
-  s_eventRegistered = true;
-  WiFi.onEvent([](WiFiEvent_t ev, WiFiEventInfo_t info) {
-    switch (ev) {
-      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-        s_phase_ssid = true;
-        s_phase_eth  = true;
-#ifndef RELEASE_BUILD
-        Serial.printf("[%lums] WiFi CONNECTED ssid=%s\n",
-                      (unsigned long)millis(), s_ssid);
-#endif
-        break;
-      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-        s_phase_ip         = true;
-        s_phase_dns        = (WiFi.dnsIP() != IPAddress(0, 0, 0, 0));
-        s_phase_failReason = 0;
-        s_connected        = true;
-#ifndef RELEASE_BUILD
-        Serial.printf("[%lums] WiFi GOT_IP ip=%s\n",
-                      (unsigned long)millis(), WiFi.localIP().toString().c_str());
-#endif
-        break;
-      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
-        uint8_t reason = info.wifi_sta_disconnected.reason;
-        if (reason != WIFI_REASON_ASSOC_LEAVE) {
-          esp_wifi_disable_pmf_config(WIFI_IF_STA);
-        }
-        s_phase_failReason  = reason;
-        s_phase_ip          = false;
-        s_phase_eth         = false;
-        s_connected         = false;
-        s_disconnectedEvent = true;
-#ifndef RELEASE_BUILD
-        Serial.printf("[%lums] WiFi DISCONNECTED reason=%u (%s)\n",
-                      (unsigned long)millis(), (unsigned)reason,
-                      WifiMgr::failReasonStr() ? WifiMgr::failReasonStr() : "unknown");
-#endif
-        break;
-      }
-      default: break;
-    }
-  });
-}
-
-bool WifiMgr::startWifi() {
+bool WifiMgr::beginConnect(bool full) {
   loadCredentials();
-  if (s_ssid[0] == '\0') {
-    s_phase_ssidFail = true;
-    return false;
-  }
-  registerEventHandler();
+  if (s_ssid[0] == '\0') return false;
 
-  s_phase_rf = s_phase_ssid = s_phase_eth = s_phase_ip = s_phase_dns = false;
-  s_phase_rfFail = s_phase_ssidFail = false;
-  s_phase_failReason = 0;
-  s_connected = false;
+  if (full) {
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+    WiFi.mode(WIFI_STA);
+  } else {
+    WiFi.disconnect();
+  }
 
   WiFi.persistent(false);
   WiFi.setAutoConnect(false);
-
+  WiFi.setAutoReconnect(s_autoReconnect);
   WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
   WiFi.setHostname(DEVICE_HOSTNAME);
-  WiFi.mode(WIFI_STA);
-  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-
-  String mac = WiFi.macAddress();
-  if (mac.length() < 11 || mac == "00:00:00:00:00:00") {
-    s_phase_rfFail = true;
-    return false;
-  }
-  s_phase_rf = true;
+  WiFi.begin(s_ssid, s_pass);
 
 #ifndef RELEASE_BUILD
-  Serial.printf("[%lums] startWifi() called ssid=%s\n",
-                (unsigned long)millis(), s_ssid);
-#endif
-  // Auto-reconnect disabled: Timer A controls all retries, giving the AP time
-  // to clear its auth state between attempts. PMF disabled before esp_wifi_connect()
-  // per ESP-IDF requirement (after set_config, before connect).
-  WiFi.setAutoReconnect(false);
-  WiFi.begin(s_ssid, s_pass, 0, nullptr, false);
-  esp_wifi_disable_pmf_config(WIFI_IF_STA);
-  esp_wifi_connect();
-#ifndef RELEASE_BUILD
-  Serial.printf("[%lums] startWifi() done\n", (unsigned long)millis());
+  Serial.printf("[%lums] beginConnect(full=%d) ssid=%s autoReconnect=%d\n",
+                (unsigned long)millis(), (int)full, s_ssid, (int)s_autoReconnect);
 #endif
   return true;
 }
 
-// Legacy shim — used by runBleSetup() post-cancel path (same translation unit; not in header)
-static void startConnect() {
-  loadCredentials();
-  if (s_ssid[0] == '\0') return;
-  registerEventHandler();
-  WiFi.persistent(false);
-  WiFi.setAutoConnect(false);
-  WiFi.setAutoReconnect(false);
-  s_connected = false;
-  s_phase_ip = false;
-  WiFi.disconnect(true);
-  delay(100);
-  WiFi.setHostname(DEVICE_HOSTNAME);
-  WiFi.mode(WIFI_STA);
-  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-  WiFi.begin(s_ssid, s_pass, 0, nullptr, false);
-  esp_wifi_disable_pmf_config(WIFI_IF_STA);
-  esp_wifi_connect();
+void WifiMgr::setAutoReconnect(bool on) {
+  s_autoReconnect = on;
+  WiFi.setAutoReconnect(on);
 }
 
-WifiMgr::WifiPhase WifiMgr::getPhase() {
-  WifiPhase ph;
-  ph.rf             = s_phase_rf;
-  ph.ssid           = s_phase_ssid;
-  ph.eth            = s_phase_eth;
-  ph.ip             = s_phase_ip;
-  ph.dns            = s_phase_dns;
-  ph.rfFail         = s_phase_rfFail;
-  ph.ssidFail       = s_phase_ssidFail;
-  ph.failReasonCode = s_phase_failReason;
-  return ph;
-}
-
-const char* WifiMgr::failReasonStr() {
-  switch (s_phase_failReason) {
-    case   1: return "Connecting...";
-    case   2: return "Auth expired";
-    case  15: return "WPA2 failed";
-    case  24: return "Cipher error";
-    case  39: return "Conn timeout";
-    case 200: return "AP lost";
-    case 201: return "AP not found";
-    case 202: return "Wrong password";
-    case 203: return "Assoc failed";
-    case 204: return "WPA2 failed";
-    case 205: return "Conn failed";
-    default:  break;
-  }
-  if (s_phase_rfFail)   return "RF failed";
-  if (s_phase_ssidFail) return "No credentials";
-  if (s_phase_failReason > 0) {
-    static char buf[12];
-    snprintf(buf, sizeof(buf), "Error %u", (unsigned)s_phase_failReason);
-    return buf;
-  }
-  return nullptr;
-}
-
-bool WifiMgr::pollConnect() {
-  static bool s_reported = false;
-  if (!s_phase_ip) { s_reported = false; return false; }
-  if (s_reported) return false;
-  s_reported = true;
-  s_connected = true;
-  return true;
-}
-
-void WifiMgr::cancelConnect() {
-  WiFi.disconnect(true);
-  s_connected = false;
-  s_phase_ip  = false;
+bool WifiMgr::getAutoReconnect() {
+  return s_autoReconnect;
 }
 
 bool WifiMgr::isConnected() {
-  return s_connected || s_phase_ip;
+  return WiFi.status() == WL_CONNECTED;
 }
 
 const char* WifiMgr::activeSSID() {
   return s_ssid;
 }
-
-const char* WifiMgr::activeIP() {
-  static char buf[16];
-  if (!s_connected) return "--";
-  WiFi.localIP().toString().toCharArray(buf, sizeof(buf));
-  return buf;
-}
-
-void WifiMgr::reconnect() {
-  loadCredentials();
-  registerEventHandler();
-  s_connected        = false;
-  s_phase_ip         = false;
-  s_phase_eth        = false;
-  s_phase_failReason = 0;
-  // Stay in WIFI_STA — no WIFI_OFF cycling. Cycling tears down the lwIP PCB
-  // and kills in-flight TCP (OTA).
-  WiFi.setAutoReconnect(false);
-  WiFi.begin(s_ssid, s_pass, 0, nullptr, false);
-  esp_wifi_disable_pmf_config(WIFI_IF_STA);
-  esp_wifi_connect();
-}
-
 
 void WifiMgr::saveCredentials(const char* ssid, const char* pass) {
   Preferences prefs;
@@ -304,11 +111,7 @@ void WifiMgr::clearOverride() {
   prefs.end();
 }
 
-bool WifiMgr::consumeDisconnect() {
-  if (!s_disconnectedEvent) return false;
-  s_disconnectedEvent = false;
-  return true;
-}
+// ---- BLE UART implementation ----
 
 class BleServerCb : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer*) override {
@@ -348,7 +151,6 @@ class BleTxSubscribeCb : public NimBLECharacteristicCallbacks {
   }
 };
 
-// Sends msg over BLE UART in 20-byte chunks (default NUS MTU payload size).
 static void bleSend(const char* msg) {
   if (!s_bleTxChar || !s_bleClientConn) return;
   const uint8_t* data = (const uint8_t*)msg;
@@ -383,7 +185,6 @@ static void sendBanner() {
 bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
   WiFi.disconnect(true);
   delay(100);
-  s_connected = false;
   s_bleSubscribed = false;
 
   NimBLEDevice::init("AN/BRU-370");
@@ -414,27 +215,18 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
 
     switch (state) {
       case WAIT_CLIENT:
-        if (s_bleSubscribed) {
-          sendBanner();
-          state = GET_SSID;
-        }
+        if (s_bleSubscribed) { sendBanner(); state = GET_SSID; }
         break;
 
       case GET_SSID:
         if (!s_bleClientConn) { state = WAIT_CLIENT; break; }
         if (s_bleLineReady) {
           portENTER_CRITICAL(&s_bleMux);
-          String line = s_bleRxBuf;
-          s_bleRxBuf = ""; s_bleLineReady = false;
+          String line = s_bleRxBuf; s_bleRxBuf = ""; s_bleLineReady = false;
           portEXIT_CRITICAL(&s_bleMux);
           line.trim();
-          if (line.length() == 0) {
-            bleSend("SSID:\r\n");
-          } else {
-            strlcpy(newSSID, line.c_str(), sizeof(newSSID));
-            bleSend("Password:\r\n");
-            state = GET_PASS;
-          }
+          if (line.length() == 0) { bleSend("SSID:\r\n"); }
+          else { strlcpy(newSSID, line.c_str(), sizeof(newSSID)); bleSend("Password:\r\n"); state = GET_PASS; }
         }
         break;
 
@@ -442,24 +234,18 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
         if (!s_bleClientConn) { state = WAIT_CLIENT; break; }
         if (s_bleLineReady) {
           portENTER_CRITICAL(&s_bleMux);
-          String line = s_bleRxBuf;
-          s_bleRxBuf = ""; s_bleLineReady = false;
+          String line = s_bleRxBuf; s_bleRxBuf = ""; s_bleLineReady = false;
           portEXIT_CRITICAL(&s_bleMux);
           line.trim();
           strlcpy(newPass, line.c_str(), sizeof(newPass));
           const char* passDisplay = (newPass[0] == '\0') ? "(none)" : newPass;
           char msg[400];
           snprintf(msg, sizeof(msg),
-            "\r\n"
+            "\r\n------------------------------\r\n"
+            "  SSID: %s\r\n  Pass: %s\r\n"
             "------------------------------\r\n"
-            "  SSID: %s\r\n"
-            "  Pass: %s\r\n"
-            "------------------------------\r\n"
-            "Current: %s\r\n"
-            "\r\n"
-            "Y=save  r=retry  n=cancel:\r\n",
-            newSSID, passDisplay,
-            s_ssid[0] ? s_ssid : "(none)");
+            "Current: %s\r\n\r\nY=save  r=retry  n=cancel:\r\n",
+            newSSID, passDisplay, s_ssid[0] ? s_ssid : "(none)");
           bleSend(msg);
           state = CONFIRM;
         }
@@ -469,22 +255,18 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
         if (!s_bleClientConn) { state = WAIT_CLIENT; break; }
         if (s_bleLineReady) {
           portENTER_CRITICAL(&s_bleMux);
-          String line = s_bleRxBuf;
-          s_bleRxBuf = ""; s_bleLineReady = false;
+          String line = s_bleRxBuf; s_bleRxBuf = ""; s_bleLineReady = false;
           portEXIT_CRITICAL(&s_bleMux);
           line.trim();
           if (line == "Y" || line == "y") {
             saveCredentials(newSSID, newPass);
             bleSend("Saved. Rebooting...\r\n");
             delay(500);
-            result = true;
-            done   = true;
+            result = true; done = true;
           } else if (line == "r" || line == "R") {
-            bleSend("SSID:\r\n");
-            state = GET_SSID;
+            bleSend("SSID:\r\n"); state = GET_SSID;
           } else {
-            bleSend("Cancelled.\r\n");
-            done = true;
+            bleSend("Cancelled.\r\n"); done = true;
           }
         }
         break;
@@ -495,6 +277,9 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
   s_bleTxChar = nullptr;
   NimBLEDevice::deinit(true);
   delay(100);
-  if (!result) startConnect();
+
+  // Re-start WiFi connection after BLE session (whether saved or cancelled).
+  // If no credentials exist yet, beginConnect returns false silently.
+  if (!result) WifiMgr::beginConnect(true);
   return result;
 }
