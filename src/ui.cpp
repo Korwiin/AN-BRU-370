@@ -151,47 +151,16 @@ void UI::showSetupRunning(uint8_t step, bool blinkOn) {
   u8g2.sendBuffer();
 }
 
-void UI::showAircraftStatus(uint32_t fuelLbs,
-                            const char* chaff, const char* flare, bool ecmTx) {
+void UI::showAircraftStatus(uint32_t fuelLbs) {
   u8g2.clearBuffer();
-
-  // --- Fuel number, large font, top half ---
   u8g2.setFont(u8g2_font_spleen16x32_mr);
   char fuelStr[8];
   if (fuelLbs >= 1000)
     snprintf(fuelStr, sizeof(fuelStr), "%u,%03u", fuelLbs / 1000, fuelLbs % 1000);
   else
     snprintf(fuelStr, sizeof(fuelStr), "%u", (unsigned)fuelLbs);
-  u8g2.drawStr((128 - u8g2.getStrWidth(fuelStr)) / 2, 25, fuelStr);
-
-  u8g2.setFont(u8g2_font_5x7_tr);
-
-  // --- Bottom zone: CH / FL / JAMMING row ---
-  bool blinkOn = (millis() / 250) % 2 == 0;
-
-  // CH:XXXX — raw 4-char DCS string; leading spaces provide natural gap between label and digits
-  bool chLow = (chaff[0] == 'L' && chaff[1] == 'o');
-  int chLabelW = u8g2.getStrWidth("CH:");
-  u8g2.drawStr(0, 32, "CH:");
-  if (!chLow || blinkOn)
-    u8g2.drawStr(chLabelW, 32, chaff);
-
-  // FL:XXXX — centered as fixed 7-char block; width anchored to "FL:    " so label never moves
-  bool flLow = (flare[0] == 'L' && flare[1] == 'o');
-  int flBlockW = u8g2.getStrWidth("FL:    ");
-  int flLabelW = u8g2.getStrWidth("FL:");
-  int flX = (128 - flBlockW) / 2;
-  u8g2.drawStr(flX, 32, "FL:");
-  if (!flLow || blinkOn)
-    u8g2.drawStr(flX + flLabelW, 32, flare);
-
-  // JAMMING: right-justified, always blinks when ECM transmitting
-  if (ecmTx && blinkOn) {
-    const char* jmrStr = "JAMMING";
-    int jw = u8g2.getStrWidth(jmrStr);
-    u8g2.drawStr(128 - jw, 32, jmrStr);
-  }
-
+  constexpr int FUEL_R = (128 + 6 * 16) / 2;  // right edge of 6-char field when centered
+  u8g2.drawStr(FUEL_R - u8g2.getStrWidth(fuelStr), 27, fuelStr);
   u8g2.sendBuffer();
 }
 

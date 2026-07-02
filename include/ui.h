@@ -22,8 +22,7 @@ namespace UI {
   void showStoresConfig(bool flashState);
 
   // Operational screens
-  void showAircraftStatus(uint32_t fuelLbs,
-                          const char* chaff, const char* flare, bool ecmTx);
+  void showAircraftStatus(uint32_t fuelLbs);
   void showNotReady(bool flashState);
   void showSetupRunning(uint8_t step, bool blinkOn);
   void showMacroMenu(int idx);

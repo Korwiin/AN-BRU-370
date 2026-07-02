@@ -775,10 +775,7 @@ void loop() {
     switch (s_mode) {
       case WAITING_DCS:       UI::showWaitingDcs(); break;
       case AIRCRAFT_STATUS:
-        UI::showAircraftStatus(DcsBios::fuelLbs(),
-                               DcsBios::chaffStr(),
-                               DcsBios::flareStr(),
-                               DcsBios::ecmTransmitting()); break;
+        UI::showAircraftStatus(DcsBios::fuelLbs()); break;
       case NOT_READY:
         UI::showNotReady((millis() / 750) % 2 == 0); break;
       case SETUP_RUNNING: {
