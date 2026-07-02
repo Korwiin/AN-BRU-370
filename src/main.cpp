@@ -49,9 +49,9 @@ static bool          s_rwrActive     = false;
 static bool          s_rwrFlash      = false;
 static unsigned long s_rwrFlashTimer = 0;
 static bool s_wasDcsConnected     = false;
-static uint8_t       s_setupStep  = 0;
-static unsigned long s_setupSent  = 0;
-static unsigned long s_setupStart = 0;
+static uint8_t       s_setupStep         = 0;
+static unsigned long s_setupSent         = 0;
+static uint8_t       s_setupRetryCount   = 0;
 static unsigned long s_lastOled   = 0;
 static bool s_oledSleeping        = false;
 static unsigned long s_lastActivity = 0;
@@ -458,8 +458,9 @@ void loop() {
 
   } else if (s_mode == SETUP_RUNNING) {
     if (s_setupStep == 0) {
-      s_setupStep  = 1;
-      s_setupStart = s_setupSent = millis();
+      s_setupStep       = 1;
+      s_setupRetryCount = 0;
+      s_setupSent       = millis();
       DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L, 1);
     }
 
@@ -473,33 +474,38 @@ void loop() {
       default: break;
     }
 
-    if (confirmed) {
+    bool doAdvance = confirmed;
+    if (!confirmed && millis() - s_setupSent >= SETUP_RETRY_MS) {
+      s_setupSent = millis();
+      if (++s_setupRetryCount >= SETUP_MAX_RETRIES) {
+        doAdvance = true;
+      } else {
+        switch (s_setupStep) {
+          case 1: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L,      1); break;
+          case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,      1); break;
+          case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB,  3); break;
+          case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,    1); break;
+          case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,         1); break;
+          default: break;
+        }
+      }
+    }
+
+    if (doAdvance) {
       if (s_setupStep >= 5) {
         s_setupStep = 0;
         s_mode      = AIRCRAFT_STATUS;
       } else {
         s_setupStep++;
-        s_setupStart = s_setupSent = millis();
+        s_setupRetryCount = 0;
+        s_setupSent       = millis();
         switch (s_setupStep) {
-          case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,    1); break;
+          case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,     1); break;
           case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB, 3); break;
-          case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,  1); break;
-          case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,       1); break;
+          case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,   1); break;
+          case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,        1); break;
           default: break;
         }
-      }
-    } else if (millis() - s_setupStart >= SETUP_TIMEOUT_MS) {
-      s_setupStep = 0;
-      s_mode      = NOT_READY;
-    } else if (millis() - s_setupSent >= SETUP_RETRY_MS) {
-      s_setupSent = millis();
-      switch (s_setupStep) {
-        case 1: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L,     1); break;
-        case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,     1); break;
-        case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB, 3); break;
-        case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,   1); break;
-        case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,        1); break;
-        default: break;
       }
     }
 

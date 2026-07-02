@@ -63,8 +63,8 @@ constexpr uint16_t DCSBIOS_MASK_RWR_PWR_LIGHT = 0x8000;
 
 constexpr uint32_t SC_RETRY_MS         = 500;
 constexpr uint32_t SC_LIGHT_TIMEOUT_MS = 3000;
-constexpr uint32_t SETUP_RETRY_MS   = 500;
-constexpr uint32_t SETUP_TIMEOUT_MS = 3000;
+constexpr uint32_t SETUP_RETRY_MS    = 500;
+constexpr uint8_t  SETUP_MAX_RETRIES = 10;   // 10 × 500 ms = 5 s max per step before skip
 
 namespace DcsBios {
   void begin(const char* mcastAddr, uint16_t listenPort,
