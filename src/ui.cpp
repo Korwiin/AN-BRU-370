@@ -94,6 +94,22 @@ void UI::showMissileLaunch(bool flashState) {
   u8g2.sendBuffer();
 }
 
+void UI::showChaffCount(const char* chaffStr, bool flashState) {
+  u8g2.clearBuffer();
+  if (flashState) {
+    u8g2.setDrawColor(1);
+    u8g2.drawBox(0, 0, 128, 32);
+    u8g2.setDrawColor(0);
+  }
+  u8g2.setFont(u8g2_font_spleen16x32_mr);
+  char buf[8];
+  snprintf(buf, sizeof(buf), "CH:%s", chaffStr);
+  int w = u8g2.getStrWidth(buf);
+  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, buf);
+  if (flashState) u8g2.setDrawColor(1);
+  u8g2.sendBuffer();
+}
+
 void UI::showStoresConfig(bool flashState) {
   u8g2.clearBuffer();
   if (flashState) {

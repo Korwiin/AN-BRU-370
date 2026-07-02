@@ -19,6 +19,7 @@ namespace UI {
   // Alert takeovers (called in a loop while active)
   void showMasterCaution(bool flashState);
   void showMissileLaunch(bool flashState);
+  void showChaffCount(const char* chaffStr, bool flashState);
   void showStoresConfig(bool flashState);
 
   // Operational screens

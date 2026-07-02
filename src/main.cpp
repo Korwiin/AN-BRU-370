@@ -335,7 +335,10 @@ void loop() {
       s_rwrFlash = !s_rwrFlash;
       s_rwrFlashTimer = millis();
     }
-    UI::showMissileLaunch(s_rwrFlash);
+    if ((millis() / 1000) % 2 == 0)
+      UI::showMissileLaunch(s_rwrFlash);
+    else
+      UI::showChaffCount(DcsBios::chaffStr(), s_rwrFlash);
     if (Encoder::shortPressed()) {
       DcsBios::sendCommand(DCSBIOS_CMD_CMDS_DISPENSE, 1);
       delay(100);
