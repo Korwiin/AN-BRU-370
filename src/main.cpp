@@ -49,7 +49,6 @@ static bool          s_rwrActive     = false;
 static bool          s_rwrFlash      = false;
 static unsigned long s_rwrFlashTimer = 0;
 static bool s_wasDcsConnected     = false;
-static bool          s_wasMwsOn   = false;
 static uint8_t       s_setupStep  = 0;
 static unsigned long s_setupSent  = 0;
 static unsigned long s_setupStart = 0;
@@ -77,7 +76,6 @@ static int s_screenH         = 1080;
 static int s_screenDigits[8] = {0};
 static int s_screenDigitPos  = 0;
 
-static MenuState homeMode();
 static bool inOtaMode() { return s_mode >= FIRMWARE_CHECKING; }
 
 static void loadNvs() {
@@ -185,7 +183,7 @@ static void executeMenuItem() {
       rebootWithCountdown();
       break;
     case 7:  // EXIT
-      s_mode = homeMode();
+      s_mode = DcsBios::isConnected() ? AIRCRAFT_STATUS : WAITING_DCS;
       return;
   }
   s_menuSel = 0; s_menuOffset = 0;
@@ -240,11 +238,6 @@ static const char* kCalibLabelY[] = {
   "Move U/D to TextField",
   "Move U/D to Click Out"
 };
-
-static MenuState homeMode() {
-  if (!DcsBios::isConnected()) return WAITING_DCS;
-  return DcsBios::mwsOn() ? AIRCRAFT_STATUS : NOT_READY;
-}
 
 void setup() {
 #ifndef RELEASE_BUILD
@@ -336,7 +329,7 @@ void loop() {
     s_lastActivity = millis();
   }
   if (rwrConfirmed) {
-    if (s_mode == WAITING_DCS) s_mode = homeMode();
+    if (s_mode == WAITING_DCS) s_mode = AIRCRAFT_STATUS;
     s_rwrActive = true;
     if (millis() - s_rwrFlashTimer > 100) {
       s_rwrFlash = !s_rwrFlash;
@@ -352,6 +345,12 @@ void loop() {
   }
   if (s_rwrActive && !rwrConfirmed) s_rwrActive = false;
 
+  // MWS flag — continuous check, no edge tracking
+  if (DcsBios::isConnected()) {
+    if (!DcsBios::mwsOn() && s_mode == AIRCRAFT_STATUS) s_mode = NOT_READY;
+    if ( DcsBios::mwsOn() && s_mode == NOT_READY)       s_mode = AIRCRAFT_STATUS;
+  }
+
   // MASTER CAUTION — 200 ms debounce to reject large-block export transients
   static unsigned long s_mcHighSince = 0;
   if (mc && s_mcHighSince == 0)  s_mcHighSince = millis();
@@ -364,7 +363,7 @@ void loop() {
     s_lastActivity = millis();
   }
   if (mcConfirmed) {
-    if (s_mode == WAITING_DCS) s_mode = homeMode();
+    if (s_mode == WAITING_DCS) s_mode = AIRCRAFT_STATUS;
     s_mcActive = true;
     if (millis() - s_mcFlashTimer > 200) {
       s_mcFlash = !s_mcFlash;
@@ -424,26 +423,18 @@ void loop() {
     s_scTarget = 0xFF;
   }
 
-  // DCS connection state transitions
+  // DCS connection transitions
   bool nowConnected = DcsBios::isConnected();
   if (nowConnected && !s_wasDcsConnected) {
-    if (s_mode == WAITING_DCS || s_mode == MACRO_MENU) s_mode = homeMode();
+    if (s_mode == WAITING_DCS) s_mode = AIRCRAFT_STATUS;
   }
   if (!nowConnected && s_wasDcsConnected) {
-    if (s_mode == AIRCRAFT_STATUS || s_mode == NOT_READY) s_mode = WAITING_DCS;
-    if (s_mode == SETUP_RUNNING) { s_setupStep = 0; s_mode = WAITING_DCS; }
+    if (s_mode == AIRCRAFT_STATUS || s_mode == NOT_READY || s_mode == SETUP_RUNNING) {
+      if (s_mode == SETUP_RUNNING) s_setupStep = 0;
+      s_mode = WAITING_DCS;
+    }
   }
   s_wasDcsConnected = nowConnected;
-
-  // NOT_READY ↔ AIRCRAFT_STATUS when MWS flag changes while DCS stays connected
-  bool nowMwsOn = nowConnected && DcsBios::mwsOn();
-  if (nowMwsOn && !s_wasMwsOn) {
-    if (s_mode == NOT_READY) s_mode = AIRCRAFT_STATUS;
-  }
-  if (!nowMwsOn && s_wasMwsOn) {
-    if (s_mode == AIRCRAFT_STATUS) s_mode = NOT_READY;
-  }
-  s_wasMwsOn = nowMwsOn;
 
   // Menu state machine
   if (s_mode == WAITING_DCS) {
