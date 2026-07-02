@@ -1,4 +1,6 @@
 .pio/
 .vscode/
+.claude/
 *.DS_Store
+compile_commands.json
 docs/superpowers/
