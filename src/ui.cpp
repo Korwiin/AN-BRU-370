@@ -15,88 +15,35 @@ void UI::begin() {
   u8g2.setContrast(20);
 }
 
-void UI::showBootStatus(const BootStatusInfo& s) {
+void UI::showStarting() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
-
-  // Line 1 (y=8): device name left, firmware version right
   u8g2.drawStr(0, 8, "AN/BRU-370");
-  {
-    char ver[10];
-    snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
-    u8g2.drawStr(128 - u8g2.getStrWidth(ver), 8, ver);
-  }
-
-  // Line 2 (y=16): intentional empty gap
-
-  // Line 3 (y=24): 3 indicators — WiFi | IP | DCS
-  // Columns shifted +4px each (vs. the original 46/88) to give the WiFi slot
-  // room for 4-character "WPA2"/"WPA3" text without colliding with "IP".
-  static const char kSpin[] = { '-', '\\', '|', '/' };
-  const char spinCh = kSpin[(millis() / 250) % 4];
-
-  const int kGap = 2;
-  const int xWL  = 2;
-  const int xWS  = xWL + u8g2.getStrWidth("WiFi") + kGap;  // ~24
-  const int xIL  = 50;
-  const int xIS  = xIL + u8g2.getStrWidth("IP")   + kGap;  // ~62
-  const int xDL  = 92;
-  const int xDS  = xDL + u8g2.getStrWidth("DCS")  + kGap;  // ~109
-
-  u8g2.drawStr(xWL, 24, "WiFi");
-  u8g2.drawStr(xIL, 24, "IP");
-  u8g2.drawStr(xDL, 24, "DCS");
-
-  // WiFi slot: spinner until associated, then auth mode text ("WPA2"/"WPA3").
-  // No pending "--" state — WiFi is the first phase, always either spinning
-  // or done.
-  if (s.wifi) {
-    u8g2.drawStr(xWS, 24, s.authMode ? s.authMode : "");
-  } else {
-    char buf[2] = { spinCh, '\0' };
-    u8g2.drawStr(xWS, 24, buf);
-  }
-
-  // IP slot: pending "--" until WiFi associates, spinner until IP arrives,
-  // then the last octet as plain digits (e.g. "42").
-  if (s.ip) {
-    u8g2.drawStr(xIS, 24, s.ipOctet ? s.ipOctet : "");
-  } else if (s.wifi) {
-    char buf[2] = { spinCh, '\0' };
-    u8g2.drawStr(xIS, 24, buf);
-  } else {
-    u8g2.drawStr(xIS, 24, "--");
-  }
-
-  // DCS slot: pending "--" until IP arrives, then spins forever — no "done"
-  // state, no checkmark. The boot screen exits ~1.5s after DCS connects, so
-  // a completed-DCS visual is never actually visible; spinning the whole time
-  // it could be live is simpler and equally informative.
-  if (s.ip) {
-    char buf[2] = { spinCh, '\0' };
-    u8g2.drawStr(xDS, 24, buf);
-  } else {
-    u8g2.drawStr(xDS, 24, "--");
-  }
-
-  // Line 4 (y=32): exactly one of three static, centered states.
-  // Priority: failReason (with live retry countdown) > Connecting > Waiting for DCS.
-  char line4[32] = {0};
-  if (s.failReason) {
-    snprintf(line4, sizeof(line4), "%s Retry %d", s.failReason, s.retrySecs);
-  } else if (!s.ip) {
-    snprintf(line4, sizeof(line4), "Connecting ...");
-  } else if (!s.dcs) {
-    snprintf(line4, sizeof(line4), "Waiting for DCS ...");
-  }
-  if (line4[0]) {
-    int w = u8g2.getStrWidth(line4);
-    u8g2.drawStr((128 - w) / 2, 32, line4);
-  }
-
+  char ver[10];
+  snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
+  u8g2.drawStr(128 - u8g2.getStrWidth(ver), 8, ver);
   u8g2.sendBuffer();
 }
 
+void UI::showNoWifi() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  const char* l1 = "No WiFi";
+  const char* l2 = "SP:Retry   LP:Settings";
+  u8g2.drawStr((128 - u8g2.getStrWidth(l1)) / 2, 16, l1);
+  u8g2.drawStr((128 - u8g2.getStrWidth(l2)) / 2, 32, l2);
+  u8g2.sendBuffer();
+}
+
+void UI::showWaitingDcs() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  const char* l1 = "Waiting for DCS...";
+  const char* l2 = "LP = Settings";
+  u8g2.drawStr((128 - u8g2.getStrWidth(l1)) / 2, 16, l1);
+  u8g2.drawStr((128 - u8g2.getStrWidth(l2)) / 2, 32, l2);
+  u8g2.sendBuffer();
+}
 
 void UI::sleep() { u8g2.setPowerSave(1); }
 void UI::wake()  { u8g2.setPowerSave(0); }
@@ -458,40 +405,30 @@ void UI::showBleActive(bool connected) {
   u8g2.sendBuffer();
 }
 
-void UI::showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
-                      uint8_t gStatus) {
-  const char* kItems[] = { "Secrets", "Connect", "Back" };
+void UI::showWifiMenu(int sel, int offset, bool wifiOk, bool dcsOk, bool autoReconnect) {
+  static const char* kItems[] = {
+    "Full Restart", "Soft Restart", nullptr, "Secrets", "Back"
+  };
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
 
-  // Left panel (x=0..63)
-  char dbmLine[13], ssidLine[13], ipLine[14];
-  if (rssi < 0) snprintf(dbmLine, sizeof(dbmLine), "WiFi %ddBm", rssi);
-  else          strlcpy(dbmLine, "WiFi ----", sizeof(dbmLine));
+  // Left panel (x=0..63): WiFi and DCS status
+  u8g2.drawStr(0,  8, wifiOk ? "WiFi: OK" : "WiFi: --");
+  u8g2.drawStr(0, 16, dcsOk  ? "DCS:  OK" : "DCS:  --");
 
-  snprintf(ssidLine, sizeof(ssidLine), "S:%.9s", (ssid && ssid[0]) ? ssid : "----");
-
-  const char* after2 = (ip && ip[0]) ? ip : "";
-  int dots = 0;
-  for (const char* p = after2; *p; p++) {
-    if (*p == '.' && ++dots == 2) { after2 = p + 1; break; }
-  }
-  if (dots < 2) after2 = "-.--";
-  snprintf(ipLine, sizeof(ipLine), "I:x.x.%s", after2);
-
-  const char* gStr = (gStatus == 0) ? "G:..." :
-                     (gStatus == 1) ? "G:Online" : "G:Offline";
-
-  u8g2.drawStr(0,  8, dbmLine);
-  u8g2.drawStr(0, 16, ssidLine);
-  u8g2.drawStr(0, 24, ipLine);
-  u8g2.drawStr(0, 32, gStr);
-
-  // Right panel (x=65+)
+  // Right panel (x=65+): 3 visible items of 5, with scroll offset
   for (int i = 0; i < 3; i++) {
+    int idx = offset + i;
+    if (idx >= 5) break;
     int y = 8 + i * 8;
-    if (i == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, kItems[i]); }
-    else          { u8g2.drawStr(71, y, kItems[i]); }
+    const char* label;
+    if (idx == 2) {
+      label = autoReconnect ? "Auto: ON" : "Auto: OFF";
+    } else {
+      label = kItems[idx];
+    }
+    if (idx == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, label); }
+    else             { u8g2.drawStr(71, y, label); }
   }
   u8g2.sendBuffer();
 }

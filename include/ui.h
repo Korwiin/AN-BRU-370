@@ -3,46 +3,33 @@
 #include <U8g2lib.h>
 #include <Wire.h>
 
-// Passed to UI::showBootStatus() each frame during BOOT_STATUS mode.
-struct BootStatusInfo {
-  bool        wifi;        // WiFi associated (STA_CONNECTED event fired)
-  bool        ip;          // DHCP complete (STA_GOT_IP event fired)
-  bool        dcs;         // DCS-BIOS stream alive (hasData())
-  const char* failReason;  // nullptr = none; error string while retrying
-  const char* authMode;    // "WPA2"/"WPA3" — valid once wifi==true; shown in WiFi slot
-  const char* ipOctet;     // last IP octet as plain digits, e.g. "42" — valid once ip==true
-  int         retrySecs;   // countdown remaining (30→0); meaningful only when failReason != nullptr
-};
-
 namespace UI {
   void begin();
-
-  // Renders 3-indicator (WiFi/IP/DCS) boot status screen. Call each loop() tick during BOOT_STATUS.
-  void showBootStatus(const BootStatusInfo& s);
   void sleep();        // power down OLED (setPowerSave 1)
   void wake();         // power up OLED (setPowerSave 0)
 
-  void showNoCredentials();
-  void showWifiConnecting(const char* ssid);
-  void showWifiFailed(const char* ssid);
-  void showWifiConnected(const char* ssid);  // shows for 1 s then returns
+  // Boot / connection screens
+  void showStarting();                      // device name + version; shown during USB settle
+  void showNoCredentials();                 // "No WiFi Setup / Press to cont."
+  void showWifiConnecting(const char* ssid);  // "WIFI CONNECTING / <ssid>"
+  void showNoWifi();                        // "No WiFi / SP:Retry LP:Settings" (timeout)
+  void showWaitingDcs();                    // "Waiting for DCS... / LP=Settings"
+  void showWifiConnected(const char* ssid); // "WIFI CONNECTED / <ssid>" — shows for 1 s
 
-  // Full-screen MASTER CAUTION takeover. Call repeatedly while MC is active.
-  // flashState alternates true/false every ~200 ms to produce flash effect.
+  // Alert takeovers (called in a loop while active)
   void showMasterCaution(bool flashState);
-
-  // Full-screen MISSILE LAUNCH takeover. Call repeatedly while RWR MSL is active.
-  // flashState alternates true/false every ~100 ms to produce flash effect.
   void showMissileLaunch(bool flashState);
   void showStoresConfig(bool flashState);
 
+  // Operational screens
   void showAircraftStatus(uint32_t fuelLbs,
                           const char* chaff, const char* flare, bool ecmTx);
   void showNotReady(bool flashState);
   void showSetupRunning(uint8_t step, bool blinkOn);
-  void showMacroMenu(int idx);  // renders current macro name on 128x32 OLED
-  void flashScreen();            // brief invert flash for button feedback
+  void showMacroMenu(int idx);
+  void flashScreen();
 
+  // Settings screens
   void showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bool dcsOk);
   void showBrightnessAdjust(int value);
   void showSleepAdjust(int secs);
@@ -50,13 +37,18 @@ namespace UI {
   void showMouseCalibrate(int axis, uint16_t val, const char* label);
   void showScreenEdit(int digits[8], int digitPos);
   void showSaved();
-  void showRebootCountdown(int secs);  // 5-s countdown before reboot; SP=Cancel
+  void showRebootCountdown(int secs);
   void showSerialActive();
-  void showBleActive(bool connected);    // displayed while NimBLE UART session is running
-  void showWifiMenu(int sel, int rssi, const char* ssid, const char* ip,
-                    uint8_t gStatus);
+  void showBleActive(bool connected);
+
+  // WiFi menu: 5 items (Full Restart / Soft Restart / Auto-Rec / Secrets / Back)
+  // sel=selected index (0-4), offset=scroll offset, wifiOk/dcsOk=status indicators,
+  // autoReconnect=current auto-reconnect state (shown in "Auto" label)
+  void showWifiMenu(int sel, int offset, bool wifiOk, bool dcsOk, bool autoReconnect);
+
   void showSecretsMenu(int sel, const char* savedSSID, uint8_t passStatus);
   void showNotImplemented();
+
   // OTA firmware update screens
   void showFirmwareChecking(const char* currentVer, int rssi);
   void showFirmwareUpToDate(const char* currentVer);
@@ -65,5 +57,5 @@ namespace UI {
   void showFirmwareError(const char* reason, bool canRetry = false);
   void setContrast(uint8_t value);
 
-  void update();  // expanded in later tasks
+  void update();
 }
