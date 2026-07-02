@@ -56,8 +56,6 @@ static unsigned long s_setupStart = 0;
 static unsigned long s_lastOled   = 0;
 static bool s_oledSleeping        = false;
 static unsigned long s_lastActivity = 0;
-static bool s_dcsBiosStarted = false;
-
 static char    s_nvsSsid[64]      = {0};
 static uint8_t s_nvsPassStatus    = 0;
 
@@ -299,7 +297,6 @@ void loop() {
     if (!s_wifiWasUp && wifiUp) {
       DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
                      "255.255.255.255", DCSBIOS_CMD_PORT);
-      s_dcsBiosStarted = true;
 #ifndef RELEASE_BUILD
       Serial.printf("[%lums] WiFi up — DCS-BIOS (re)started\n", (unsigned long)millis());
 #endif
