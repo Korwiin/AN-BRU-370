@@ -102,8 +102,8 @@ void UI::showStoresConfig(bool flashState) {
     u8g2.setDrawColor(0);
   }
   u8g2.setFont(u8g2_font_spleen16x32_mr);
-  int w = u8g2.getStrWidth("CONFIG");
-  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, "CONFIG");
+  int w = u8g2.getStrWidth("STORES");
+  u8g2.drawStr((128 - w) / 2, (32 + u8g2.getAscent()) / 2, "STORES");
   if (flashState) u8g2.setDrawColor(1);
   u8g2.sendBuffer();
 }
