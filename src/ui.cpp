@@ -56,13 +56,6 @@ void UI::showWifiConnecting(const char* ssid) {
   u8g2.sendBuffer();
 }
 
-void UI::showWifiFailed(const char* ssid) {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(0, 10, "WIFI FAILED");
-  u8g2.drawStr(0, 22, ssid);
-  u8g2.sendBuffer();
-}
 
 void UI::showWifiConnected(const char* ssid) {
   u8g2.clearBuffer();
