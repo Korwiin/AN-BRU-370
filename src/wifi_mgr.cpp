@@ -155,10 +155,6 @@ bool WifiMgr::startWifi() {
   WiFi.persistent(false);
   WiFi.setAutoConnect(false);
 
-  // Mainstream ESP32 pattern aligned with CockpitOS: TX power before mode, hostname
-  // before mode(STA), setAutoReconnect(true) from the start. The stack retries
-  // indefinitely — no attempt counter, no backoff. Eero stale-session clears in
-  // ~60 s; the auto-retry connects cleanly without any timing management on our side.
   WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
   WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.mode(WIFI_STA);
@@ -175,9 +171,13 @@ bool WifiMgr::startWifi() {
   Serial.printf("[%lums] startWifi() called ssid=%s\n",
                 (unsigned long)millis(), s_ssid);
 #endif
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(s_ssid, s_pass);
+  // Auto-reconnect disabled: Timer A controls all retries, giving the AP time
+  // to clear its auth state between attempts. PMF disabled before esp_wifi_connect()
+  // per ESP-IDF requirement (after set_config, before connect).
+  WiFi.setAutoReconnect(false);
+  WiFi.begin(s_ssid, s_pass, 0, nullptr, false);
   esp_wifi_disable_pmf_config(WIFI_IF_STA);
+  esp_wifi_connect();
 #ifndef RELEASE_BUILD
   Serial.printf("[%lums] startWifi() done\n", (unsigned long)millis());
 #endif
@@ -191,7 +191,7 @@ static void startConnect() {
   registerEventHandler();
   WiFi.persistent(false);
   WiFi.setAutoConnect(false);
-  WiFi.setAutoReconnect(true);
+  WiFi.setAutoReconnect(false);
   s_connected = false;
   s_phase_ip = false;
   WiFi.disconnect(true);
@@ -199,8 +199,9 @@ static void startConnect() {
   WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.mode(WIFI_STA);
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-  WiFi.begin(s_ssid, s_pass);
+  WiFi.begin(s_ssid, s_pass, 0, nullptr, false);
   esp_wifi_disable_pmf_config(WIFI_IF_STA);
+  esp_wifi_connect();
 }
 
 WifiMgr::WifiPhase WifiMgr::getPhase() {
@@ -218,7 +219,7 @@ WifiMgr::WifiPhase WifiMgr::getPhase() {
 
 const char* WifiMgr::failReasonStr() {
   switch (s_phase_failReason) {
-    case   1: return "Reconnecting";
+    case   1: return "Connecting...";
     case   2: return "Auth expired";
     case  15: return "WPA2 failed";
     case  24: return "Cipher error";
@@ -278,12 +279,12 @@ void WifiMgr::reconnect() {
   s_phase_ip         = false;
   s_phase_eth        = false;
   s_phase_failReason = 0;
-  // Stay in WIFI_STA — no WIFI_OFF cycling. Cycling tears down the lwIP PCB,
-  // kills in-flight TCP (OTA), and resets the AP's stale-session cleanup timer.
-  // setAutoReconnect keeps the arduino-esp32 stack retrying internally.
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(s_ssid, s_pass);
+  // Stay in WIFI_STA — no WIFI_OFF cycling. Cycling tears down the lwIP PCB
+  // and kills in-flight TCP (OTA).
+  WiFi.setAutoReconnect(false);
+  WiFi.begin(s_ssid, s_pass, 0, nullptr, false);
   esp_wifi_disable_pmf_config(WIFI_IF_STA);
+  esp_wifi_connect();
 }
 
 
