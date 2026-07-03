@@ -14,7 +14,6 @@ namespace UI {
   void showWifiConnecting(const char* ssid);  // "WIFI CONNECTING / <ssid>"
   void showNoWifi();                        // "No WiFi / SP:Retry LP:Settings" (timeout)
   void showWaitingDcs();                    // "Waiting for DCS... / LP=Settings"
-  void showWifiConnected(const char* ssid); // "WIFI CONNECTED / <ssid>" — shows for 1 s
 
   // Alert takeovers (called in a loop while active)
   void showMasterCaution(bool flashState);
@@ -38,7 +37,6 @@ namespace UI {
   void showScreenEdit(int digits[8], int digitPos);
   void showSaved();
   void showRebootCountdown(int secs);
-  void showSerialActive();
   void showBleActive(bool connected);
 
   // WiFi menu: 5 items (Full Restart / Soft Restart / Auto-Rec / Secrets / Back)
@@ -56,6 +54,4 @@ namespace UI {
   void showFirmwareUpdating(int percent);
   void showFirmwareError(const char* reason, bool canRetry = false);
   void setContrast(uint8_t value);
-
-  void update();
 }

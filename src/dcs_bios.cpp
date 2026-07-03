@@ -28,8 +28,6 @@ static uint16_t s_fuel10K  = 0;
 static uint16_t s_fuel1K   = 0;
 static uint16_t s_fuel100  = 0;
 static char s_chBuf[5] = "    ";
-static char s_flBuf[5] = "    ";
-static bool     s_ecmTx    = false;
 static bool     s_mwsOn        = false;
 static bool     s_hdptL        = false;
 static bool     s_hdptR        = false;
@@ -72,17 +70,6 @@ static void processWord(uint16_t addr, uint16_t word) {
     s_chBuf[3] = (char)(word >> 8);
     s_chBuf[4] = '\0';
   }
-  if (addr == DCSBIOS_ADDR_FL_AMT_0) {
-    s_flBuf[0] = (char)(word & 0xFF);
-    s_flBuf[1] = (char)(word >> 8);
-  }
-  if (addr == DCSBIOS_ADDR_FL_AMT_1) {
-    s_flBuf[2] = (char)(word & 0xFF);
-    s_flBuf[3] = (char)(word >> 8);
-    s_flBuf[4] = '\0';
-  }
-
-  if (addr == DCSBIOS_ADDR_ECM_TX) { s_ecmTx = (word & DCSBIOS_MASK_ECM_TX) != 0; }
   if (addr == DCSBIOS_ADDR_MWS_SW) {
     s_mwsOn = (word & DCSBIOS_MASK_MWS_SW) != 0;
   }
@@ -187,10 +174,6 @@ bool DcsBios::isConnected() {
   return s_lastRx > 0 && (millis() - s_lastRx < 3000);
 }
 
-bool DcsBios::hasData() {
-  return isConnected();
-}
-
 void DcsBios::sendCommand(const char* id, uint16_t value) {
   if (s_senderIp == IPAddress(0, 0, 0, 0)) return;  // sender not yet known
   char buf[80];
@@ -217,8 +200,6 @@ uint32_t DcsBios::fuelLbs() {
 }
 
 const char* DcsBios::chaffStr()     { return s_chBuf; }
-const char* DcsBios::flareStr()     { return s_flBuf; }
-bool        DcsBios::ecmTransmitting() { return s_ecmTx; }
 
 bool    DcsBios::mwsOn()        { return s_mwsOn; }
 bool    DcsBios::hdptLeft()     { return s_hdptL; }

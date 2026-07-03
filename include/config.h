@@ -14,7 +14,6 @@
 // Device identity
 #define FIRMWARE_VERSION     "0.96"
 #define FIRMWARE_VERSION_INT  96  // plain decimal — keep in sync with FIRMWARE_VERSION
-#define DEVICE_NAME         "Brew370"
 
 #ifdef DEV_BUILD
 #define DEVICE_HOSTNAME "ANBRU-370RD"

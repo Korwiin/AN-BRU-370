@@ -1,5 +1,4 @@
 #include "wifi_mgr.h"
-#include "encoder.h"
 #include "config.h"
 #include <WiFi.h>
 #include <Preferences.h>

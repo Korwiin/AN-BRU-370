@@ -23,15 +23,9 @@ constexpr uint16_t DCSBIOS_ADDR_FUEL_10K  = 0x44EE;
 constexpr uint16_t DCSBIOS_ADDR_FUEL_1K   = 0x44F0;
 constexpr uint16_t DCSBIOS_ADDR_FUEL_100  = 0x44F2;
 
-// CMDS chaff/flare amount strings — 4 ASCII chars each, 2 words each
+// CMDS chaff amount string — 4 ASCII chars, 2 words
 constexpr uint16_t DCSBIOS_ADDR_CH_AMT_0  = 0x45A8;  // chars [0..1]
 constexpr uint16_t DCSBIOS_ADDR_CH_AMT_1  = 0x45AA;  // chars [2..3]; parse on arrival
-constexpr uint16_t DCSBIOS_ADDR_FL_AMT_0  = 0x45AC;  // chars [0..1]
-constexpr uint16_t DCSBIOS_ADDR_FL_AMT_1  = 0x45AE;  // chars [2..3]; parse on arrival
-
-// ECM transmit light (green) — 1 when jammer pod is actively transmitting
-constexpr uint16_t DCSBIOS_ADDR_ECM_TX    = 0x4544;
-constexpr uint16_t DCSBIOS_MASK_ECM_TX    = 0x4000;
 
 
 // New-plane setup — MWS source switch used as configuration flag
@@ -71,7 +65,6 @@ namespace DcsBios {
              const char* cmdHost,   uint16_t cmdPort);  // cmdHost ignored; sender IP learned from first packet
   bool process();   // drain ring buffer and parse; call from Core 1 / loop() only
   bool isConnected();
-  bool hasData();   // true while DCS-BIOS packets received (same 3s window as isConnected)
   void sendCommand(const char* identifier, uint16_t value);
 
   bool    masterCaution();
@@ -80,8 +73,6 @@ namespace DcsBios {
   uint8_t storesConfigSw();
   uint32_t    fuelLbs();
   const char* chaffStr();   // raw 4-char DCS string e.g. "  60", "Lo10"; "    " = not received
-  const char* flareStr();
-  bool        ecmTransmitting();
 
   bool    mwsOn();           // true when CMDS_MWS_SOURCHE_SW reads 1
   bool    hdptLeft();        // true when left hardpoint (HAD) switch is ON

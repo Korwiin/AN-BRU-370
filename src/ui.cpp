@@ -56,16 +56,6 @@ void UI::showWifiConnecting(const char* ssid) {
   u8g2.sendBuffer();
 }
 
-
-void UI::showWifiConnected(const char* ssid) {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(0, 10, "WIFI CONNECTED");
-  u8g2.drawStr(0, 22, ssid);
-  u8g2.sendBuffer();
-  delay(1000);
-}
-
 void UI::showMasterCaution(bool flashState) {
   u8g2.clearBuffer();
   if (flashState) {
@@ -199,10 +189,6 @@ void UI::flashScreen() {
   u8g2.drawBox(0, 0, 128, 32);
   u8g2.setDrawColor(1);
   u8g2.sendBuffer();
-}
-
-void UI::update() {
-  // expanded in later tasks
 }
 
 // ---- Settings menu ----
@@ -349,14 +335,6 @@ void UI::showScreenEdit(int digits[8], int digitPos) {
   }
   u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr(0, 31, digitPos < 7 ? "SP=nxt LP=cancel" : "SP=save LP=cancel");
-  u8g2.sendBuffer();
-}
-
-void UI::showSerialActive() {
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(0, 10, "SERIAL ACTIVE");
-  u8g2.drawStr(0, 24, "LP=Cancel");
   u8g2.sendBuffer();
 }
 
