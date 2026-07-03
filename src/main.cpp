@@ -26,6 +26,20 @@ enum MenuState {
   FIRMWARE_CONFIRM, FIRMWARE_UPDATING, FIRMWARE_ERROR
 };
 
+#ifdef DEV_BUILD
+static const char* menuStateName(MenuState m) {
+  static const char* k_names[] = {
+    "WAITING_DCS", "AIRCRAFT_STATUS", "NOT_READY", "SETUP_RUNNING",
+    "MACRO_MENU", "SETTINGS", "BRIGHTNESS_ADJUST", "SLEEP_ADJUST",
+    "MOUSE_TUNE_MENU", "WIFI_MENU", "SECRETS_MENU",
+    "MOUSE_CALIBRATE_X", "MOUSE_CALIBRATE_Y", "SCREEN_EDIT",
+    "FIRMWARE_CHECKING", "FIRMWARE_UP_TO_DATE",
+    "FIRMWARE_CONFIRM", "FIRMWARE_UPDATING", "FIRMWARE_ERROR"
+  };
+  return ((unsigned)m < sizeof(k_names)/sizeof(k_names[0])) ? k_names[m] : "?";
+}
+#endif
+
 enum ScState : uint8_t {
   SC_IDLE, SC_WAITING_SW, SC_WAITING_LIGHT, SC_GAVE_UP
 };
@@ -287,7 +301,7 @@ void setup() {
 #ifdef DEV_BUILD
   {
     static auto modeIdFn   = []() -> uint8_t { return (uint8_t)s_mode; };
-    static auto modeNameFn = []() -> const char* { return "?"; };  // Task 2 adds menuStateName()
+    static auto modeNameFn = []() -> const char* { return menuStateName(s_mode); };
     static auto menuSelFn  = []() -> int { return s_menuSel; };
     static auto wifiBootFn = []() { WifiMgr::beginConnect(true); connectWifi(); };
     Shell::begin(Shell::Hooks{ modeIdFn, modeNameFn, menuSelFn, wifiBootFn });
@@ -312,6 +326,12 @@ void setup() {
     Encoder::flush();
   }
 
+#ifdef DEV_BUILD
+  // Shell-first boot: WiFi stays off until `wifi conn` / `wifi boot`.
+  // The production sequence is replayable at any time via `wifi boot`.
+  Serial.println("#boot shell-ready, wifi idle");
+  s_lastActivity = millis();
+#else
   if (!WifiMgr::hasCredentials()) {
     UI::showNoCredentials();
     while (!Encoder::shortPressed() && !Encoder::longPressed()) {
@@ -325,10 +345,10 @@ void setup() {
     return;
   }
 
-  // CockpitOS-style blocking connect: start WiFi, then poll until connected or user bails.
   WifiMgr::beginConnect(true);
-  connectWifi();  // returns true (connected) or false (LP→Settings, s_mode already set)
+  connectWifi();
   s_lastActivity = millis();
+#endif
 }
 
 void loop() {

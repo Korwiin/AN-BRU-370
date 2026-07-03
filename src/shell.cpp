@@ -5,6 +5,7 @@
 #include "encoder.h"
 #include "ui.h"
 #include "wifi_mgr.h"
+#include "dcs_bios.h"
 
 static Shell::Hooks s_hooks;
 static char s_line[96];
@@ -45,6 +46,11 @@ static void dispatch(char* line) {
     Serial.println("#ping|help|state?|enc <n>|enc sp|enc lp|fb?");
     Serial.println("#wifi?|wifi log?|wifi on|wifi off|wifi conn [full|soft]");
     Serial.println("#wifi auto on|off|wifi boot|wifi scan");
+    Serial.println("#ok");
+  } else if (strcmp(line, "state?") == 0) {
+    Serial.printf("#state %s id=%u sel=%d wifi=%d dcs=%d\n",
+                  s_hooks.modeName(), s_hooks.modeId(), s_hooks.menuSel(),
+                  WifiMgr::isConnected() ? 1 : 0, DcsBios::isConnected() ? 1 : 0);
     Serial.println("#ok");
   } else {
     Serial.printf("#err unknown cmd '%s'\n", line);
