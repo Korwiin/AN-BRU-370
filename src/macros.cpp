@@ -53,13 +53,13 @@ Macro macros[] = {
   {"FCAP",         "fcap",         executeFCAP},
   {"REAPER",       "1688 reaper",  executeREAPER},
   {"CREAPER",      "1688 CREAPER", executeCREAPER},
-  {"CDRP ALPHA",   "CDRP-ALPHA",   executeCDRPAlpha},
-  {"CDRP BRAVO",   "CDRP-BETA",    executeCDRPBravo},
-  {"CDRP CHARLIE", "CDRP-CHARLIE", executeCDRPCharlie},
-  {"CDRP DELTA",   "CDRP-DELTA",   executeCDRPDelta},
-  {"CDRP ECHO",    "CDRP-ECHO",    executeCDRPEcho},
-  {"CDRP FOXTROT", "CDRP-FOXTROT", executeCDRPFoxtrot},
-  {"CDRP GAMMA",   "CDRP-GAMMA",   executeCDRPGamma},
+  {"C130 A",   "CDRP-ALPHA",   executeCDRPAlpha},
+  {"C130 B",   "CDRP-BETA",    executeCDRPBravo},
+  {"C130 C",   "CDRP-CHARLIE", executeCDRPCharlie},
+  {"C130 D",   "CDRP-DELTA",   executeCDRPDelta},
+  {"C130 E",   "CDRP-ECHO",    executeCDRPEcho},
+  {"C130 F",   "CDRP-FOXTROT", executeCDRPFoxtrot},
+  {"C130 G",   "CDRP-GAMMA",   executeCDRPGamma},
 };
 const int numMacros = sizeof(macros) / sizeof(macros[0]);
 
