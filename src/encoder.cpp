@@ -22,6 +22,18 @@ constexpr unsigned long kLongPressMs = 600;
 constexpr unsigned long kCooldownMs  = 50;
 constexpr int           kDivider     = 4;
 
+#ifdef DEV_BUILD
+static int  s_injDelta = 0;
+static bool s_injShort = false;
+static bool s_injLong  = false;
+
+void Encoder::inject(int8_t steps, uint8_t press) {
+  s_injDelta += steps;
+  if (press == 1) s_injShort = true;
+  if (press == 2) s_injLong  = true;
+}
+#endif
+
 void Encoder::begin() {
   pinMode(PIN_ENC_CLK, INPUT_PULLUP);
   pinMode(PIN_ENC_DT,  INPUT_PULLUP);
@@ -32,6 +44,16 @@ void Encoder::begin() {
 int8_t Encoder::readDelta() {
   s_shortPress = false;
   s_longPress  = false;
+
+#ifdef DEV_BUILD
+  if (s_injShort) { s_shortPress = true; s_injShort = false; }
+  if (s_injLong)  { s_longPress  = true; s_injLong  = false; }
+  if (s_injDelta != 0) {
+    int8_t io = (s_injDelta > 0) ? 1 : -1;
+    s_injDelta -= io;
+    return io;   // injected step this cycle; hardware read resumes next call
+  }
+#endif
 
   // Rotation — count all valid transitions freely
   int cur = (digitalRead(PIN_ENC_CLK) << 1) | digitalRead(PIN_ENC_DT);

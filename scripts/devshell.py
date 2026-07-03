@@ -43,7 +43,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-p", "--port", default=None)
     ap.add_argument("--fb", action="store_true")
-    ap.add_argument("cmd", nargs="?", default=None)
+    ap.add_argument("cmd", nargs="*", default=[])
     args = ap.parse_args()
     port = args.port or find_port()
     ser = serial.Serial()
@@ -51,11 +51,16 @@ def main():
     ser.dtr = False  # match monitor_dtr=0 / monitor_rts=0 — do not reset the board
     ser.rts = False
     ser.open()
+    time.sleep(4)  # opening the port resets the board; let boot/settle finish first
     if args.fb:
         render_fb(send(ser, "fb?"))
     elif args.cmd:
-        for l in send(ser, args.cmd):
-            print(l)
+        for i, cmd in enumerate(args.cmd):
+            if i > 0:
+                time.sleep(0.3)
+            print(f">> {cmd}")
+            for l in send(ser, cmd):
+                print(l)
     else:
         ap.error("need a command or --fb")
 

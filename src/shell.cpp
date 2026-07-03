@@ -190,6 +190,17 @@ static void dispatch(char* line) {
     } else {
       Serial.printf("#err unknown wifi subcmd '%s'\n", rest);
     }
+  } else if (strcmp(line, "enc") == 0) {
+    if (strcmp(rest, "sp") == 0)      { Encoder::inject(0, 1); Serial.println("#ok"); }
+    else if (strcmp(rest, "lp") == 0) { Encoder::inject(0, 2); Serial.println("#ok"); }
+    else {
+      char* end = nullptr;
+      long n = strtol(rest, &end, 10);
+      if (end != rest && n >= -100 && n <= 100 && n != 0) {
+        Encoder::inject((int8_t)n, 0);
+        Serial.println("#ok");
+      } else Serial.println("#err usage: enc <±n>|sp|lp");
+    }
   } else {
     Serial.printf("#err unknown cmd '%s'\n", line);
   }

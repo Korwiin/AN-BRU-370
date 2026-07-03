@@ -16,4 +16,11 @@ namespace Encoder {
 
   // Reset accumulated rotation and button state. Call before entering a blocking input loop.
   void flush();
+
+#ifdef DEV_BUILD
+  // Test-shell injection: queue N rotation steps (sign = direction) and/or a
+  // button press (1=short, 2=long). Consumed by readDelta() exactly like
+  // hardware input — one step per call, press flags latched for one cycle.
+  void inject(int8_t steps, uint8_t press);
+#endif
 }
