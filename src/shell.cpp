@@ -15,10 +15,15 @@ static bool s_busy = false;
 static void dispatch(char* line);
 
 // --- WiFi event ring (32 entries) ---
+// Written from the arduino-esp32 WiFi event task (onWifiEvent), read from the
+// main loop task (wifi?/wifi log? handlers) — guard all access with s_evtMux.
 struct WifiEvt { uint32_t ms; uint16_t ev; uint8_t reason; };
+static portMUX_TYPE s_evtMux = portMUX_INITIALIZER_UNLOCKED;
 static WifiEvt  s_evts[32];
 static uint8_t  s_evtNext = 0;
 static uint8_t  s_evtCount = 0;
+// Most recent disconnect reason. Deliberately NOT cleared on reconnect —
+// after a drop + auto-reconnect, `wifi?` still shows why the last drop happened.
 static uint8_t  s_lastReason = 0;
 
 static const char* wifiReasonName(uint8_t r) {
@@ -59,11 +64,15 @@ static void onWifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   uint8_t reason = 0;
   if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
     reason = info.wifi_sta_disconnected.reason;
+  }
+  portENTER_CRITICAL(&s_evtMux);
+  if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
     s_lastReason = reason;
   }
   s_evts[s_evtNext] = { (uint32_t)millis(), (uint16_t)event, reason };
   s_evtNext = (s_evtNext + 1) % 32;
   if (s_evtCount < 32) s_evtCount++;
+  portEXIT_CRITICAL(&s_evtMux);
 }
 
 void Shell::begin(const Hooks& hooks) {
@@ -110,6 +119,9 @@ static void dispatch(char* line) {
                   WifiMgr::isConnected() ? 1 : 0, DcsBios::isConnected() ? 1 : 0);
     Serial.println("#ok");
   } else if (strcmp(line, "wifi?") == 0) {
+    portENTER_CRITICAL(&s_evtMux);
+    uint8_t lastReason = s_lastReason;
+    portEXIT_CRITICAL(&s_evtMux);
     Serial.printf("#wifi status=%d ssid=%s bssid=%s ch=%d rssi=%d ip=%s auto=%d lastReason=%u:%s\n",
                   (int)WiFi.status(),
                   WifiMgr::isConnected() ? WiFi.SSID().c_str() : WifiMgr::activeSSID(),
@@ -118,13 +130,21 @@ static void dispatch(char* line) {
                   WiFi.RSSI(),
                   WiFi.localIP().toString().c_str(),
                   WifiMgr::getAutoReconnect() ? 1 : 0,
-                  s_lastReason, wifiReasonName(s_lastReason));
+                  lastReason, wifiReasonName(lastReason));
     Serial.println("#ok");
   } else if (strcmp(line, "wifi") == 0) {
     if (strcmp(rest, "log?") == 0) {
-      uint8_t start = (s_evtCount < 32) ? 0 : s_evtNext;
-      for (uint8_t i = 0; i < s_evtCount; i++) {
-        const WifiEvt& e = s_evts[(start + i) % 32];
+      WifiEvt snap[32];
+      uint8_t snapNext, snapCount;
+      portENTER_CRITICAL(&s_evtMux);
+      memcpy(snap, s_evts, sizeof(snap));
+      snapNext = s_evtNext;
+      snapCount = s_evtCount;
+      portEXIT_CRITICAL(&s_evtMux);
+
+      uint8_t start = (snapCount < 32) ? 0 : snapNext;
+      for (uint8_t i = 0; i < snapCount; i++) {
+        const WifiEvt& e = snap[(start + i) % 32];
         if (e.reason)
           Serial.printf("#evt %lu %s reason=%u:%s\n",
                         (unsigned long)e.ms, wifiEvtName(e.ev), e.reason, wifiReasonName(e.reason));
