@@ -11,6 +11,7 @@
 #include "ota.h"
 #include <WiFi.h>
 #include "esp32-hal-tinyusb.h"  // usb_persist_restart — reboot into ROM download mode
+#include "shell.h"
 
 enum MenuState {
   WAITING_DCS,     // no DCS yet — shown after WiFi connects; LP → Settings
@@ -112,6 +113,7 @@ static void rebootWithCountdown() {
     unsigned long t0 = millis();
     while (millis() - t0 < 1000UL) {
       Encoder::readDelta();
+      Shell::poll();
       if (Encoder::shortPressed()) return;  // SP = cancel
       delay(50);
     }
@@ -129,13 +131,14 @@ static void usbFlashWithCountdown() {
   // Dev boards flash button-free anyway. Item stays visible for menu parity.
   UI::showUsbFlashUnavailable();
   Encoder::flush();
-  while (!Encoder::shortPressed()) { Encoder::readDelta(); delay(10); }
+  while (!Encoder::shortPressed()) { Encoder::readDelta(); Shell::poll(); delay(10); }
 #else
   for (int secs = 5; secs > 0; secs--) {
     UI::showUsbFlashCountdown(secs);
     unsigned long t0 = millis();
     while (millis() - t0 < 1000UL) {
       Encoder::readDelta();
+      Shell::poll();
       if (Encoder::shortPressed()) return;  // SP = cancel
       delay(50);
     }
@@ -158,6 +161,7 @@ static bool connectWifi() {
 
   while (true) {
     Encoder::readDelta();
+    Shell::poll();
 
     if (WifiMgr::isConnected()) return true;
 
@@ -280,6 +284,16 @@ void setup() {
   Serial.printf("=== Brew370 v%s boot ===\n", FIRMWARE_VERSION);
 #endif
 
+#ifdef DEV_BUILD
+  {
+    static auto modeIdFn   = []() -> uint8_t { return (uint8_t)s_mode; };
+    static auto modeNameFn = []() -> const char* { return "?"; };  // Task 2 adds menuStateName()
+    static auto menuSelFn  = []() -> int { return s_menuSel; };
+    static auto wifiBootFn = []() { WifiMgr::beginConnect(true); connectWifi(); };
+    Shell::begin(Shell::Hooks{ modeIdFn, modeNameFn, menuSelFn, wifiBootFn });
+  }
+#endif
+
   loadNvs();
   HID::begin(s_screenW, s_screenH);
   UI::begin();
@@ -292,6 +306,7 @@ void setup() {
     unsigned long settleStart = millis();
     while (millis() - settleStart < 3000UL) {
       Encoder::readDelta();
+      Shell::poll();
       delay(10);
     }
     Encoder::flush();
@@ -301,6 +316,7 @@ void setup() {
     UI::showNoCredentials();
     while (!Encoder::shortPressed() && !Encoder::longPressed()) {
       Encoder::readDelta();
+      Shell::poll();
       delay(10);
     }
     s_wifiSubSel = 0; s_wifiMenuOffset = 0;
@@ -316,6 +332,8 @@ void setup() {
 }
 
 void loop() {
+  Shell::poll();
+
   // WiFi reconnect tracker — calls DcsBios::begin() whenever WiFi transitions
   // from disconnected to connected (covers first boot and all runtime reconnects).
   {
@@ -719,7 +737,7 @@ void loop() {
         case 1:  // BLE TERM
           { bool saved = WifiMgr::runBleSetup(
               []() { UI::showBleActive(WifiMgr::isBleClientConnected()); },
-              []() { Encoder::readDelta(); return Encoder::longPressed(); });
+              []() { Encoder::readDelta(); Shell::poll(); return Encoder::longPressed(); });
             if (saved) safeRestart();
           }
           s_wifiSubSel = 0;
@@ -729,7 +747,7 @@ void loop() {
         case 2:  // Scan — stub
           UI::showNotImplemented();
           Encoder::flush();
-          while (!Encoder::shortPressed()) { Encoder::readDelta(); delay(10); }
+          while (!Encoder::shortPressed()) { Encoder::readDelta(); Shell::poll(); delay(10); }
           break;
         case 3:  // Back
           s_wifiSubSel = 0; s_wifiMenuOffset = 0;
