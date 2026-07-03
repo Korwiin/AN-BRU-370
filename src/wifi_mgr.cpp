@@ -56,8 +56,6 @@ bool WifiMgr::beginConnect(bool full) {
   loadCredentials();
   if (s_ssid[0] == '\0') return false;
 
-  WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
-
   if (full) {
     WiFi.mode(WIFI_OFF);
     delay(100);
@@ -69,6 +67,9 @@ bool WifiMgr::beginConnect(bool full) {
   WiFi.persistent(false);
   WiFi.setAutoConnect(false);
   WiFi.setAutoReconnect(s_autoReconnect);
+  // Must run after mode(WIFI_STA): setTxPower() returns false ("Neither AP or
+  // STA has been started") if the driver isn't started yet.
+  WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
   WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.begin(s_ssid, s_pass);
 
