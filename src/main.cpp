@@ -127,6 +127,7 @@ static void rebootWithCountdown() {
 static bool connectWifi() {
   unsigned long deadline = millis() + 65000UL;
   bool timedOut = false;
+  enum { SHOWN_NONE, SHOWN_CONNECTING, SHOWN_NO_WIFI } shown = SHOWN_NONE;
 
   while (true) {
     Encoder::readDelta();
@@ -145,10 +146,13 @@ static bool connectWifi() {
       return false;
     }
 
-    if (timedOut) {
+    // Both screens are static — redraw only on transition, not every 100ms tick
+    if (timedOut && shown != SHOWN_NO_WIFI) {
       UI::showNoWifi();
-    } else {
+      shown = SHOWN_NO_WIFI;
+    } else if (!timedOut && shown != SHOWN_CONNECTING) {
       UI::showWifiConnecting(WifiMgr::activeSSID());
+      shown = SHOWN_CONNECTING;
     }
     delay(100);
   }
@@ -331,14 +335,16 @@ void loop() {
   if (rwrConfirmed) {
     if (s_mode == WAITING_DCS) s_mode = AIRCRAFT_STATUS;
     s_rwrActive = true;
+    // Redraw only on flash toggle — an unconditional draw here runs the full
+    // I2C sendBuffer at loop rate for the whole alert duration.
     if (millis() - s_rwrFlashTimer > 100) {
       s_rwrFlash = !s_rwrFlash;
       s_rwrFlashTimer = millis();
+      if ((millis() / 1000) % 2 == 0)
+        UI::showMissileLaunch(s_rwrFlash);
+      else
+        UI::showChaffCount(DcsBios::chaffStr(), s_rwrFlash);
     }
-    if ((millis() / 1000) % 2 == 0)
-      UI::showMissileLaunch(s_rwrFlash);
-    else
-      UI::showChaffCount(DcsBios::chaffStr(), s_rwrFlash);
     if (Encoder::shortPressed()) {
       DcsBios::sendCommand(DCSBIOS_CMD_CMDS_DISPENSE, 1);
       delay(100);
@@ -368,13 +374,17 @@ void loop() {
   if (mcConfirmed) {
     if (s_mode == WAITING_DCS) s_mode = AIRCRAFT_STATUS;
     s_mcActive = true;
+    // Redraw only on flash toggle — an unconditional draw here runs the full
+    // I2C sendBuffer at loop rate for the whole alert duration.
+    bool mcRedraw = false;
     if (millis() - s_mcFlashTimer > 200) {
       s_mcFlash = !s_mcFlash;
       s_mcFlashTimer = millis();
+      mcRedraw = true;
     }
     if (s_scState == SC_IDLE) {
       if (DcsBios::storesConfigLight()) {
-        UI::showStoresConfig(s_mcFlash);
+        if (mcRedraw) UI::showStoresConfig(s_mcFlash);
         if (Encoder::shortPressed()) {
           s_scTarget    = DcsBios::storesConfigSw() ^ 1;
           s_scTPress    = millis();
@@ -384,7 +394,7 @@ void loop() {
         }
       } else {
         s_scTarget = 0xFF;
-        UI::showMasterCaution(s_mcFlash);
+        if (mcRedraw) UI::showMasterCaution(s_mcFlash);
         if (Encoder::shortPressed()) {
           DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 1);
           delay(100);
@@ -392,7 +402,7 @@ void loop() {
         }
       }
     } else if (s_scState == SC_WAITING_SW) {
-      UI::showStoresConfig(s_mcFlash);
+      if (mcRedraw) UI::showStoresConfig(s_mcFlash);
       if (DcsBios::storesConfigSw() == s_scTarget) {
         s_scState = SC_WAITING_LIGHT;
       } else if (millis() - s_scTLastSend >= SC_RETRY_MS) {
@@ -402,16 +412,16 @@ void loop() {
     } else if (s_scState == SC_WAITING_LIGHT) {
       if (millis() - s_scTPress >= SC_LIGHT_TIMEOUT_MS) {
         s_scState = SC_GAVE_UP;
-        UI::showMasterCaution(s_mcFlash);
+        UI::showMasterCaution(s_mcFlash);  // state change: draw now, not on next toggle
       } else {
-        UI::showStoresConfig(s_mcFlash);
+        if (mcRedraw) UI::showStoresConfig(s_mcFlash);
       }
     } else if (s_scState == SC_GAVE_UP) {
       if (!DcsBios::storesConfigLight()) {
         s_scState  = SC_IDLE;
         s_scTarget = 0xFF;
       }
-      UI::showMasterCaution(s_mcFlash);
+      if (mcRedraw) UI::showMasterCaution(s_mcFlash);
       if (Encoder::shortPressed()) {
         DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 1);
         delay(100);
