@@ -525,3 +525,10 @@ void UI::showFirmwareError(const char* reason, bool canRetry) {
   u8g2.drawStr(0, 31, canRetry ? "SP=Retry  LP=Back" : "SP=Back");
   u8g2.sendBuffer();
 }
+
+#ifdef DEV_BUILD
+const uint8_t* UI::frameBuffer(uint16_t& len) {
+  len = 8 * u8g2.getBufferTileHeight() * u8g2.getBufferTileWidth();
+  return u8g2.getBufferPtr();
+}
+#endif

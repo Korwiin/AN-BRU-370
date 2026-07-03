@@ -2,6 +2,7 @@
 """Brew370 dev-shell client. Usage:
   devshell.py [-p PORT] "wifi?"           # one command, print # responses
   devshell.py [-p PORT] --fb              # fetch fb? and render 128x32 ASCII
+  devshell.py [-p PORT] "enc lp" --fb     # run commands, then render fb (one session)
 Run with PlatformIO's python (has pyserial): ~/.platformio/penv/bin/python
 """
 import argparse, glob, sys, time
@@ -52,15 +53,18 @@ def main():
     ser.rts = False
     ser.open()
     time.sleep(4)  # opening the port resets the board; let boot/settle finish first
-    if args.fb:
-        render_fb(send(ser, "fb?"))
-    elif args.cmd:
+    if args.cmd:
         for i, cmd in enumerate(args.cmd):
             if i > 0:
                 time.sleep(0.3)
             print(f">> {cmd}")
             for l in send(ser, cmd):
                 print(l)
+        if args.fb:
+            time.sleep(0.3)
+            render_fb(send(ser, "fb?"))
+    elif args.fb:
+        render_fb(send(ser, "fb?"))
     else:
         ap.error("need a command or --fb")
 

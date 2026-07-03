@@ -201,6 +201,15 @@ static void dispatch(char* line) {
         Serial.println("#ok");
       } else Serial.println("#err usage: enc <±n>|sp|lp");
     }
+  } else if (strcmp(line, "fb?") == 0) {
+    uint16_t len = 0;
+    const uint8_t* buf = UI::frameBuffer(len);
+    for (uint16_t off = 0; off < len; off += 64) {
+      char hex[129];
+      for (int i = 0; i < 64; i++) sprintf(&hex[i * 2], "%02x", buf[off + i]);
+      Serial.printf("#fb %u %s\n", off, hex);
+    }
+    Serial.println("#ok");
   } else {
     Serial.printf("#err unknown cmd '%s'\n", line);
   }

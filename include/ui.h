@@ -57,4 +57,10 @@ namespace UI {
   void showFirmwareUpdating(int percent);
   void showFirmwareError(const char* reason, bool canRetry = false);
   void setContrast(uint8_t value);
+
+#ifdef DEV_BUILD
+  // Test shell: raw U8g2 buffer (512 bytes, 128x32 page format). Contents are
+  // whatever was last rendered via sendBuffer().
+  const uint8_t* frameBuffer(uint16_t& len);
+#endif
 }
