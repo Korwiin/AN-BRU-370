@@ -46,17 +46,17 @@ namespace HID {
 
 namespace HID {
   struct NullKeyboard {
-    void releaseAll() {}
-    void press(uint8_t) {}
+    void releaseAll();
+    void press(uint8_t k);
   };
   extern NullKeyboard Keyboard;
 
-  inline void begin(uint16_t, uint16_t) {}
-  inline bool isReady()                 { return false; }
-  inline void moveAbs(uint16_t, uint16_t) {}
-  inline void moveRel(int16_t, int16_t)   {}
-  inline void pressKey(uint8_t)           {}
-  inline void typeText(const char*)       {}
-  inline void mouseClick(uint8_t = MOUSE_LEFT) {}
+  void begin(uint16_t w, uint16_t h);
+  bool isReady();
+  void moveAbs(uint16_t x, uint16_t y);
+  void moveRel(int16_t dx, int16_t dy);
+  void pressKey(uint8_t key);
+  void typeText(const char* text);
+  void mouseClick(uint8_t button = MOUSE_LEFT);
 }
 #endif

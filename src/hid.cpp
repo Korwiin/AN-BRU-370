@@ -109,6 +109,17 @@ void HID::mouseClick(uint8_t button) {
 }
 
 #else
-// --- Dev build: define Keyboard so call sites in main.cpp compile ---
+// --- Dev build: HID intent logging (no USB traffic; CDC owns the port) ---
 HID::NullKeyboard HID::Keyboard;
+
+void HID::NullKeyboard::releaseAll()      { Serial.println("#hid kb releaseAll"); }
+void HID::NullKeyboard::press(uint8_t k)  { Serial.printf("#hid kb press 0x%02X\n", k); }
+
+void HID::begin(uint16_t w, uint16_t h)   { Serial.printf("#hid begin %ux%u\n", w, h); }
+bool HID::isReady()                       { return true; }  // let macro flows run + log
+void HID::moveAbs(uint16_t x, uint16_t y) { Serial.printf("#hid moveAbs %u,%u\n", x, y); }
+void HID::moveRel(int16_t dx, int16_t dy) { Serial.printf("#hid moveRel %d,%d\n", dx, dy); }
+void HID::pressKey(uint8_t key)           { Serial.printf("#hid pressKey 0x%02X\n", key); delay(50); }
+void HID::typeText(const char* t)         { Serial.printf("#hid typeText \"%s\"\n", t); }
+void HID::mouseClick(uint8_t b)           { Serial.printf("#hid click 0x%02X\n", b); }
 #endif
