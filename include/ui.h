@@ -37,6 +37,9 @@ namespace UI {
   void showScreenEdit(int digits[8], int digitPos);
   void showSaved();
   void showRebootCountdown(int secs);
+  void showUsbFlashCountdown(int secs);
+  void showUsbFlashMode();     // static screen left on OLED while in ROM download mode
+  void showUsbFlashUnavailable();  // dev-build guard: item is production-only
   void showBleActive(bool connected);
 
   // WiFi menu: 5 items (Full Restart / Soft Restart / Auto-Rec / Secrets / Back)

@@ -194,9 +194,9 @@ void UI::flashScreen() {
 // ---- Settings menu ----
 
 static const char* s_menuItems[] = {
-  "Knob","Brightness","LCD Sleep","WiFi","Mouse Tune","Firmware","Reboot","EXIT"
+  "Knob","Brightness","LCD Sleep","WiFi","Mouse Tune","Firmware","USB Flash","Reboot","EXIT"
 };
-static const int kNumMenuItems = 8;
+static const int kNumMenuItems = 9;
 
 void UI::showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bool dcsOk) {
   u8g2.clearBuffer();
@@ -436,6 +436,34 @@ void UI::showRebootCountdown(int secs) {
   u8g2.setFont(u8g2_font_5x7_tr);
   u8g2.drawStr((128 - u8g2.getStrWidth(buf))      / 2, 12, buf);
   u8g2.drawStr((128 - u8g2.getStrWidth("SP=Cancel")) / 2, 27, "SP=Cancel");
+  u8g2.sendBuffer();
+}
+
+void UI::showUsbFlashCountdown(int secs) {
+  char buf[20];
+  snprintf(buf, sizeof(buf), "USB flash in %ds", secs);
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr((128 - u8g2.getStrWidth(buf))      / 2, 12, buf);
+  u8g2.drawStr((128 - u8g2.getStrWidth("SP=Cancel")) / 2, 27, "SP=Cancel");
+  u8g2.sendBuffer();
+}
+
+void UI::showUsbFlashUnavailable() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0,  8, "USB FLASH: N/A");
+  u8g2.drawStr(0, 16, "in dev build");
+  u8g2.drawStr(0, 30, "SP = Back");
+  u8g2.sendBuffer();
+}
+
+void UI::showUsbFlashMode() {
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr((128 - u8g2.getStrWidth("USB FLASH MODE")) / 2, 10, "USB FLASH MODE");
+  u8g2.drawStr((128 - u8g2.getStrWidth("Flash via USB-C")) / 2, 20, "Flash via USB-C");
+  u8g2.drawStr((128 - u8g2.getStrWidth("RST = exit")) / 2, 30, "RST = exit");
   u8g2.sendBuffer();
 }
 

@@ -10,6 +10,7 @@
 #include "macros.h"
 #include "ota.h"
 #include <WiFi.h>
+#include "esp32-hal-tinyusb.h"  // usb_persist_restart — reboot into ROM download mode
 
 enum MenuState {
   WAITING_DCS,     // no DCS yet — shown after WiFi connects; LP → Settings
@@ -118,6 +119,32 @@ static void rebootWithCountdown() {
   safeRestart();
 }
 
+// 5-second countdown, then reboot into ROM download mode (USB-Serial/JTAG).
+// Draws the instruction screen first — the OLED keeps the last frame while
+// the chip sits in the bootloader. RST button or power cycle exits.
+static void usbFlashWithCountdown() {
+#ifdef DEV_BUILD
+  // Production-only: with HWCDC live on USB-Serial/JTAG, usb_persist_restart's
+  // PHY handoff leaves the bus detached until RST (observed 2026-07-03).
+  // Dev boards flash button-free anyway. Item stays visible for menu parity.
+  UI::showUsbFlashUnavailable();
+  Encoder::flush();
+  while (!Encoder::shortPressed()) { Encoder::readDelta(); delay(10); }
+#else
+  for (int secs = 5; secs > 0; secs--) {
+    UI::showUsbFlashCountdown(secs);
+    unsigned long t0 = millis();
+    while (millis() - t0 < 1000UL) {
+      Encoder::readDelta();
+      if (Encoder::shortPressed()) return;  // SP = cancel
+      delay(50);
+    }
+  }
+  UI::showUsbFlashMode();
+  usb_persist_restart(RESTART_BOOTLOADER);
+#endif
+}
+
 // Blocking WiFi connect loop. Caller must have called WifiMgr::beginConnect() first.
 // Shows "Connecting..." until WiFi.status() == WL_CONNECTED, or until 65-second timeout.
 // On timeout: shows "No WiFi / SP:Retry LP:Settings" and waits for user action.
@@ -183,10 +210,13 @@ static void executeMenuItem() {
     case 5:  // Firmware
       s_mode = FIRMWARE_CHECKING;
       return;
-    case 6:  // Reboot
+    case 6:  // USB Flash
+      usbFlashWithCountdown();
+      break;
+    case 7:  // Reboot
       rebootWithCountdown();
       break;
-    case 7:  // EXIT
+    case 8:  // EXIT
       s_mode = DcsBios::isConnected() ? AIRCRAFT_STATUS : WAITING_DCS;
       return;
   }
@@ -533,7 +563,7 @@ void loop() {
     }
 
   } else if (s_mode == SETTINGS) {
-    s_menuSel = (s_menuSel + delta + 8) % 8;
+    s_menuSel = (s_menuSel + delta + 9) % 9;
     if (s_menuSel < s_menuOffset) s_menuOffset = s_menuSel;
     if (s_menuSel >= s_menuOffset + 4) s_menuOffset = s_menuSel - 3;
     if (Encoder::shortPressed()) executeMenuItem();
