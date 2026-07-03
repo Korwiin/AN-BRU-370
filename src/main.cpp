@@ -345,8 +345,9 @@ void setup() {
     return;
   }
 
+  // CockpitOS-style blocking connect: start WiFi, then poll until connected or user bails.
   WifiMgr::beginConnect(true);
-  connectWifi();
+  connectWifi();  // returns true (connected) or false (LP→Settings, s_mode already set)
   s_lastActivity = millis();
 #endif
 }
