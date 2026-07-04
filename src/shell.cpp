@@ -173,6 +173,9 @@ static void dispatch(char* line) {
       WifiMgr::setAutoReconnect(false); Serial.println("#ok");
     } else if (strcmp(rest, "boot") == 0) {
       Serial.println("#wifi running production boot sequence (blocking)");
+      // Must be the LAST use of line/rest in this handler: wifiBoot() blocks in
+      // connectWifi(), whose Shell::poll() reuses s_line — the buffer these
+      // pointers alias. Reading them after this call would parse corrupted data.
       s_hooks.wifiBoot();
       Serial.printf("#wifi boot done, connected=%d\n", WifiMgr::isConnected() ? 1 : 0);
       Serial.println("#ok");

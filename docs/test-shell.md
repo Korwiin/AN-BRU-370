@@ -65,6 +65,9 @@ $ ~/.platformio/penv/bin/python scripts/devshell.py "state?"
 | `wifi conn soft` | soft connect (`WifiMgr::beginConnect(false)`) | `#ok` or `#err no credentials in NVS` |
 | `wifi auto on` / `wifi auto off` | toggle WiFi auto-reconnect | `#ok` |
 | `wifi boot` | replay the production blocking boot-connect sequence | `#wifi running production boot sequence (blocking)` then `#wifi boot done, connected=<0\|1>` / `#ok` |
+
+**Note on `wifi boot`:** If the AP is unreachable, `wifi boot` blocks indefinitely (production behavior: retries until physical SP/LP input); wire commands get `#err busy` and `enc` injection cannot escape it — recover by re-opening the serial port, which resets the board.
+
 | `wifi scan` | blocking AP scan (~2-3 s) | N×`#ap "<ssid>" <bssid> ch=<n> rssi=<n> auth=<n>` then `#scan <n> networks` / `#ok` |
 
 Unknown top-level verb → `#err unknown cmd '<verb>'`. Unknown `wifi` subcommand →
