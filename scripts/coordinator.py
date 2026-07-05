@@ -72,14 +72,28 @@ class Coordinator:
         if src == 'SHELL':
             self._sb = b''  # discard any partial buffer accumulated during settle
 
+    # Known MACs — set after channel sync, used to flag direction in monitor mode
+    _ap_mac:  str = ''
+    _sta_mac: str = ''
+
     def _drain_sniffer(self):
         data = self._sniff.read(4096)
         if not data:
             return
         for line in data.decode(errors='replace').splitlines():
             line = line.strip()
-            if line:
-                self.log('SNIFFER', line)
+            if not line:
+                continue
+            self.log('SNIFFER', line)
+            # Flag any AP-initiated disconnect — the key diagnostic event
+            if '#frame' in line and self._ap_mac:
+                if (('DEAUTH' in line or 'DISASSOC' in line)
+                        and f'src={self._ap_mac}' in line):
+                    rsn = ''
+                    for part in line.split():
+                        if part.startswith('rsn='):
+                            rsn = part
+                    self.log('COORD', f'*** AP-INITIATED {("DEAUTH" if "DEAUTH" in line else "DISASSOC")} {rsn} ***')
 
     def sniff_cmd(self, cmd: str):
         """Send a command to the sniffer and log its response."""
@@ -148,13 +162,22 @@ class Coordinator:
                         channel = int(part[3:])
                     except ValueError:
                         pass
+        for l in lines:
+            for part in l.split():
+                if part.startswith('bssid=') and len(part) == 23:
+                    self._ap_mac = part[6:]
+                if part.startswith('ip=') and part != 'ip=0.0.0.0':
+                    pass  # not useful here
+        # STA MAC appears in wifi? as the src of DISASSOC on next wifi off;
+        # capture it from the first sniffer DISASSOC frame instead (see _drain_sniffer)
         if channel:
-            self.log('COORD', f'channel sync: AP ch={channel}')
+            self.log('COORD', f'channel sync: AP ch={channel} ap_mac={self._ap_mac}')
             self.sniff_cmd(f'ch {channel}')
         else:
             self.log('COORD', 'channel sync: could not parse channel from wifi? — sniffer channel unchanged')
         self.shell('wifi off')
         self._idle(2)
+        # STA MAC is visible as src in the DISASSOC frames just emitted
         return channel
 
     # ── experiment primitives ─────────────────────────────────────────────────
@@ -183,20 +206,62 @@ class Coordinator:
         self.shell('wifi log?', timeout=5)   # captured in log; not parsed here
         return connected, reason
 
-    # ── main experiment ───────────────────────────────────────────────────────
+    # ── monitor mode ─────────────────────────────────────────────────────────
+
+    def monitor(self, poll_s: int = 60):
+        """
+        Production-observation mode.
+
+        1. Channel sync (connect once to get AP channel, disconnect).
+        2. Run wifi boot on the dev shell — puts the ESP32 in the same WiFi
+           state as production firmware (blocking connect, auto-reconnect on).
+        3. Log all sniffer frames indefinitely.  Any AP-initiated DEAUTH or
+           DISASSOC is flagged with *** so it stands out in the log.
+        4. Poll wifi log? every poll_s seconds to capture the ESP32-side event
+           ring alongside the wire-level evidence.
+        5. Ctrl-C to stop.
+
+        Key diagnostic:
+          AP-initiated DEAUTH  src=<Eero> — AP kicked the client; note rsn= code
+          AP-initiated DISASSOC src=<Eero> — same, softer form
+          Client DISASSOC      src=<ANBRU> — firmware called disconnect
+          Silence → AUTH seq=1 — reconnect attempt after timeout / driver reset
+        """
+        self.log('COORD', f'=== MONITOR MODE poll_interval={poll_s}s ===')
+
+        # Channel sync also populates self._ap_mac
+        self._sync_sniffer_channel()
+
+        # Put dev board into production WiFi state
+        self.log('COORD', 'wifi boot — entering production WiFi state (blocking up to 65s)')
+        resp = self.shell('wifi boot', timeout=70)
+        if any('no credentials' in l for l in resp):
+            raise RuntimeError('No WiFi credentials in NVS — configure via BLE first')
+        connected, _ = self._wifi_status()
+        if not connected:
+            self.log('COORD', 'WARNING: wifi boot completed but not connected — monitoring anyway')
+        else:
+            self.log('COORD', 'Connected. Monitoring wire traffic — Ctrl-C to stop.')
+
+        last_poll = time.time()
+        try:
+            while True:
+                self._drain_sniffer()
+                if time.time() - last_poll >= poll_s:
+                    self.shell('wifi log?', timeout=5)
+                    last_poll = time.time()
+                time.sleep(0.05)
+        except KeyboardInterrupt:
+            self.log('COORD', 'monitor stopped — final state:')
+            self.shell('wifi?', timeout=5)
+            self.shell('wifi log?', timeout=5)
+
+    # ── lockout experiment ────────────────────────────────────────────────────
 
     def run(self, reps: int = 3, probe_only: bool = False) -> list:
         """
-        Run the Eero lockout experiment.
-
-        Phase 1 (per rep): rapid connect/disconnect cycles until the AP refuses
-        authentication. Records the cycle number and failure reason code.
-
-        Phase 2 (per rep): probes for recovery at increasing intervals.
-        Records elapsed seconds from lockout onset to first successful reconnect.
-
-        All sniffer frames are captured throughout — they appear in the log
-        interleaved by wall-clock time with the shell events.
+        Lockout experiment: rapid connect/disconnect cycles to provoke the
+        Eero rate limiter, then probe recovery timing.
         """
         self.log('COORD', f'=== LOCKOUT EXPERIMENT reps={reps} probe_only={probe_only} ===')
 
@@ -377,8 +442,12 @@ def main():
                     help='Dev-shell serial port (ANBRU-370RD ESP32-S3)')
     ap.add_argument('-r', '--reps', type=int, default=3, metavar='N',
                     help='Experiment repetitions (default 3)')
+    ap.add_argument('--monitor', action='store_true',
+                    help='Monitor mode: wifi boot then observe wire traffic (Ctrl-C to stop)')
+    ap.add_argument('--poll', type=int, default=60, metavar='S',
+                    help='wifi log? poll interval in monitor mode, seconds (default 60)')
     ap.add_argument('--probe-only', action='store_true',
-                    help='Skip experiment — log sniffer traffic only')
+                    help='Sniffer-only: no dev-shell interaction, just log frames')
     ap.add_argument('-o', '--output', metavar='FILE',
                     help='Log file (default: coordinator_TIMESTAMP.log in scripts/)')
     args = ap.parse_args()
@@ -395,7 +464,10 @@ def main():
 
     coord = Coordinator(shell_port, sniffer_port, logpath)
     try:
-        coord.run(reps=args.reps, probe_only=args.probe_only)
+        if args.monitor:
+            coord.monitor(poll_s=args.poll)
+        else:
+            coord.run(reps=args.reps, probe_only=args.probe_only)
     except KeyboardInterrupt:
         coord.log('COORD', 'interrupted by user')
     except Exception as e:
