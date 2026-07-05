@@ -23,7 +23,7 @@ from datetime import datetime
 BAUD        = 115200
 SETTLE_S    = 4.5   # seconds after opening dev-shell port before first command
 CMD_TIMEOUT = 20    # seconds to wait for shell #ok/#err
-CONN_WAIT_S = 12    # seconds to wait after wifi conn full before checking status
+CONN_WAIT_S = 3     # seconds to wait after wifi conn full — success takes ~1s, failure <1s
 PROBE_GAPS  = [30, 60, 120, 240, 300]   # seconds between recovery probes
 MAX_CYCLES  = 20    # stop provoking after this many cycles without lockout
 
@@ -134,7 +134,7 @@ class Coordinator:
         """
         self.log('COORD', 'channel sync: connecting to read AP channel')
         self.shell('wifi conn full', timeout=5)
-        self._idle(12)
+        self._idle(10)  # channel sync gets a full 10s — only runs once
         connected, reason = self._wifi_status()
         if not connected:
             self.log('COORD', f'channel sync: connect failed reason={reason} — sniffer channel unchanged')
@@ -224,7 +224,7 @@ class Coordinator:
             self.log('COORD', f'--- rep {rep}/{reps} ---')
             self.shell('wifi auto off')
             self.shell('wifi off')
-            self._idle(2)
+            self._idle(1)
 
             # ── Phase 1: provoke lockout ──────────────────────────────────────
             lockout_cycle = None
@@ -238,7 +238,7 @@ class Coordinator:
                 if connected:
                     self.log('COORD', f'cycle {cycle}: CONNECTED')
                     self.shell('wifi off')
-                    self._idle(3)
+                    self._idle(0.5)
                 else:
                     self.log('COORD', f'cycle {cycle}: FAILED reason={reason!r}')
                     lockout_cycle = cycle
@@ -267,7 +267,7 @@ class Coordinator:
                 if connected:
                     self.log('COORD', f'RECOVERED after {elapsed:.0f}s total')
                     self.shell('wifi off')
-                    self._idle(3)
+                    self._idle(0.5)
                     recovery_s = elapsed
                     break
                 else:
