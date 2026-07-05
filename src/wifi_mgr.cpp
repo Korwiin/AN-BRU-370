@@ -2,18 +2,19 @@
 #include "config.h"
 #include <WiFi.h>
 #include <Preferences.h>
-#include <NimBLEDevice.h>
+#include <BLEDevice.h>
+#include <BLE2902.h>
 
 #define NUS_SERVICE_UUID  "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define NUS_RX_UUID       "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 #define NUS_TX_UUID       "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-static NimBLECharacteristic* s_bleTxChar      = nullptr;
-static volatile bool          s_bleClientConn  = false;
-static volatile bool          s_bleSubscribed  = false;
-static String                 s_bleRxBuf;
-static volatile bool          s_bleLineReady   = false;
-static portMUX_TYPE           s_bleMux         = portMUX_INITIALIZER_UNLOCKED;
+static BLECharacteristic* s_bleTxChar     = nullptr;
+static BLE2902*            s_bleCccd       = nullptr;
+static volatile bool       s_bleClientConn = false;
+static volatile bool       s_bleLineReady  = false;
+static String              s_bleRxBuf;
+static portMUX_TYPE        s_bleMux        = portMUX_INITIALIZER_UNLOCKED;
 
 static char s_ssid[64] = {0};
 static char s_pass[64] = {0};
@@ -64,10 +65,7 @@ bool WifiMgr::beginConnect(bool full) {
   }
 
   WiFi.persistent(false);
-  WiFi.setAutoConnect(false);
   WiFi.setAutoReconnect(s_autoReconnect);
-  // Must run after mode(WIFI_STA): setTxPower() returns false ("Neither AP or
-  // STA has been started") if the driver isn't started yet.
   WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
   WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.begin(s_ssid, s_pass);
@@ -112,25 +110,25 @@ void WifiMgr::clearOverride() {
   prefs.end();
 }
 
-// ---- BLE UART implementation ----
+// ---- BLE UART implementation (Bluedroid) ----
 
-class BleServerCb : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer*) override {
+class BleServerCb : public BLEServerCallbacks {
+  void onConnect(BLEServer*) override {
     s_bleClientConn = true;
   }
-  void onDisconnect(NimBLEServer* pServer) override {
-    s_bleSubscribed  = false;
-    s_bleClientConn  = false;
-    s_bleLineReady   = false;
-    s_bleRxBuf       = "";
+  void onDisconnect(BLEServer* pServer) override {
+    s_bleClientConn = false;
+    s_bleLineReady  = false;
+    s_bleRxBuf      = "";
     pServer->startAdvertising();
   }
 };
 
-class BleRxCb : public NimBLECharacteristicCallbacks {
-  void onWrite(NimBLECharacteristic* pChar) override {
-    std::string val = pChar->getValue();
-    for (char c : val) {
+class BleRxCb : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic* pChar) override {
+    String val = pChar->getValue();
+    for (size_t i = 0; i < val.length(); i++) {
+      char c = val[i];
       if (c == '\n' || c == '\r') {
         portENTER_CRITICAL(&s_bleMux);
         if (s_bleRxBuf.length() > 0) s_bleLineReady = true;
@@ -144,22 +142,18 @@ class BleRxCb : public NimBLECharacteristicCallbacks {
   }
 };
 
-class BleTxSubscribeCb : public NimBLECharacteristicCallbacks {
-  void onSubscribe(NimBLECharacteristic*, ble_gap_conn_desc*, uint16_t subValue) override {
-    if (subValue & 0x0001) {
-      s_bleSubscribed = true;
-    }
-  }
-};
+static bool bleSubscribed() {
+  return s_bleCccd && s_bleCccd->getNotifications();
+}
 
 static void bleSend(const char* msg) {
-  if (!s_bleTxChar || !s_bleClientConn) return;
+  if (!s_bleTxChar || !s_bleClientConn || !bleSubscribed()) return;
   const uint8_t* data = (const uint8_t*)msg;
   size_t len = strlen(msg);
   size_t off = 0;
   while (off < len) {
     size_t chunk = (len - off < 20) ? len - off : 20;
-    s_bleTxChar->setValue(data + off, chunk);
+    s_bleTxChar->setValue(const_cast<uint8_t*>(data + off), chunk);
     s_bleTxChar->notify();
     delay(20);
     off += chunk;
@@ -186,21 +180,24 @@ static void sendBanner() {
 bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
   WiFi.disconnect(true);
   delay(100);
-  s_bleSubscribed = false;
 
-  NimBLEDevice::init("AN/BRU-370");
-  NimBLEServer* pServer = NimBLEDevice::createServer();
+  BLEDevice::init("AN/BRU-370");
+  BLEServer* pServer = BLEDevice::createServer();
   pServer->setCallbacks(new BleServerCb());
 
-  NimBLEService* pSvc = pServer->createService(NUS_SERVICE_UUID);
-  s_bleTxChar = pSvc->createCharacteristic(NUS_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
-  s_bleTxChar->setCallbacks(new BleTxSubscribeCb());
-  NimBLECharacteristic* pRx = pSvc->createCharacteristic(
-    NUS_RX_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
+  BLEService* pSvc = pServer->createService(NUS_SERVICE_UUID);
+
+  s_bleTxChar = pSvc->createCharacteristic(NUS_TX_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+  s_bleCccd   = new BLE2902();
+  s_bleTxChar->addDescriptor(s_bleCccd);
+
+  BLECharacteristic* pRx = pSvc->createCharacteristic(
+    NUS_RX_UUID,
+    BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
   pRx->setCallbacks(new BleRxCb());
 
   pSvc->start();
-  NimBLEAdvertising* pAdv = NimBLEDevice::getAdvertising();
+  BLEAdvertising* pAdv = BLEDevice::getAdvertising();
   pAdv->addServiceUUID(NUS_SERVICE_UUID);
   pAdv->start();
 
@@ -216,7 +213,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
 
     switch (state) {
       case WAIT_CLIENT:
-        if (s_bleSubscribed) { sendBanner(); state = GET_SSID; }
+        if (bleSubscribed()) { sendBanner(); state = GET_SSID; }
         break;
 
       case GET_SSID:
@@ -276,11 +273,10 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
   }
 
   s_bleTxChar = nullptr;
-  NimBLEDevice::deinit(true);
+  s_bleCccd   = nullptr;
+  BLEDevice::deinit(true);
   delay(100);
 
-  // Re-start WiFi connection after BLE session (whether saved or cancelled).
-  // If no credentials exist yet, beginConnect returns false silently.
   if (!result) WifiMgr::beginConnect(true);
   return result;
 }
