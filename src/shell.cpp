@@ -2,6 +2,8 @@
 
 #ifdef DEV_BUILD
 #include <WiFi.h>
+#include <esp_wifi.h>
+#include <nvs.h>
 #include "encoder.h"
 #include "ui.h"
 #include "wifi_mgr.h"
@@ -111,7 +113,7 @@ static void dispatch(char* line) {
   } else if (strcmp(line, "help") == 0) {
     Serial.println("#ping|help|state?|enc <n>|enc sp|enc lp|fb?");
     Serial.println("#wifi?|wifi log?|wifi on|wifi off|wifi conn [full|soft]");
-    Serial.println("#wifi auto on|off|wifi boot|wifi scan");
+    Serial.println("#wifi auto on|off|wifi boot|wifi scan|wifi nvs?|wifi restore");
     Serial.println("#ok");
   } else if (strcmp(line, "state?") == 0) {
     Serial.printf("#state %s id=%u sel=%d wifi=%d dcs=%d\n",
@@ -190,6 +192,83 @@ static void dispatch(char* line) {
       WiFi.scanDelete();
       Serial.printf("#scan %d networks\n", n);
       Serial.println("#ok");
+    } else if (strcmp(rest, "nvs?") == 0) {
+      // Driver-internal persisted WiFi state (namespace nvs.net80211).
+      // Read-only: report which keys exist and their sizes; never print contents.
+      nvs_handle_t h;
+      esp_err_t err = nvs_open("nvs.net80211", NVS_READONLY, &h);
+      if (err != ESP_OK) {
+        Serial.printf("#nvs namespace absent (err 0x%x)\n", err);
+        Serial.println("#ok");
+      } else {
+        static const char* kKeys[] = { "sta.ssid", "sta.pswd", "sta.pmk", "sta.apinfo" };
+        for (auto key : kKeys) {
+          size_t len = 0;
+          if (nvs_get_blob(h, key, nullptr, &len) == ESP_OK)
+            Serial.printf("#nvs %s blob %u bytes\n", key, (unsigned)len);
+          else if (nvs_get_str(h, key, nullptr, &len) == ESP_OK)
+            Serial.printf("#nvs %s str %u bytes\n", key, (unsigned)len);
+          else
+            Serial.printf("#nvs %s absent\n", key);
+        }
+        nvs_close(h);
+        Serial.println("#ok");
+      }
+    } else if (strcmp(rest, "wipe") == 0) {
+      // Raw erase of the driver's NVS namespace. Only effective BEFORE the WiFi
+      // driver initializes this boot (dev boot never touches WiFi) — a running
+      // driver with FLASH storage rewrites the keys (observed with esp_wifi_restore).
+      nvs_handle_t h;
+      esp_err_t err = nvs_open("nvs.net80211", NVS_READWRITE, &h);
+      if (err == ESP_OK) {
+        err = nvs_erase_all(h);
+        if (err == ESP_OK) err = nvs_commit(h);
+        nvs_close(h);
+      }
+      if (err == ESP_OK) { Serial.println("#wifi nvs namespace erased"); Serial.println("#ok"); }
+      else Serial.printf("#err nvs wipe 0x%x\n", err);
+    } else if (strcmp(rest, "mac rand") == 0) {
+      // Randomized locally-administered STA MAC for this boot only (RAM).
+      // Discriminator for AP-side MAC blocks. Call before conn.
+      if (WiFi.getMode() == WIFI_OFF) WiFi.mode(WIFI_STA);
+      uint8_t mac[6];
+      esp_fill_random(mac, 6);
+      mac[0] = (mac[0] | 0x02) & 0xFE;  // locally administered, unicast
+      esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, mac);
+      if (err == ESP_OK) {
+        Serial.printf("#wifi sta mac now %02X:%02X:%02X:%02X:%02X:%02X\n",
+                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        Serial.println("#ok");
+      } else Serial.printf("#err esp_wifi_set_mac 0x%x\n", err);
+    } else if (strncmp(rest, "txpwr ", 6) == 0) {
+      // Runtime TX power override in dBm (driver units are 0.25 dBm, range 8..84).
+      // beginConnect() re-applies WIFI_POWER_MINUS_1dBm, so issue this AFTER conn.
+      int dbm = atoi(rest + 6);
+      if (dbm < 2 || dbm > 21) {
+        Serial.println("#err usage: wifi txpwr <2..21 dBm>");
+      } else {
+        esp_err_t err = esp_wifi_set_max_tx_power((int8_t)(dbm * 4));
+        int8_t rb = 0;
+        esp_wifi_get_max_tx_power(&rb);
+        if (err == ESP_OK) { Serial.printf("#wifi txpwr set, readback %.2f dBm\n", rb / 4.0); Serial.println("#ok"); }
+        else Serial.printf("#err set_max_tx_power 0x%x\n", err);
+      }
+    } else if (strcmp(rest, "allscan") == 0) {
+      // Override the arduino-esp32 default WIFI_FAST_SCAN (first SSID match —
+      // on a mesh this picks whichever node answers first, not the strongest).
+      // Persists until reboot; affects subsequent `wifi conn`.
+      WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+      WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
+      Serial.println("#wifi scan=all-channel sort=by-signal");
+      Serial.println("#ok");
+    } else if (strcmp(rest, "restore") == 0) {
+      // esp_wifi_restore(): erase the driver's persisted settings (incl. sta.pmk).
+      // Needs an initialized driver; our own creds live in a separate namespace.
+      if (WiFi.getMode() == WIFI_OFF) WiFi.mode(WIFI_STA);
+      esp_err_t err = esp_wifi_restore();
+      if (err == ESP_OK) Serial.println("#wifi nvs restored to defaults");
+      else               Serial.printf("#err esp_wifi_restore 0x%x\n", err);
+      if (err == ESP_OK) Serial.println("#ok");
     } else {
       Serial.printf("#err unknown wifi subcmd '%s'\n", rest);
     }
