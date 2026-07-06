@@ -3,15 +3,14 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <BLEDevice.h>
-#include <BLE2902.h>
 
 #define NUS_SERVICE_UUID  "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define NUS_RX_UUID       "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 #define NUS_TX_UUID       "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 static BLECharacteristic* s_bleTxChar     = nullptr;
-static BLE2902*            s_bleCccd       = nullptr;
 static volatile bool       s_bleClientConn = false;
+static volatile bool       s_bleSubscribed = false;
 static volatile bool       s_bleLineReady  = false;
 static String              s_bleRxBuf;
 static portMUX_TYPE        s_bleMux        = portMUX_INITIALIZER_UNLOCKED;
@@ -67,6 +66,8 @@ bool WifiMgr::beginConnect(bool full) {
   WiFi.persistent(false);
   WiFi.setAutoReconnect(s_autoReconnect);
   WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
+  // Must run after mode(WIFI_STA): setTxPower() returns false ("Neither AP or
+  // STA has been started") if the driver isn't started yet.
   WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.begin(s_ssid, s_pass);
 
@@ -118,6 +119,7 @@ class BleServerCb : public BLEServerCallbacks {
   }
   void onDisconnect(BLEServer* pServer) override {
     s_bleClientConn = false;
+    s_bleSubscribed = false;
     s_bleLineReady  = false;
     s_bleRxBuf      = "";
     pServer->startAdvertising();
@@ -142,9 +144,13 @@ class BleRxCb : public BLECharacteristicCallbacks {
   }
 };
 
-static bool bleSubscribed() {
-  return s_bleCccd && s_bleCccd->getNotifications();
-}
+class BleTxCb : public BLECharacteristicCallbacks {
+  void onSubscribe(BLECharacteristic*, ble_gap_conn_desc*, uint16_t subValue) override {
+    s_bleSubscribed = (subValue & 0x0001) != 0;
+  }
+};
+
+static bool bleSubscribed() { return s_bleSubscribed; }
 
 static void bleSend(const char* msg) {
   if (!s_bleTxChar || !s_bleClientConn || !bleSubscribed()) return;
@@ -181,6 +187,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
   WiFi.disconnect(true);
   delay(100);
 
+  s_bleSubscribed = false;
   BLEDevice::init("AN/BRU-370");
   BLEServer* pServer = BLEDevice::createServer();
   pServer->setCallbacks(new BleServerCb());
@@ -188,8 +195,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
   BLEService* pSvc = pServer->createService(NUS_SERVICE_UUID);
 
   s_bleTxChar = pSvc->createCharacteristic(NUS_TX_UUID, BLECharacteristic::PROPERTY_NOTIFY);
-  s_bleCccd   = new BLE2902();
-  s_bleTxChar->addDescriptor(s_bleCccd);
+  s_bleTxChar->setCallbacks(new BleTxCb());
 
   BLECharacteristic* pRx = pSvc->createCharacteristic(
     NUS_RX_UUID,
@@ -272,11 +278,13 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
     delay(10);
   }
 
-  s_bleTxChar = nullptr;
-  s_bleCccd   = nullptr;
+  s_bleTxChar     = nullptr;
+  s_bleSubscribed = false;
   BLEDevice::deinit(true);
   delay(100);
 
+  // Re-start WiFi connection after BLE session (whether saved or cancelled).
+  // If no credentials exist yet, beginConnect returns false silently.
   if (!result) WifiMgr::beginConnect(true);
   return result;
 }
