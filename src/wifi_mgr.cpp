@@ -55,20 +55,24 @@ bool WifiMgr::beginConnect(bool full) {
   loadCredentials();
   if (s_ssid[0] == '\0') return false;
 
-  // IDF 5.x: WiFi.mode(WIFI_OFF) fully tears down the netif stack and the
-  // subsequent mode(WIFI_STA)+begin() doesn't reliably restore it in the
-  // same boot cycle.  Always ensure STA mode is active, then disconnect.
+  // IDF 5.x: WiFi.mode(WIFI_OFF) tears down the netif stack; mode(WIFI_STA)+begin()
+  // doesn't restore it reliably in the same boot cycle.  On first init (WIFI_OFF),
+  // go straight to begin() — calling disconnect() races the async driver startup and
+  // causes esp_wifi_connect() to silently fail.  On reconnect, disconnect first and
+  // allow 200 ms for the async op to settle before begin().
   if (WiFi.getMode() == WIFI_OFF) {
     WiFi.mode(WIFI_STA);
     delay(100);
+  } else {
+    WiFi.disconnect(false, full);  // full=true → also erase stored AP config
+    delay(200);
   }
-  WiFi.disconnect(false, !full);  // wipeCredentials=true only on full reset
 
   WiFi.persistent(false);
   WiFi.setAutoReconnect(s_autoReconnect);
-  WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
-  // Must run after mode(WIFI_STA): setTxPower() returns false ("Neither AP or
-  // STA has been started") if the driver isn't started yet.
+  // IDF 5.x minimum TX power is 2 dBm (WIFI_POWER_2dBm = 8); the old
+  // WIFI_POWER_MINUS_1dBm (-4) is below the IDF 5.x floor.
+  WiFi.setTxPower(WIFI_POWER_2dBm);
   WiFi.setHostname(DEVICE_HOSTNAME);
   WiFi.begin(s_ssid, s_pass);
 
