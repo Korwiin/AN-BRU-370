@@ -55,13 +55,14 @@ bool WifiMgr::beginConnect(bool full) {
   loadCredentials();
   if (s_ssid[0] == '\0') return false;
 
-  if (full) {
-    WiFi.mode(WIFI_OFF);
-    delay(100);
+  // IDF 5.x: WiFi.mode(WIFI_OFF) fully tears down the netif stack and the
+  // subsequent mode(WIFI_STA)+begin() doesn't reliably restore it in the
+  // same boot cycle.  Always ensure STA mode is active, then disconnect.
+  if (WiFi.getMode() == WIFI_OFF) {
     WiFi.mode(WIFI_STA);
-  } else {
-    WiFi.disconnect();
+    delay(100);
   }
+  WiFi.disconnect(false, !full);  // wipeCredentials=true only on full reset
 
   WiFi.persistent(false);
   WiFi.setAutoReconnect(s_autoReconnect);
