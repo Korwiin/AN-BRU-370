@@ -394,29 +394,38 @@ def identify_ports() -> tuple:
 
     identified = {}
     for port in ports:
-        print(f'Probing {port} (opening + {SETTLE_S}s settle)...', flush=True)
+        print(f'Probing {port}...', flush=True)
         try:
             s = serial.Serial(port, BAUD, timeout=0)
-            time.sleep(SETTLE_S)
-            data = b''
-            deadline = time.time() + 1.5
-            while time.time() < deadline:
-                chunk = s.read(512)
-                if chunk:
-                    data += chunk
-                else:
-                    time.sleep(0.05)
+            time.sleep(0.3)                  # let USB CDC settle
+            s.reset_input_buffer()
+            s.write(b'ping\n')               # dev shell: #pong #ok  / sniffer: #err unknown
+            time.sleep(0.5)
+            data = s.read(512)
             s.close()
             text = data.decode(errors='replace')
-            print(f'  banner: {text[:200].strip()!r}')
-            if '#sniffer' in text:
+            print(f'  response: {text[:80].strip()!r}')
+            if '#pong' in text:
+                identified['shell'] = port
+                print('  → SHELL (dev board)')
+            elif '#err' in text:
                 identified['sniffer'] = port
                 print('  → SNIFFER')
-            elif '#shell ready' in text:
-                identified['shell'] = port
-                print('  → SHELL')
             else:
-                print('  → unrecognized banner')
+                # Neither replied — try sniffer-specific 'reset' command
+                s2 = serial.Serial(port, BAUD, timeout=0)
+                time.sleep(0.2)
+                s2.reset_input_buffer()
+                s2.write(b'reset\n')
+                time.sleep(0.5)
+                data2 = s2.read(512)
+                s2.close()
+                text2 = data2.decode(errors='replace')
+                if '#reset' in text2:
+                    identified['sniffer'] = port
+                    print('  → SNIFFER (via reset probe)')
+                else:
+                    print(f'  → unrecognized (ping={text[:40]!r}, reset={text2[:40]!r})')
         except Exception as e:
             print(f'  error: {e}')
 

@@ -4,3 +4,5 @@
 *.DS_Store
 compile_commands.json
 docs/superpowers/
+scripts/__pycache__/
+scripts/coordinator_*.log
