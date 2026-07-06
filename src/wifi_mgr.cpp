@@ -164,7 +164,7 @@ static void bleSend(const char* msg) {
   size_t off = 0;
   while (off < len) {
     size_t chunk = (len - off < 20) ? len - off : 20;
-    s_bleTxChar->setValue(const_cast<uint8_t*>(data + off), chunk);
+    s_bleTxChar->setValue(data + off, chunk);
     s_bleTxChar->notify();
     delay(20);
     off += chunk;

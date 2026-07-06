@@ -242,7 +242,7 @@ static void dispatch(char* line) {
       } else Serial.printf("#err esp_wifi_set_mac 0x%x\n", err);
     } else if (strncmp(rest, "txpwr ", 6) == 0) {
       // Runtime TX power override in dBm (driver units are 0.25 dBm, range 8..84).
-      // beginConnect() re-applies WIFI_POWER_MINUS_1dBm, so issue this AFTER conn.
+      // beginConnect() re-applies WIFI_POWER_2dBm, so issue this AFTER conn.
       int dbm = atoi(rest + 6);
       if (dbm < 2 || dbm > 21) {
         Serial.println("#err usage: wifi txpwr <2..21 dBm>");
