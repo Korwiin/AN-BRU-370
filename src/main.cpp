@@ -897,7 +897,8 @@ void loop() {
         char curVer[24];
         snprintf(curVer, sizeof(curVer), "Current Firmware v%s", FIRMWARE_VERSION);
         char availVer[10];
-        snprintf(availVer, sizeof(availVer), "v0.%02d", s_otaResult.versionInt);
+        snprintf(availVer, sizeof(availVer), "v%d.%02d",
+                 s_otaResult.versionInt / 100, s_otaResult.versionInt % 100);
         UI::showFirmwareConfirm(curVer, availVer);
         break;
       }

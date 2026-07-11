@@ -115,9 +115,9 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
   }
 
   int totalBytes = http.getSize();
-  if (!Update.begin(totalBytes > 0 ? totalBytes : UPDATE_SIZE_UNKNOWN)) {
+  if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
     http.end(); WiFi.setSleep(true);
-    strlcpy(s_performError, "begin OTA fail", sizeof(s_performError));
+    snprintf(s_performError, sizeof(s_performError), "OTA begin e%d", (int)Update.getError());
     return false;
   }
 
