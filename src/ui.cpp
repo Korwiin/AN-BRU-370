@@ -128,31 +128,36 @@ void UI::showNotReady(bool flashState) {
   u8g2.sendBuffer();
 }
 
-void UI::showSetupRunning(uint8_t step, bool blinkOn) {
+void UI::showSetupRunning(uint8_t step, uint8_t maxStep, bool blinkOn) {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
 
-  // Line 1: "SETUP X/5" centered
-  char hdr[12];
-  snprintf(hdr, sizeof(hdr), "SETUP %u/5", (unsigned)step);
+  // Line 1: "SETUP X/N" centered
+  char hdr[14];
+  snprintf(hdr, sizeof(hdr), "SETUP %u/%u", (unsigned)step, (unsigned)maxStep);
   u8g2.drawStr((128 - u8g2.getStrWidth(hdr)) / 2, 8, hdr);
 
-  // Line 3: accumulating labels — current step blinks, completed steps solid
-  // X positions built by accumulating label+gap widths
+  // Line 3: steps 1–4 accumulate (HAD TGP CMDS RWR)
   int xHad  = 0;
   int xTgp  = xHad  + u8g2.getStrWidth("HAD  ");
   int xCmds = xTgp  + u8g2.getStrWidth("TGP  ");
   int xRwr  = xCmds + u8g2.getStrWidth("CMDS  ");
-
-  // A label is visible when: (a) its step is past (solid) or (b) it is the
-  // current step and blinkOn is true
   if ((step > 1) || (step == 1 && blinkOn)) u8g2.drawStr(xHad,  24, "HAD");
   if ((step > 2) || (step == 2 && blinkOn)) u8g2.drawStr(xTgp,  24, "TGP");
   if ((step > 3) || (step == 3 && blinkOn)) u8g2.drawStr(xCmds, 24, "CMDS");
   if ((step > 4) || (step == 4 && blinkOn)) u8g2.drawStr(xRwr,  24, "RWR");
 
-  // Line 4: "MWS" blinks on step 5 only
-  if (step == 5 && blinkOn) u8g2.drawStr(0, 32, "MWS");
+  // Line 4: MWS + optional ECM labels (BTN PWR JMR)
+  int xMws = 0;
+  int xBtn = xMws + u8g2.getStrWidth("MWS  ");
+  int xPwr = xBtn + u8g2.getStrWidth("BTN  ");
+  int xJmr = xPwr + u8g2.getStrWidth("PWR  ");
+  if ((step > 5) || (step == 5 && blinkOn)) u8g2.drawStr(xMws, 32, "MWS");
+  if (maxStep == 8) {
+    if ((step > 6) || (step == 6 && blinkOn)) u8g2.drawStr(xBtn, 32, "BTN");
+    if ((step > 7) || (step == 7 && blinkOn)) u8g2.drawStr(xPwr, 32, "PWR");
+    if (step == 8 && blinkOn)                  u8g2.drawStr(xJmr, 32, "JMR");
+  }
 
   u8g2.sendBuffer();
 }

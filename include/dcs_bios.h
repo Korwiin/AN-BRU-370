@@ -9,6 +9,23 @@ constexpr uint16_t DCSBIOS_MASK_MC_LIGHT    = 0x0001;
 
 constexpr uint16_t DCSBIOS_ADDR_RWR_MSL_LAUNCH  = 0x4480;
 constexpr uint16_t DCSBIOS_MASK_RWR_MSL_LAUNCH  = 0x0004;
+// ECM_1_BTN S-light — shares address 0x4480; lit = pod installed in STBY
+constexpr uint16_t DCSBIOS_MASK_ECM_1_S         = 0x2000;
+
+// ECM button S-lights 2–5 — all at 0x448A; all must be lit to confirm step 6
+constexpr uint16_t DCSBIOS_ADDR_ECM_BTNS        = 0x448A;
+constexpr uint16_t DCSBIOS_MASK_ECM_2_S         = 0x0002;
+constexpr uint16_t DCSBIOS_MASK_ECM_3_S         = 0x0020;
+constexpr uint16_t DCSBIOS_MASK_ECM_4_S         = 0x0200;
+constexpr uint16_t DCSBIOS_MASK_ECM_5_S         = 0x2000;
+
+// ECM power switch readback — 0x4526; value 2 = OPR
+constexpr uint16_t DCSBIOS_ADDR_ECM_PW_SW       = 0x4526;
+constexpr uint16_t DCSBIOS_MASK_ECM_PW_SW       = 0x0300;
+constexpr uint8_t  DCSBIOS_SHFT_ECM_PW_SW       = 8;
+
+// CMDS JMR Source switch — shares address 0x445A with MWS_SW; value 1 = ON
+constexpr uint16_t DCSBIOS_MASK_JMR_SW          = 0x0800;
 
 constexpr uint16_t DCSBIOS_ADDR_STORES_CONFIG_LIGHT = 0x4478;
 constexpr uint16_t DCSBIOS_MASK_STORES_CONFIG_LIGHT = 0x0001;
@@ -46,6 +63,14 @@ constexpr uint8_t  DCSBIOS_SHFT_CMDS_MODE     = 5;
 constexpr uint16_t DCSBIOS_ADDR_RWR_PWR_LIGHT = 0x447E;
 constexpr uint16_t DCSBIOS_MASK_RWR_PWR_LIGHT = 0x8000;
 
+#define DCSBIOS_CMD_ECM_2_BTN          "ECM_2_BTN"
+#define DCSBIOS_CMD_ECM_3_BTN          "ECM_3_BTN"
+#define DCSBIOS_CMD_ECM_4_BTN          "ECM_4_BTN"
+#define DCSBIOS_CMD_ECM_5_BTN          "ECM_5_BTN"
+#define DCSBIOS_CMD_ECM_6_BTN          "ECM_6_BTN"
+#define DCSBIOS_CMD_ECM_PW_SW          "ECM_PW_SW"
+#define DCSBIOS_CMD_JMR_SW             "CMDS_JMR_SOURCHE_SW"
+
 #define DCSBIOS_CMD_MC_RESET           "MASTER_CAUTION"
 #define DCSBIOS_CMD_CMDS_DISPENSE      "CMDS_DISPENSE_BTN"
 #define DCSBIOS_CMD_STORES_CONFIG_SW   "STORES_CONFIG_SW"
@@ -79,4 +104,10 @@ namespace DcsBios {
   bool    hdptRight();       // true when right hardpoint (TGP) switch is ON
   uint8_t cmdsModeKnob();    // CMDS MODE knob position: SEMI=3
   bool    rwrPowerLight();   // true when RWR POWER light is lit
+
+  // ECM setup — ALQ-131 pod detection and configuration
+  bool    ecmStandby();       // LIGHT_ECM_1_S lit: pod installed, power in STBY
+  bool    ecmBtns2to5Armed(); // S-lights on buttons 2-5 all lit (step 6 confirm)
+  bool    ecmPowerOpr();      // ECM_PW_SW == 2 (OPR)
+  bool    jmrSourceOn();      // CMDS_JMR_SOURCHE_SW == 1 (ON)
 }

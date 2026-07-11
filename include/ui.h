@@ -24,7 +24,7 @@ namespace UI {
   // Operational screens
   void showAircraftStatus(uint32_t fuelLbs);
   void showNotReady(bool flashState);
-  void showSetupRunning(uint8_t step, bool blinkOn);
+  void showSetupRunning(uint8_t step, uint8_t maxStep, bool blinkOn);
   void showMacroMenu(int idx);
   void flashScreen();
 

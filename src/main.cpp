@@ -68,6 +68,7 @@ static bool s_wasDcsConnected     = false;
 static uint8_t       s_setupStep         = 0;
 static unsigned long s_setupSent         = 0;
 static uint8_t       s_setupRetryCount   = 0;
+static bool          s_ecmPresent        = false;
 static unsigned long s_lastOled   = 0;
 static bool s_oledSleeping        = false;
 static unsigned long s_lastActivity = 0;
@@ -529,8 +530,9 @@ void loop() {
 
   } else if (s_mode == NOT_READY) {
     if (Encoder::shortPressed()) {
-      s_setupStep = 0;
-      s_mode      = SETUP_RUNNING;
+      s_ecmPresent = DcsBios::ecmStandby();
+      s_setupStep  = 0;
+      s_mode       = SETUP_RUNNING;
     }
     if (Encoder::longPressed()) {
       DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW, 1);
@@ -546,11 +548,14 @@ void loop() {
 
     bool confirmed = false;
     switch (s_setupStep) {
-      case 1: confirmed = DcsBios::hdptLeft();           break;
-      case 2: confirmed = DcsBios::hdptRight();          break;
-      case 3: confirmed = DcsBios::cmdsModeKnob() == 3; break;
-      case 4: confirmed = DcsBios::rwrPowerLight();      break;
-      case 5: confirmed = DcsBios::mwsOn();              break;
+      case 1: confirmed = DcsBios::hdptLeft();            break;
+      case 2: confirmed = DcsBios::hdptRight();           break;
+      case 3: confirmed = DcsBios::cmdsModeKnob() == 3;  break;
+      case 4: confirmed = DcsBios::rwrPowerLight();       break;
+      case 5: confirmed = DcsBios::mwsOn();               break;
+      case 6: confirmed = DcsBios::ecmBtns2to5Armed();   break;
+      case 7: confirmed = DcsBios::ecmPowerOpr();         break;
+      case 8: confirmed = DcsBios::jmrSourceOn();         break;
       default: break;
     }
 
@@ -562,18 +567,27 @@ void loop() {
         s_mode      = NOT_READY;
       } else {
         switch (s_setupStep) {
-          case 1: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L,      1); break;
-          case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,      1); break;
-          case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB,  3); break;
-          case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,    1); break;
-          case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,         1); break;
+          case 1: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L,     1); break;
+          case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,     1); break;
+          case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB, 3); break;
+          case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,   1); break;
+          case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,        1); break;
+          case 6:
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_2_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_3_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_4_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_5_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_6_BTN, 1);
+            break;
+          case 7: DcsBios::sendCommand(DCSBIOS_CMD_ECM_PW_SW, 2); break;
+          case 8: DcsBios::sendCommand(DCSBIOS_CMD_JMR_SW,    1); break;
           default: break;
         }
       }
     }
 
     if (doAdvance) {
-      if (s_setupStep >= 5) {
+      if (s_setupStep >= (s_ecmPresent ? 8 : 5)) {
         s_setupStep = 0;
         s_mode      = AIRCRAFT_STATUS;
       } else {
@@ -585,6 +599,15 @@ void loop() {
           case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB, 3); break;
           case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,   1); break;
           case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,        1); break;
+          case 6:
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_2_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_3_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_4_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_5_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_6_BTN, 1);
+            break;
+          case 7: DcsBios::sendCommand(DCSBIOS_CMD_ECM_PW_SW, 2); break;
+          case 8: DcsBios::sendCommand(DCSBIOS_CMD_JMR_SW,    1); break;
           default: break;
         }
       }
@@ -865,7 +888,8 @@ void loop() {
         UI::showNotReady((millis() / 750) % 2 == 0); break;
       case SETUP_RUNNING: {
         uint8_t displayStep = (s_setupStep == 0) ? 1 : s_setupStep;
-        UI::showSetupRunning(displayStep, (millis() / 250) % 2 == 0);
+        uint8_t maxStep     = s_ecmPresent ? 8 : 5;
+        UI::showSetupRunning(displayStep, maxStep, (millis() / 250) % 2 == 0);
         break;
       }
       case MACRO_MENU:        UI::showMacroMenu(s_currentMacro); break;

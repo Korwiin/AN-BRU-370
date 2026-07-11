@@ -33,6 +33,10 @@ static bool     s_hdptL        = false;
 static bool     s_hdptR        = false;
 static uint8_t  s_cmdsModeKnob = 0xFF;   // 0xFF = not yet received
 static bool     s_rwrPwrLight  = false;
+static bool     s_ecm1S        = false;
+static bool     s_ecmBtnsArmed = false;
+static uint8_t  s_ecmPwSw      = 0xFF;   // 0xFF = not yet received
+static bool     s_jmrSw        = false;
 
 // Binary frame parser state machine
 enum ParseState { SYNC0, SYNC1, SYNC2, SYNC3,
@@ -52,6 +56,16 @@ static void processWord(uint16_t addr, uint16_t word) {
   }
   if (addr == DCSBIOS_ADDR_RWR_MSL_LAUNCH) {
     s_rwrMslLaunch = (word & DCSBIOS_MASK_RWR_MSL_LAUNCH) != 0;
+    s_ecm1S        = (word & DCSBIOS_MASK_ECM_1_S) != 0;
+  }
+  if (addr == DCSBIOS_ADDR_ECM_BTNS) {
+    s_ecmBtnsArmed = (word & DCSBIOS_MASK_ECM_2_S) != 0
+                  && (word & DCSBIOS_MASK_ECM_3_S) != 0
+                  && (word & DCSBIOS_MASK_ECM_4_S) != 0
+                  && (word & DCSBIOS_MASK_ECM_5_S) != 0;
+  }
+  if (addr == DCSBIOS_ADDR_ECM_PW_SW) {
+    s_ecmPwSw = (word & DCSBIOS_MASK_ECM_PW_SW) >> DCSBIOS_SHFT_ECM_PW_SW;
   }
   if (addr == DCSBIOS_ADDR_STORES_CONFIG_LIGHT) {
     s_storesConfigLight = (word & DCSBIOS_MASK_STORES_CONFIG_LIGHT) != 0;
@@ -72,6 +86,7 @@ static void processWord(uint16_t addr, uint16_t word) {
   }
   if (addr == DCSBIOS_ADDR_MWS_SW) {
     s_mwsOn = (word & DCSBIOS_MASK_MWS_SW) != 0;
+    s_jmrSw = (word & DCSBIOS_MASK_JMR_SW) != 0;
   }
   if (addr == DCSBIOS_ADDR_HDPT) {
     s_hdptL = (word & DCSBIOS_MASK_HDPT_L) != 0;
@@ -206,4 +221,8 @@ bool    DcsBios::hdptLeft()     { return s_hdptL; }
 bool    DcsBios::hdptRight()    { return s_hdptR; }
 uint8_t DcsBios::cmdsModeKnob() { return s_cmdsModeKnob; }
 bool    DcsBios::rwrPowerLight() { return s_rwrPwrLight; }
+bool    DcsBios::ecmStandby()       { return s_ecm1S; }
+bool    DcsBios::ecmBtns2to5Armed() { return s_ecmBtnsArmed; }
+bool    DcsBios::ecmPowerOpr()      { return s_ecmPwSw == 2; }
+bool    DcsBios::jmrSourceOn()      { return s_jmrSw; }
 
