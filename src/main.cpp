@@ -19,7 +19,7 @@ enum MenuState {
   NOT_READY,       // MWS=OFF: new-plane alert
   SETUP_RUNNING,   // executing 5-step setup sequence
   MACRO_MENU, SETTINGS, BRIGHTNESS_ADJUST, SLEEP_ADJUST,
-  MOUSE_TUNE_MENU, WIFI_MENU, SECRETS_MENU,
+  MOUSE_TUNE_MENU, WIFI_MENU, SECRETS_MENU, UPDATE_MENU,
   MOUSE_CALIBRATE_X, MOUSE_CALIBRATE_Y,
   SCREEN_EDIT,
   FIRMWARE_CHECKING, FIRMWARE_UP_TO_DATE,
@@ -31,7 +31,7 @@ static const char* menuStateName(MenuState m) {
   static const char* k_names[] = {
     "WAITING_DCS", "AIRCRAFT_STATUS", "NOT_READY", "SETUP_RUNNING",
     "MACRO_MENU", "SETTINGS", "BRIGHTNESS_ADJUST", "SLEEP_ADJUST",
-    "MOUSE_TUNE_MENU", "WIFI_MENU", "SECRETS_MENU",
+    "MOUSE_TUNE_MENU", "WIFI_MENU", "SECRETS_MENU", "UPDATE_MENU",
     "MOUSE_CALIBRATE_X", "MOUSE_CALIBRATE_Y", "SCREEN_EDIT",
     "FIRMWARE_CHECKING", "FIRMWARE_UP_TO_DATE",
     "FIRMWARE_CONFIRM", "FIRMWARE_UPDATING", "FIRMWARE_ERROR"
@@ -57,7 +57,7 @@ static int  s_prevSleepSecs       = 45;
 static int  s_mouseTuneSel        = 0;
 static int  s_mouseTuneOffset     = 0;
 static int  s_wifiSubSel          = 0;
-static int  s_wifiMenuOffset      = 0;
+static int  s_updateSubSel        = 0;
 static bool s_mcActive            = false;
 static bool s_mcFlash             = false;
 static unsigned long s_mcFlashTimer = 0;
@@ -205,36 +205,34 @@ static bool connectWifi() {
 
 static void executeMenuItem() {
   switch (s_menuSel) {
-    case 0:  // Knob direction
-      s_encReversed = !s_encReversed;
-      { Preferences p; p.begin("brew", false); p.putInt("encrev", s_encReversed); p.end(); }
-      return;
-    case 1:  // Brightness
-      s_prevBrightness = s_brightness;
-      s_mode = BRIGHTNESS_ADJUST;
-      return;
-    case 2:  // Sleep
-      s_prevSleepSecs = s_sleepSecs;
-      s_mode = SLEEP_ADJUST;
-      return;
-    case 3:  // WiFi
-      s_wifiSubSel = 0; s_wifiMenuOffset = 0;
+    case 0:  // WiFi
+      s_wifiSubSel = 0;
       s_mode = WIFI_MENU;
       return;
-    case 4:  // Mouse Tune
+    case 1:  // Update
+      s_updateSubSel = 0;
+      s_mode = UPDATE_MENU;
+      return;
+    case 2:  // Mouse Tune
       s_mouseTuneSel = 0; s_mouseTuneOffset = 0;
       s_mode = MOUSE_TUNE_MENU;
       return;
-    case 5:  // Firmware
-      s_mode = FIRMWARE_CHECKING;
+    case 3:  // Brightness
+      s_prevBrightness = s_brightness;
+      s_mode = BRIGHTNESS_ADJUST;
       return;
-    case 6:  // USB Flash
-      usbFlashWithCountdown();
-      break;
-    case 7:  // Reboot
+    case 4:  // Sleep
+      s_prevSleepSecs = s_sleepSecs;
+      s_mode = SLEEP_ADJUST;
+      return;
+    case 5:  // Knob direction
+      s_encReversed = !s_encReversed;
+      { Preferences p; p.begin("brew", false); p.putInt("encrev", s_encReversed); p.end(); }
+      return;
+    case 6:  // Reboot
       rebootWithCountdown();
       break;
-    case 8:  // EXIT
+    case 7:  // EXIT
       s_mode = DcsBios::isConnected() ? AIRCRAFT_STATUS : WAITING_DCS;
       return;
   }
@@ -339,7 +337,7 @@ void setup() {
       Shell::poll();
       delay(10);
     }
-    s_wifiSubSel = 0; s_wifiMenuOffset = 0;
+    s_wifiSubSel = 0;
     s_mode = WIFI_MENU;
     s_lastActivity = millis();
     return;
@@ -560,7 +558,8 @@ void loop() {
     if (!confirmed && millis() - s_setupSent >= SETUP_RETRY_MS) {
       s_setupSent = millis();
       if (++s_setupRetryCount >= SETUP_MAX_RETRIES) {
-        doAdvance = true;
+        s_setupStep = 0;
+        s_mode      = NOT_READY;
       } else {
         switch (s_setupStep) {
           case 1: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L,      1); break;
@@ -602,7 +601,7 @@ void loop() {
     }
 
   } else if (s_mode == SETTINGS) {
-    s_menuSel = (s_menuSel + delta + 9) % 9;
+    s_menuSel = (s_menuSel + delta + 8) % 8;
     if (s_menuSel < s_menuOffset) s_menuOffset = s_menuSel;
     if (s_menuSel >= s_menuOffset + 4) s_menuOffset = s_menuSel - 3;
     if (Encoder::shortPressed()) executeMenuItem();
@@ -706,42 +705,30 @@ void loop() {
     if (Encoder::longPressed()) { s_mode = MOUSE_TUNE_MENU; }
 
   } else if (s_mode == WIFI_MENU) {
-    s_wifiSubSel = (s_wifiSubSel + delta + 5) % 5;
-    if (s_wifiSubSel < s_wifiMenuOffset) s_wifiMenuOffset = s_wifiSubSel;
-    if (s_wifiSubSel >= s_wifiMenuOffset + 3) s_wifiMenuOffset = s_wifiSubSel - 2;
+    s_wifiSubSel = (s_wifiSubSel + delta + 3) % 3;
 
     if (Encoder::shortPressed()) {
       switch (s_wifiSubSel) {
-        case 0:  // Full Restart: WIFI_OFF → WIFI_STA → begin(creds) → blocking connect
-          if (WifiMgr::beginConnect(true)) {
-            connectWifi();
-          }
-          s_wifiSubSel = 0; s_wifiMenuOffset = 0;
-          if (s_mode != SETTINGS) s_mode = WIFI_MENU;
-          break;
-        case 1:  // Soft Restart: disconnect() → begin(creds) → blocking connect
-          if (WifiMgr::beginConnect(false)) {
-            connectWifi();
-          }
-          s_wifiSubSel = 0; s_wifiMenuOffset = 0;
-          if (s_mode != SETTINGS) s_mode = WIFI_MENU;
-          break;
-        case 2:  // Auto-Reconnect toggle (session-only, not persisted)
-          WifiMgr::setAutoReconnect(!WifiMgr::getAutoReconnect());
-          break;
-        case 3:  // Secrets
-          s_wifiSubSel = 0; s_wifiMenuOffset = 0;
+        case 0:  // Secrets
+          s_wifiSubSel = 0;
           WifiMgr::nvsCredentials(s_nvsSsid, sizeof(s_nvsSsid), &s_nvsPassStatus);
           s_mode = SECRETS_MENU;
           break;
-        case 4:  // Back
-          s_wifiSubSel = 0; s_wifiMenuOffset = 0;
+        case 1:  // Connect: disconnect() → begin(creds) → blocking connect
+          if (WifiMgr::beginConnect(false)) {
+            connectWifi();
+          }
+          s_wifiSubSel = 0;
+          if (s_mode != SETTINGS) s_mode = WIFI_MENU;
+          break;
+        case 2:  // Back
+          s_wifiSubSel = 0;
           s_mode = SETTINGS;
           break;
       }
     }
     if (Encoder::longPressed()) {
-      s_wifiSubSel = 0; s_wifiMenuOffset = 0;
+      s_wifiSubSel = 0;
       s_mode = SETTINGS;
     }
 
@@ -771,15 +758,34 @@ void loop() {
           while (!Encoder::shortPressed()) { Encoder::readDelta(); Shell::poll(); delay(10); }
           break;
         case 3:  // Back
-          s_wifiSubSel = 0; s_wifiMenuOffset = 0;
+          s_wifiSubSel = 0;
           s_mode = WIFI_MENU;
           break;
       }
     }
     if (Encoder::longPressed()) {
-      s_wifiSubSel = 0; s_wifiMenuOffset = 0;
+      s_wifiSubSel = 0;
       s_mode = WIFI_MENU;
     }
+
+  } else if (s_mode == UPDATE_MENU) {
+    s_updateSubSel = (s_updateSubSel + delta + 3) % 3;
+    if (Encoder::shortPressed()) {
+      switch (s_updateSubSel) {
+        case 0:  // Check for OTA update
+          s_mode = FIRMWARE_CHECKING;
+          break;
+        case 1:  // USB Flash
+          usbFlashWithCountdown();
+          // stays in UPDATE_MENU on cancel or in DEV_BUILD
+          break;
+        case 2:  // Back
+          s_updateSubSel = 0;
+          s_mode = SETTINGS;
+          break;
+      }
+    }
+    if (Encoder::longPressed()) { s_updateSubSel = 0; s_mode = SETTINGS; }
 
   } else if (s_mode == FIRMWARE_CHECKING) {
     if (!WifiMgr::isConnected()) {
@@ -804,12 +810,12 @@ void loop() {
 
   } else if (s_mode == FIRMWARE_UP_TO_DATE) {
     if (Encoder::shortPressed()) {
-      s_mode = SETTINGS; s_menuSel = 5; s_menuOffset = 2;
+      s_updateSubSel = 0; s_mode = UPDATE_MENU;
     }
 
   } else if (s_mode == FIRMWARE_CONFIRM) {
     if (Encoder::shortPressed()) s_mode = FIRMWARE_UPDATING;
-    if (Encoder::longPressed())  { s_mode = SETTINGS; s_menuSel = 5; s_menuOffset = 2; }
+    if (Encoder::longPressed())  { s_updateSubSel = 0; s_mode = UPDATE_MENU; }
 
   } else if (s_mode == FIRMWARE_UPDATING) {
     UI::showFirmwareUpdating(0);
@@ -822,9 +828,9 @@ void loop() {
   } else if (s_mode == FIRMWARE_ERROR) {
     if (s_otaPerformFailed) {
       if (Encoder::shortPressed()) { s_otaPerformFailed = false; s_mode = FIRMWARE_CONFIRM; }
-      if (Encoder::longPressed())  { s_otaPerformFailed = false; s_mode = SETTINGS; s_menuSel = 5; s_menuOffset = 2; }
+      if (Encoder::longPressed())  { s_otaPerformFailed = false; s_updateSubSel = 0; s_mode = UPDATE_MENU; }
     } else {
-      if (Encoder::shortPressed()) { s_mode = SETTINGS; s_menuSel = 5; s_menuOffset = 2; }
+      if (Encoder::shortPressed()) { s_updateSubSel = 0; s_mode = UPDATE_MENU; }
     }
   }
 
@@ -875,12 +881,11 @@ void loop() {
         UI::showMouseCalibrate(1, s_calibY, kCalibLabelY[s_calibIdx]); break;
       case SCREEN_EDIT: UI::showScreenEdit(s_screenDigits, s_screenDigitPos); break;
       case WIFI_MENU:
-        UI::showWifiMenu(s_wifiSubSel, s_wifiMenuOffset,
-                         WifiMgr::isConnected(), DcsBios::isConnected(),
-                         WifiMgr::getAutoReconnect());
+        UI::showWifiMenu(s_wifiSubSel, WifiMgr::isConnected(), DcsBios::isConnected());
         break;
       case SECRETS_MENU:
         UI::showSecretsMenu(s_wifiSubSel, s_nvsSsid, s_nvsPassStatus); break;
+      case UPDATE_MENU:         UI::showUpdateMenu(s_updateSubSel); break;
       case FIRMWARE_CHECKING:   break;
       case FIRMWARE_UP_TO_DATE: {
         char ver[24];

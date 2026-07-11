@@ -194,9 +194,9 @@ void UI::flashScreen() {
 // ---- Settings menu ----
 
 static const char* s_menuItems[] = {
-  "Knob","Brightness","LCD Sleep","WiFi","Mouse Tune","Firmware","USB Flash","Reboot","EXIT"
+  "WiFi","Update","Mouse Tune","Brightness","LCD Sleep","Knob","Reboot","EXIT"
 };
-static const int kNumMenuItems = 9;
+static const int kNumMenuItems = 8;
 
 void UI::showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bool dcsOk) {
   u8g2.clearBuffer();
@@ -216,10 +216,9 @@ void UI::showSettingsMenu(int sel, int offset, bool encReversed, bool wifiOk, bo
     if (idx >= kNumMenuItems) break;
     int y = 8 + i * 8;
     const char* label;
-    if (idx == 0)      label = encReversed ? "Knob:CCW" : "Knob:CW";
-    else if (idx == 1) label = "Bright";
-    else if (idx == 4) label = "Mouse";
-    else if (idx == 5) label = "Update";
+    if (idx == 2)      label = "Mouse";
+    else if (idx == 3) label = "Bright";
+    else if (idx == 5) label = encReversed ? "Knob:CCW" : "Knob:CW";
     else               label = s_menuItems[idx];
     if (idx == sel) {
       u8g2.drawStr(65, y, ">");
@@ -361,10 +360,28 @@ void UI::showBleActive(bool connected) {
   u8g2.sendBuffer();
 }
 
-void UI::showWifiMenu(int sel, int offset, bool wifiOk, bool dcsOk, bool autoReconnect) {
-  static const char* kItems[] = {
-    "Full Restart", "Soft Restart", nullptr, "Secrets", "Back"
-  };
+void UI::showUpdateMenu(int sel) {
+  static const char* kItems[] = { "Check", "USB Flash", "Back" };
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(0, 8,  "UPDATE");
+  char ver[12];
+  snprintf(ver, sizeof(ver), "v%s", FIRMWARE_VERSION);
+  u8g2.drawStr(0, 16, ver);
+  for (int i = 0; i < 3; i++) {
+    int y = 8 + i * 8;
+    if (i == sel) {
+      u8g2.drawStr(65, y, ">");
+      u8g2.drawStr(71, y, kItems[i]);
+    } else {
+      u8g2.drawStr(71, y, kItems[i]);
+    }
+  }
+  u8g2.sendBuffer();
+}
+
+void UI::showWifiMenu(int sel, bool wifiOk, bool dcsOk) {
+  static const char* kItems[] = { "Secrets", "Connect", "Back" };
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_5x7_tr);
 
@@ -372,19 +389,11 @@ void UI::showWifiMenu(int sel, int offset, bool wifiOk, bool dcsOk, bool autoRec
   u8g2.drawStr(0,  8, wifiOk ? "WiFi: OK" : "WiFi: --");
   u8g2.drawStr(0, 16, dcsOk  ? "DCS:  OK" : "DCS:  --");
 
-  // Right panel (x=65+): 3 visible items of 5, with scroll offset
+  // Right panel (x=65+): 3 items, no scroll needed
   for (int i = 0; i < 3; i++) {
-    int idx = offset + i;
-    if (idx >= 5) break;
     int y = 8 + i * 8;
-    const char* label;
-    if (idx == 2) {
-      label = autoReconnect ? "Auto: ON" : "Auto: OFF";
-    } else {
-      label = kItems[idx];
-    }
-    if (idx == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, label); }
-    else             { u8g2.drawStr(71, y, label); }
+    if (i == sel) { u8g2.drawStr(65, y, ">"); u8g2.drawStr(71, y, kItems[i]); }
+    else          { u8g2.drawStr(71, y, kItems[i]); }
   }
   u8g2.sendBuffer();
 }

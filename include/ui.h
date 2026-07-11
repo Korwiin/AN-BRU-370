@@ -42,10 +42,9 @@ namespace UI {
   void showUsbFlashUnavailable();  // dev-build guard: item is production-only
   void showBleActive(bool connected);
 
-  // WiFi menu: 5 items (Full Restart / Soft Restart / Auto-Rec / Secrets / Back)
-  // sel=selected index (0-4), offset=scroll offset, wifiOk/dcsOk=status indicators,
-  // autoReconnect=current auto-reconnect state (shown in "Auto" label)
-  void showWifiMenu(int sel, int offset, bool wifiOk, bool dcsOk, bool autoReconnect);
+  // WiFi menu: 3 items (Secrets / Connect / Back)
+  void showWifiMenu(int sel, bool wifiOk, bool dcsOk);
+  void showUpdateMenu(int sel);
 
   void showSecretsMenu(int sel, const char* savedSSID, uint8_t passStatus);
   void showNotImplemented();
