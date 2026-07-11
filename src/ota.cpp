@@ -3,7 +3,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include <Update.h>
+#include <esp_ota_ops.h>
 
 OTA::CheckResult OTA::check() {
   CheckResult result = {};
@@ -115,30 +115,80 @@ bool OTA::perform(const char* url, void(*progress)(int)) {
   }
 
   int totalBytes = http.getSize();
-  if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+
+  // Use IDF OTA APIs directly — the Arduino Update library declares a partition-sized
+  // write on UPDATE_SIZE_UNKNOWN, causing esp_ota_end() in IDF 5.5.4 to reject the
+  // image when written < declared_size. OTA_WITH_SEQUENTIAL_WRITES erases sectors
+  // on-demand and lets esp_ota_end() validate from the image header instead.
+  const esp_partition_t* ota_part = esp_ota_get_next_update_partition(NULL);
+  if (!ota_part) {
     http.end(); WiFi.setSleep(true);
-    snprintf(s_performError, sizeof(s_performError), "OTA begin e%d", (int)Update.getError());
+    strlcpy(s_performError, "no OTA part", sizeof(s_performError));
     return false;
   }
 
-  if (progress) {
-    Update.onProgress([progress, totalBytes](size_t done, size_t total) {
-      if (totalBytes > 0) progress((int)((done * 100) / totalBytes));
-    });
+  esp_ota_handle_t ota_handle = 0;
+  esp_err_t err = esp_ota_begin(ota_part, OTA_WITH_SEQUENTIAL_WRITES, &ota_handle);
+  if (err != ESP_OK) {
+    http.end(); WiFi.setSleep(true);
+    snprintf(s_performError, sizeof(s_performError), "ota_begin %d", (int)err);
+    return false;
   }
 
   WiFiClient* stream = http.getStreamPtr();
-  size_t written = Update.writeStream(*stream);
-  http.end();
-  WiFi.setSleep(true);
+  uint8_t buf[1024];
+  size_t written = 0;
+  unsigned long stallAt = millis();
 
-  bool sizeOk = (totalBytes <= 0) || ((int)written == totalBytes);
-  if (!sizeOk || !Update.end(true)) {
-    Update.abort();
-    snprintf(s_performError, sizeof(s_performError), "w%d/%d e%d",
-             (int)written, totalBytes, (int)Update.getError());
+  while (http.connected() || stream->available()) {
+    int avail = stream->available();
+    if (avail <= 0) {
+      if (millis() - stallAt > 30000UL) {
+        esp_ota_abort(ota_handle);
+        http.end(); WiFi.setSleep(true);
+        snprintf(s_performError, sizeof(s_performError), "stall w%dk", (int)written / 1024);
+        return false;
+      }
+      delay(10);
+      continue;
+    }
+    stallAt = millis();
+
+    int toRead = min(avail, (int)sizeof(buf));
+    if (totalBytes > 0) toRead = min(toRead, totalBytes - (int)written);
+    int n = stream->readBytes(buf, toRead);
+    if (n <= 0) break;
+
+    err = esp_ota_write(ota_handle, buf, n);
+    if (err != ESP_OK) {
+      esp_ota_abort(ota_handle);
+      http.end(); WiFi.setSleep(true);
+      snprintf(s_performError, sizeof(s_performError), "write e%d w%dk", (int)err, (int)written / 1024);
+      return false;
+    }
+    written += n;
+    if (progress && totalBytes > 0)
+      progress((int)((written * 100) / totalBytes));
+
+    if (totalBytes > 0 && (int)written >= totalBytes) break;
+  }
+  http.end();
+
+  err = esp_ota_end(ota_handle);
+  if (err != ESP_OK) {
+    WiFi.setSleep(true);
+    snprintf(s_performError, sizeof(s_performError), "ota_end %d w%dk", (int)err, (int)written / 1024);
     return false;
   }
+
+  err = esp_ota_set_boot_partition(ota_part);
+  if (err != ESP_OK) {
+    WiFi.setSleep(true);
+    snprintf(s_performError, sizeof(s_performError), "set_boot %d", (int)err);
+    return false;
+  }
+
+  WiFi.setSleep(true);
   ESP.restart();
   return true;  // never reached
 }
