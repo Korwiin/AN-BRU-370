@@ -147,16 +147,18 @@ void UI::showSetupRunning(uint8_t step, uint8_t maxStep, bool blinkOn) {
   if ((step > 3) || (step == 3 && blinkOn)) u8g2.drawStr(xCmds, 24, "CMDS");
   if ((step > 4) || (step == 4 && blinkOn)) u8g2.drawStr(xRwr,  24, "RWR");
 
-  // Line 4: MWS + optional ECM labels (BTN PWR JMR)
+  // Line 4: MWS + optional ECM labels (BTN PWR JMR XMT)
   int xMws = 0;
   int xBtn = xMws + u8g2.getStrWidth("MWS  ");
   int xPwr = xBtn + u8g2.getStrWidth("BTN  ");
   int xJmr = xPwr + u8g2.getStrWidth("PWR  ");
+  int xXmt = xJmr + u8g2.getStrWidth("JMR  ");
   if ((step > 5) || (step == 5 && blinkOn)) u8g2.drawStr(xMws, 32, "MWS");
-  if (maxStep == 8) {
+  if (maxStep == 9) {
     if ((step > 6) || (step == 6 && blinkOn)) u8g2.drawStr(xBtn, 32, "BTN");
     if ((step > 7) || (step == 7 && blinkOn)) u8g2.drawStr(xPwr, 32, "PWR");
-    if (step == 8 && blinkOn)                  u8g2.drawStr(xJmr, 32, "JMR");
+    if ((step > 8) || (step == 8 && blinkOn)) u8g2.drawStr(xJmr, 32, "JMR");
+    if (step == 9 && blinkOn)                  u8g2.drawStr(xXmt, 32, "XMT");
   }
 
   u8g2.sendBuffer();

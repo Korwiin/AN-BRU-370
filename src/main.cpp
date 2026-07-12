@@ -556,6 +556,7 @@ void loop() {
       case 6: confirmed = DcsBios::ecmBtns2to5Armed();   break;
       case 7: confirmed = DcsBios::ecmPowerOpr();         break;
       case 8: confirmed = DcsBios::jmrSourceOn();         break;
+      case 9: confirmed = DcsBios::ecmXmitAft();          break;
       default: break;
     }
 
@@ -580,14 +581,15 @@ void loop() {
             DcsBios::sendCommand(DCSBIOS_CMD_ECM_6_BTN, 1);
             break;
           case 7: DcsBios::sendCommand(DCSBIOS_CMD_ECM_PW_SW, 2); break;
-          case 8: DcsBios::sendCommand(DCSBIOS_CMD_JMR_SW,    1); break;
+          case 8: DcsBios::sendCommand(DCSBIOS_CMD_JMR_SW,      1); break;
+          case 9: DcsBios::sendCommand(DCSBIOS_CMD_ECM_XMIT_SW, 2); break;
           default: break;
         }
       }
     }
 
     if (doAdvance) {
-      if (s_setupStep >= (s_ecmPresent ? 8 : 5)) {
+      if (s_setupStep >= (s_ecmPresent ? 9 : 5)) {
         s_setupStep = 0;
         s_mode      = AIRCRAFT_STATUS;
       } else {
@@ -607,7 +609,8 @@ void loop() {
             DcsBios::sendCommand(DCSBIOS_CMD_ECM_6_BTN, 1);
             break;
           case 7: DcsBios::sendCommand(DCSBIOS_CMD_ECM_PW_SW, 2); break;
-          case 8: DcsBios::sendCommand(DCSBIOS_CMD_JMR_SW,    1); break;
+          case 8: DcsBios::sendCommand(DCSBIOS_CMD_JMR_SW,      1); break;
+          case 9: DcsBios::sendCommand(DCSBIOS_CMD_ECM_XMIT_SW, 2); break;
           default: break;
         }
       }
@@ -888,7 +891,7 @@ void loop() {
         UI::showNotReady((millis() / 750) % 2 == 0); break;
       case SETUP_RUNNING: {
         uint8_t displayStep = (s_setupStep == 0) ? 1 : s_setupStep;
-        uint8_t maxStep     = s_ecmPresent ? 8 : 5;
+        uint8_t maxStep     = s_ecmPresent ? 9 : 5;
         UI::showSetupRunning(displayStep, maxStep, (millis() / 250) % 2 == 0);
         break;
       }

@@ -36,6 +36,7 @@ static bool     s_rwrPwrLight  = false;
 static bool     s_ecm1S        = false;
 static bool     s_ecmBtnsArmed = false;
 static uint8_t  s_ecmPwSw      = 0xFF;   // 0xFF = not yet received
+static uint8_t  s_ecmXmitSw    = 0xFF;   // 0xFF = not yet received
 static bool     s_jmrSw        = false;
 
 // Binary frame parser state machine
@@ -65,7 +66,8 @@ static void processWord(uint16_t addr, uint16_t word) {
                   && (word & DCSBIOS_MASK_ECM_5_S) != 0;
   }
   if (addr == DCSBIOS_ADDR_ECM_PW_SW) {
-    s_ecmPwSw = (word & DCSBIOS_MASK_ECM_PW_SW) >> DCSBIOS_SHFT_ECM_PW_SW;
+    s_ecmPwSw   = (word & DCSBIOS_MASK_ECM_PW_SW)   >> DCSBIOS_SHFT_ECM_PW_SW;
+    s_ecmXmitSw = (word & DCSBIOS_MASK_ECM_XMIT_SW) >> DCSBIOS_SHFT_ECM_XMIT_SW;
   }
   if (addr == DCSBIOS_ADDR_STORES_CONFIG_LIGHT) {
     s_storesConfigLight = (word & DCSBIOS_MASK_STORES_CONFIG_LIGHT) != 0;
@@ -225,4 +227,5 @@ bool    DcsBios::ecmStandby()       { return s_ecm1S; }
 bool    DcsBios::ecmBtns2to5Armed() { return s_ecmBtnsArmed; }
 bool    DcsBios::ecmPowerOpr()      { return s_ecmPwSw == 2; }
 bool    DcsBios::jmrSourceOn()      { return s_jmrSw; }
+bool    DcsBios::ecmXmitAft()       { return s_ecmXmitSw == 2; }
 

@@ -20,9 +20,12 @@ constexpr uint16_t DCSBIOS_MASK_ECM_4_S         = 0x0200;
 constexpr uint16_t DCSBIOS_MASK_ECM_5_S         = 0x2000;
 
 // ECM power switch readback — 0x4526; value 2 = OPR
+// ECM XMIT switch — shares 0x4526; value 2 = AFT
 constexpr uint16_t DCSBIOS_ADDR_ECM_PW_SW       = 0x4526;
 constexpr uint16_t DCSBIOS_MASK_ECM_PW_SW       = 0x0300;
 constexpr uint8_t  DCSBIOS_SHFT_ECM_PW_SW       = 8;
+constexpr uint16_t DCSBIOS_MASK_ECM_XMIT_SW     = 0x0C00;
+constexpr uint8_t  DCSBIOS_SHFT_ECM_XMIT_SW     = 10;
 
 // CMDS JMR Source switch — shares address 0x445A with MWS_SW; value 1 = ON
 constexpr uint16_t DCSBIOS_MASK_JMR_SW          = 0x0800;
@@ -69,6 +72,7 @@ constexpr uint16_t DCSBIOS_MASK_RWR_PWR_LIGHT = 0x8000;
 #define DCSBIOS_CMD_ECM_5_BTN          "ECM_5_BTN"
 #define DCSBIOS_CMD_ECM_6_BTN          "ECM_6_BTN"
 #define DCSBIOS_CMD_ECM_PW_SW          "ECM_PW_SW"
+#define DCSBIOS_CMD_ECM_XMIT_SW        "ECM_XMIT_SW"
 #define DCSBIOS_CMD_JMR_SW             "CMDS_JMR_SOURCHE_SW"
 
 #define DCSBIOS_CMD_MC_RESET           "MASTER_CAUTION"
@@ -110,4 +114,5 @@ namespace DcsBios {
   bool    ecmBtns2to5Armed(); // S-lights on buttons 2-5 all lit (step 6 confirm)
   bool    ecmPowerOpr();      // ECM_PW_SW == 2 (OPR)
   bool    jmrSourceOn();      // CMDS_JMR_SOURCHE_SW == 1 (ON)
+  bool    ecmXmitAft();       // ECM_XMIT_SW == 2 (AFT)
 }
