@@ -1,18 +1,9 @@
 #include <Arduino.h>
 #include <USB.h>
+#include <lvgl.h>
 #include "config.h"
-#include "pins.h"
 #include "display.h"
-#include "esp_heap_caps.h"
-
-static uint16_t* s_line = nullptr;  // one solid line, drawn HEIGHT times
-
-static void fillScreen(uint16_t rgb565) {
-  for (int x = 0; x < Display::WIDTH; x++) s_line[x] = rgb565;
-  for (int y = 0; y < Display::HEIGHT; y++) {
-    esp_lcd_panel_draw_bitmap(Display::panel(), 0, y, Display::WIDTH, y + 1, s_line);
-  }
-}
+#include "lvgl_port.h"
 
 void setup() {
   USB.manufacturerName("E4 Mafia");
@@ -25,21 +16,28 @@ void setup() {
   while (!Serial && millis() < 2000) { }
   Serial.println("=== ANBRU-430 boot ===");
 
-  s_line = (uint16_t*)heap_caps_malloc(Display::WIDTH * 2, MALLOC_CAP_DMA);
-  if (!Display::begin() || !s_line) {
-    Serial.println("DISPLAY INIT FAILED");
+  if (!Display::begin() || !LvglPort::begin()) {
+    Serial.println("DISPLAY/LVGL INIT FAILED");
     return;
   }
-  Serial.println("display up");
+
+  lv_obj_t* scr = lv_screen_active();
+  lv_obj_set_style_bg_color(scr, lv_color_hex(0x101418), 0);
+
+  lv_obj_t* title = lv_label_create(scr);
+  lv_label_set_text(title, "ANBRU-430");
+  lv_obj_set_style_text_color(title, lv_color_hex(0x00FF66), 0);
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+  lv_obj_align(title, LV_ALIGN_CENTER, 0, -20);
+
+  lv_obj_t* ver = lv_label_create(scr);
+  lv_label_set_text(ver, "fw v" FIRMWARE_VERSION);
+  lv_obj_set_style_text_color(ver, lv_color_hex(0xB0B8C0), 0);
+  lv_obj_align(ver, LV_ALIGN_CENTER, 0, 20);
+
+  Serial.println("lvgl up");
 }
 
 void loop() {
-  static const uint16_t colors[] = { 0xF800 /*red*/, 0x07E0 /*green*/, 0x001F /*blue*/ };
-  static int idx = 0;
-  static unsigned long last = 0;
-  if (Display::panel() && millis() - last >= 1000) {
-    last += 1000;
-    fillScreen(colors[idx]);
-    idx = (idx + 1) % 3;
-  }
+  LvglPort::loop();
 }
