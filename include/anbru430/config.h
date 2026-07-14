@@ -8,3 +8,11 @@
 #define DEVICE_HOSTNAME  "ANBRU-430"
 #define USB_PRODUCT_NAME "ANBRU-430"
 #define USB_PID          0x430A
+
+// DCS-BIOS network (same multicast group as Brew370)
+#define DCSBIOS_MCAST_ADDR  "239.255.50.10"
+#define DCSBIOS_MCAST_PORT  5010
+#define DCSBIOS_CMD_PORT    7778
+
+// OTA updates — ANBRU-430's own channel; Brew370's manifest.json is separate
+#define OTA_MANIFEST_URL    "https://raw.githubusercontent.com/Korwiin/AN-BRU-370/main/ota/manifest-anbru430.json"
