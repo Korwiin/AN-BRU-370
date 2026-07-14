@@ -12,8 +12,8 @@
 #define DCSBIOS_CMD_PORT    7778
 
 // Device identity
-#define FIRMWARE_VERSION     "1.03"
-#define FIRMWARE_VERSION_INT  103  // plain decimal — keep in sync with FIRMWARE_VERSION
+#define FIRMWARE_VERSION     "1.04"
+#define FIRMWARE_VERSION_INT  104  // plain decimal — keep in sync with FIRMWARE_VERSION
 
 #ifdef DEV_BUILD
 #define DEVICE_HOSTNAME "ANBRU-370RD"
