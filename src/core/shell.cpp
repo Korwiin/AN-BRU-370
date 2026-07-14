@@ -4,8 +4,6 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <nvs.h>
-#include "encoder.h"
-#include "ui.h"
 #include "wifi_mgr.h"
 #include "dcs_bios.h"
 
@@ -273,25 +271,21 @@ static void dispatch(char* line) {
       Serial.printf("#err unknown wifi subcmd '%s'\n", rest);
     }
   } else if (strcmp(line, "enc") == 0) {
-    if (strcmp(rest, "sp") == 0)      { Encoder::inject(0, 1); Serial.println("#ok"); }
-    else if (strcmp(rest, "lp") == 0) { Encoder::inject(0, 2); Serial.println("#ok"); }
-    else {
-      char* end = nullptr;
-      long n = strtol(rest, &end, 10);
-      if (end != rest && n >= -100 && n <= 100 && n != 0) {
-        Encoder::inject((int8_t)n, 0);
-        Serial.println("#ok");
-      } else Serial.println("#err usage: enc <±n>|sp|lp");
-    }
+    if (s_hooks.injectInput && s_hooks.injectInput(rest)) Serial.println("#ok");
+    else if (!s_hooks.injectInput) Serial.println("#err not supported on this device");
+    else Serial.println("#err usage: enc <±n>|sp|lp");
   } else if (strcmp(line, "fb?") == 0) {
     uint16_t len = 0;
-    const uint8_t* buf = UI::frameBuffer(len);
-    for (uint16_t off = 0; off < len; off += 64) {
-      char hex[129];
-      for (int i = 0; i < 64; i++) sprintf(&hex[i * 2], "%02x", buf[off + i]);
-      Serial.printf("#fb %u %s\n", off, hex);
+    const uint8_t* buf = s_hooks.frameBuffer ? s_hooks.frameBuffer(&len) : nullptr;
+    if (!buf) { Serial.println("#err not supported on this device"); }
+    else {
+      for (uint16_t off = 0; off < len; off += 64) {
+        char hex[129];
+        for (int i = 0; i < 64; i++) sprintf(&hex[i * 2], "%02x", buf[off + i]);
+        Serial.printf("#fb %u %s\n", off, hex);
+      }
+      Serial.println("#ok");
     }
-    Serial.println("#ok");
   } else {
     Serial.printf("#err unknown cmd '%s'\n", line);
   }

@@ -12,6 +12,9 @@ namespace Shell {
     const char* (*modeName)();  // current MenuState as string
     int         (*menuSel)();   // settings menu selection index
     void        (*wifiBoot)();  // run the production boot-connect sequence
+    // Device-specific test hooks — may be null:
+    bool        (*injectInput)(const char* rest);   // "enc <args>" payload
+    const uint8_t* (*frameBuffer)(uint16_t* len);   // "fb?" dump source
   };
   void begin(const Hooks& hooks);   // call once in setup() after Serial.begin
   void poll();  // call once per loop() pass AND inside every blocking input loop
