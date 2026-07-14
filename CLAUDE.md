@@ -12,16 +12,16 @@ Extends `/Volumes/home/Projects/Arduino/CLAUDE.md` and `~/.claude/CLAUDE.md`.
 - ADC1 (Wi-Fi safe): GPIO 1–10. ADC2 (GPIO 11–20) unusable when Wi-Fi active.
 - Strapping pins to avoid: GPIO 0 (BOOT), GPIO 45, GPIO 46.
 - PSRAM: 2 MB, enabled via `-D BOARD_HAS_PSRAM` build flag.
-- Flash layout: `partitions.csv` in project root — do NOT swap; default partition table causes boot loops on this board.
+- Flash layout: `boards/partitions_4mb.csv` — do NOT swap; default partition table causes boot loops on this board.
 - Board pinout: `Board Diagrams/ESP32-S3_DWEII_Pinout.jpg`
 
 ## Pin Map
 
-See `include/pins.h` — do not hardcode GPIO numbers in sketch files.
+See `include/oled/pins.h` — do not hardcode GPIO numbers in sketch files.
 
 ## Project-Specific Constraints
 
-- `include/config.h` is committed. It contains no credentials — Wi-Fi credentials are NVS-only.
+- `include/oled/config.h` is committed. It contains no credentials — Wi-Fi credentials are NVS-only.
   No setup step needed; the file is part of the repo and builds as-is.
 - DCS-BIOS over Wi-Fi (UDP multicast 239.255.50.10:5010 recv, UDP 7778 send).
   No third-party DCS-BIOS library — direct WiFiUDP only.
@@ -34,4 +34,4 @@ See `include/pins.h` — do not hardcode GPIO numbers in sketch files.
   Button byte: bit0=TipSwitch (L-click), bit1=BarrelSwitch (R-click), bit2=InRange (always 1).
 - ADC1 only (GPIO 1–10) for the pot. ADC2 is unreliable with Wi-Fi active.
 - DCS-BIOS identifiers verified in `docs/superpowers/plans/2026-05-30-brew370-initial.md` Task 0.
-- `FIRMWARE_VERSION` (string) and `FIRMWARE_VERSION_BCD` (BCD integer) in `include/config.h` must be updated together on every version bump. Example: `FIRMWARE_VERSION "0.06"` → `FIRMWARE_VERSION_BCD 0x0006`.
+- `FIRMWARE_VERSION` (string) and `FIRMWARE_VERSION_BCD` (BCD integer) in `include/oled/config.h` must be updated together on every version bump. Example: `FIRMWARE_VERSION "0.06"` → `FIRMWARE_VERSION_BCD 0x0006`.
