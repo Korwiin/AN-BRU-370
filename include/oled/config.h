@@ -21,5 +21,9 @@
 #define DEVICE_HOSTNAME "ANBRU-370"
 #endif
 
+// USB identity — PID 0x370A is this device's permanent identity; never change.
+#define USB_PRODUCT_NAME "AN/BRU-370"
+#define USB_PID          0x370A
+
 // OTA updates
 #define OTA_MANIFEST_URL    "https://raw.githubusercontent.com/Korwiin/AN-BRU-370/main/ota/manifest.json"

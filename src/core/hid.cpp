@@ -71,8 +71,8 @@ void HID::begin(uint16_t w, uint16_t h) {
   s_absBuf[54] = s_maxY & 0xFF;
   s_absBuf[55] = s_maxY >> 8;
   USB.manufacturerName("E4 Mafia");
-  USB.productName("AN/BRU-370");
-  USB.PID(0x370A);
+  USB.productName(USB_PRODUCT_NAME);
+  USB.PID(USB_PID);
   USB.firmwareVersion(FIRMWARE_VERSION_INT);
   Keyboard.begin();
   s_absMouse.begin();
