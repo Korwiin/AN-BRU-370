@@ -193,7 +193,7 @@ bool WifiMgr::runBleSetup(void (*oledActiveCb)(), bool (*cancelCb)()) {
   delay(100);
 
   s_bleSubscribed = false;
-  BLEDevice::init("AN/BRU-370");
+  BLEDevice::init(BLE_DEVICE_NAME);
   BLEServer* pServer = BLEDevice::createServer();
   pServer->setCallbacks(new BleServerCb());
 

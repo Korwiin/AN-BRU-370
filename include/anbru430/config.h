@@ -8,6 +8,7 @@
 #define DEVICE_HOSTNAME  "ANBRU-430"
 #define USB_PRODUCT_NAME "ANBRU-430"
 #define USB_PID          0x430A
+#define BLE_DEVICE_NAME  "ANBRU-430"   // BLE setup advertising name
 
 // DCS-BIOS network (same multicast group as Brew370)
 #define DCSBIOS_MCAST_ADDR  "239.255.50.10"
