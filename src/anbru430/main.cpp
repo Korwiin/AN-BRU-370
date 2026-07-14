@@ -1,66 +1,167 @@
 #include <Arduino.h>
-#include <USB.h>
+#include <Preferences.h>
+#include <WiFi.h>
 #include <lvgl.h>
+#include "esp32-hal-tinyusb.h"  // usb_persist_restart — reboot into ROM download mode
 #include "config.h"
 #include "display.h"
 #include "lvgl_port.h"
 #include "touch.h"
+#include "wifi_mgr.h"
+#include "dcs_bios.h"
+#include "hid.h"
+#include "macros.h"
+#include "ota.h"
 
-void setup() {
-  USB.manufacturerName("E4 Mafia");
-  USB.productName(USB_PRODUCT_NAME);
-  USB.PID(USB_PID);
-  USB.firmwareVersion(FIRMWARE_VERSION_INT);
-  USB.begin();
+// --- prefs (same NVS keys as Brew370 so mouse tuning carries over) ---
+static int s_screenW = 1920;
+static int s_screenH = 1080;
 
-  Serial.begin(115200);
-  while (!Serial && millis() < 2000) { }
-  Serial.println("=== ANBRU-430 boot ===");
+static void loadPrefs() {
+  Preferences prefs;
+  prefs.begin("brew", true);
+  s_screenW = prefs.getInt("scrW", 1920);
+  s_screenH = prefs.getInt("scrH", 1080);
+  mouseParams[0] = prefs.getInt("apxX",  s_screenW / 4);
+  mouseParams[1] = prefs.getInt("apxY",  s_screenH / 54);
+  mouseParams[2] = prefs.getInt("amcX2", s_screenW / 2);
+  mouseParams[3] = prefs.getInt("amcY2", s_screenH / 2);
+  mouseParams[4] = prefs.getInt("lbX2",  s_screenW / 2);
+  mouseParams[5] = prefs.getInt("lbY2",  s_screenH / 2);
+  mouseParams[6] = prefs.getInt("cdrpX", s_screenW / 5);
+  mouseParams[7] = prefs.getInt("cdrpY", s_screenH / 2);
+  prefs.end();
+}
 
-  if (!Display::begin() || !LvglPort::begin()) {
-    Serial.println("DISPLAY/LVGL INIT FAILED");
+// --- status screen widgets ---
+static lv_obj_t* s_wifiLbl;
+static lv_obj_t* s_dcsLbl;
+static lv_obj_t* s_fuelLbl;
+static lv_obj_t* s_msgLbl;
+
+static void msg(const char* text) {
+  lv_label_set_text(s_msgLbl, text);
+  lv_refr_now(nullptr);  // repaint immediately — used inside blocking flows
+}
+
+static void onUsbFlash(lv_event_t*) {
+  msg("Entering USB flash mode...");
+  delay(400);
+  usb_persist_restart(RESTART_BOOTLOADER);
+}
+
+static void onCheckUpdate(lv_event_t*) {
+  msg("Checking for update...");
+  OTA::CheckResult r = OTA::check();          // blocking 1-3 s
+  if (r.error[0]) { lv_label_set_text_fmt(s_msgLbl, "Check failed: %s", r.error); return; }
+  if (!r.available) {
+    lv_label_set_text_fmt(s_msgLbl, "Up to date (v%s)", FIRMWARE_VERSION);
     return;
   }
+  lv_label_set_text_fmt(s_msgLbl, "Updating to v%u.%02u...", r.versionInt / 100, r.versionInt % 100);
+  lv_refr_now(nullptr);
+  OTA::perform(r.url, [](int p) {             // blocking; restarts on success
+    lv_label_set_text_fmt(s_msgLbl, "Downloading... %d%%", p);
+    lv_refr_now(nullptr);
+  });
+  lv_label_set_text_fmt(s_msgLbl, "Update failed: %s", OTA::performError());
+}
 
+static lv_obj_t* makeButton(lv_obj_t* parent, const char* text, lv_event_cb_t cb,
+                            lv_align_t align, int xofs, int yofs) {
+  lv_obj_t* btn = lv_button_create(parent);
+  lv_obj_set_size(btn, 220, 70);
+  lv_obj_align(btn, align, xofs, yofs);
+  lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* lbl = lv_label_create(btn);
+  lv_label_set_text(lbl, text);
+  lv_obj_center(lbl);
+  return btn;
+}
+
+static void buildStatusScreen() {
   lv_obj_t* scr = lv_screen_active();
   lv_obj_set_style_bg_color(scr, lv_color_hex(0x101418), 0);
 
   lv_obj_t* title = lv_label_create(scr);
-  lv_label_set_text(title, "ANBRU-430  fw v" FIRMWARE_VERSION "  touch test");
+  lv_label_set_text(title, "ANBRU-430  fw v" FIRMWARE_VERSION);
   lv_obj_set_style_text_color(title, lv_color_hex(0x00FF66), 0);
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 8);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
 
-  static lv_obj_t* coords = lv_label_create(scr);
-  lv_label_set_text(coords, "touch the screen");
-  lv_obj_set_style_text_color(coords, lv_color_hex(0xB0B8C0), 0);
-  lv_obj_align(coords, LV_ALIGN_TOP_MID, 0, 32);
+  s_wifiLbl = lv_label_create(scr);
+  lv_label_set_text(s_wifiLbl, "WiFi: ...");
+  lv_obj_set_style_text_color(s_wifiLbl, lv_color_hex(0xE0E4E8), 0);
+  lv_obj_align(s_wifiLbl, LV_ALIGN_TOP_LEFT, 20, 60);
 
-  static lv_obj_t* dot = lv_obj_create(scr);
-  lv_obj_set_size(dot, 40, 40);
-  lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
-  lv_obj_set_style_bg_color(dot, lv_color_hex(0xFF3030), 0);
-  lv_obj_add_flag(dot, LV_OBJ_FLAG_HIDDEN);
+  s_dcsLbl = lv_label_create(scr);
+  lv_label_set_text(s_dcsLbl, "DCS: waiting");
+  lv_obj_set_style_text_color(s_dcsLbl, lv_color_hex(0xE0E4E8), 0);
+  lv_obj_align(s_dcsLbl, LV_ALIGN_TOP_LEFT, 20, 90);
 
-  if (!Touch::begin()) {
-    lv_label_set_text(coords, "GT911 NOT FOUND");
-  } else {
-    // Poll the LVGL pointer each 50 ms and mirror it into label + dot
-    lv_timer_create([](lv_timer_t*) {
-      lv_indev_t* indev = lv_indev_get_next(nullptr);
-      if (!indev) return;
-      lv_point_t p;
-      lv_indev_get_point(indev, &p);
-      if (lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED) {
-        lv_label_set_text_fmt(coords, "x=%d  y=%d", (int)p.x, (int)p.y);
-        lv_obj_clear_flag(dot, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_pos(dot, p.x - 20, p.y - 20);
-      }
-    }, 50, nullptr);
+  s_fuelLbl = lv_label_create(scr);
+  lv_label_set_text(s_fuelLbl, "FUEL: ---");
+  lv_obj_set_style_text_color(s_fuelLbl, lv_color_hex(0xE0E4E8), 0);
+  lv_obj_align(s_fuelLbl, LV_ALIGN_TOP_LEFT, 20, 120);
+
+  s_msgLbl = lv_label_create(scr);
+  lv_label_set_text(s_msgLbl, "");
+  lv_obj_set_style_text_color(s_msgLbl, lv_color_hex(0xFFC040), 0);
+  lv_obj_align(s_msgLbl, LV_ALIGN_BOTTOM_MID, 0, -110);
+
+  makeButton(scr, "Check Update", onCheckUpdate, LV_ALIGN_BOTTOM_LEFT, 40, -20);
+  makeButton(scr, "USB Flash",    onUsbFlash,    LV_ALIGN_BOTTOM_RIGHT, -40, -20);
+}
+
+void setup() {
+  Serial.begin(115200);   // no CDC on this board once USB HID is up; harmless
+
+  loadPrefs();
+
+  if (!Display::begin() || !LvglPort::begin()) return;
+  buildStatusScreen();
+  Touch::begin();
+
+  HID::begin(s_screenW, s_screenH);   // USB identity from anbru430/config.h
+
+  // First boot has no WiFi credentials → BLE terminal setup (same flow as Brew370)
+  if (!WifiMgr::hasCredentials()) {
+    msg("No WiFi. Connect BLE terminal to ANBRU-430 to set credentials.");
+    if (WifiMgr::runBleSetup([]() {}, []() { return false; })) {
+      msg("Saved. Rebooting...");
+      delay(800);
+      ESP.restart();
+    }
   }
 
-  Serial.println("lvgl up");
+  msg("Connecting WiFi...");
+  WifiMgr::beginConnect(true);
 }
 
 void loop() {
   LvglPort::loop();
+  DcsBios::process();
+
+  // WiFi tracker — start DCS-BIOS on each connect transition (oled main pattern)
+  static bool s_wasConnected = false;
+  static unsigned long s_lastRefresh = 0;
+  bool wifiOk = WifiMgr::isConnected();
+  if (wifiOk && !s_wasConnected) {
+    DcsBios::begin(DCSBIOS_MCAST_ADDR, DCSBIOS_MCAST_PORT,
+                   nullptr, DCSBIOS_CMD_PORT);
+    msg("");
+  }
+  s_wasConnected = wifiOk;
+
+  if (millis() - s_lastRefresh >= 500) {
+    s_lastRefresh += 500;
+    if (wifiOk) {
+      lv_label_set_text_fmt(s_wifiLbl, "WiFi: %s  %s",
+                            WifiMgr::activeSSID(), WiFi.localIP().toString().c_str());
+    } else {
+      lv_label_set_text(s_wifiLbl, "WiFi: connecting...");
+    }
+    lv_label_set_text(s_dcsLbl, DcsBios::isConnected() ? "DCS: connected" : "DCS: waiting");
+    if (DcsBios::isConnected())
+      lv_label_set_text_fmt(s_fuelLbl, "FUEL: %u lbs", (unsigned)DcsBios::fuelLbs());
+  }
 }
