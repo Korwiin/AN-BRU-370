@@ -17,6 +17,10 @@ namespace {
   lv_obj_t* s_confirm = nullptr;
 
   void confirmShow(const char* text, const char* yesLabel, void (*onYes)()) {
+    if (s_confirm) {              // replace any open confirm — never leak/rebind
+      lv_obj_delete_async(s_confirm);
+      s_confirm = nullptr;
+    }
     s_confirmYes = onYes;
     s_confirm = lv_obj_create(lv_layer_top());
     lv_obj_set_size(s_confirm, 560, 240);
