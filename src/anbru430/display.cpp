@@ -6,6 +6,7 @@
 
 namespace {
   esp_lcd_panel_handle_t s_panel = nullptr;
+  uint8_t s_exioMask = 0;
 }
 
 namespace Display {
@@ -15,12 +16,14 @@ bool begin() {
   if (!CH422G::begin()) return false;
 
   // TP_RST + LCD_RST low (reset), BL off, SD_CS high (deselect), USB_SEL low (USB mode)
-  CH422G::setOutputs((1u << Pins::EXIO_SD_CS));
+  s_exioMask = (1u << Pins::EXIO_SD_CS);
+  CH422G::setOutputs(s_exioMask);
   delay(20);
   // Release resets, keep BL off until first frame is drawn
-  CH422G::setOutputs((1u << Pins::EXIO_SD_CS) |
-                     (1u << Pins::EXIO_TP_RST) |
-                     (1u << Pins::EXIO_LCD_RST));
+  s_exioMask = (1u << Pins::EXIO_SD_CS) |
+               (1u << Pins::EXIO_TP_RST) |
+               (1u << Pins::EXIO_LCD_RST);
+  CH422G::setOutputs(s_exioMask);
   delay(120);
 
   esp_lcd_rgb_panel_config_t cfg = {};
@@ -53,13 +56,20 @@ bool begin() {
   if (esp_lcd_panel_init(s_panel) != ESP_OK) return false;
 
   // Backlight on
-  CH422G::setOutputs((1u << Pins::EXIO_SD_CS) |
-                     (1u << Pins::EXIO_TP_RST) |
-                     (1u << Pins::EXIO_LCD_RST) |
-                     (1u << Pins::EXIO_LCD_BL));
+  s_exioMask = (1u << Pins::EXIO_SD_CS) |
+               (1u << Pins::EXIO_TP_RST) |
+               (1u << Pins::EXIO_LCD_RST) |
+               (1u << Pins::EXIO_LCD_BL);
+  CH422G::setOutputs(s_exioMask);
   return true;
 }
 
 esp_lcd_panel_handle_t panel() { return s_panel; }
+
+void setBacklight(bool on) {
+  if (on)  s_exioMask |=  (1u << Pins::EXIO_LCD_BL);
+  else     s_exioMask &= ~(1u << Pins::EXIO_LCD_BL);
+  CH422G::setOutputs(s_exioMask);
+}
 
 }  // namespace Display

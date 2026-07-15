@@ -303,7 +303,8 @@ void setup() {
     static auto modeNameFn = []() -> const char* { return menuStateName(s_mode); };
     static auto menuSelFn  = []() -> int { return s_menuSel; };
     static auto wifiBootFn = []() { WifiMgr::beginConnect(true); connectWifi(); };
-    static auto injectFn   = [](const char* rest) -> bool {
+    static auto injectFn   = [](const char* verb, const char* rest) -> bool {
+      if (strcmp(verb, "enc") != 0) return false;
       if (strcmp(rest, "sp") == 0)      { Encoder::inject(0, 1); return true; }
       if (strcmp(rest, "lp") == 0)      { Encoder::inject(0, 2); return true; }
       char* end = nullptr;

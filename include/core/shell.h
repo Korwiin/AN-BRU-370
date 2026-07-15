@@ -13,7 +13,7 @@ namespace Shell {
     int         (*menuSel)();   // settings menu selection index
     void        (*wifiBoot)();  // run the production boot-connect sequence
     // Device-specific test hooks — may be null:
-    bool        (*injectInput)(const char* rest);   // "enc <args>" payload
+    bool        (*injectInput)(const char* verb, const char* rest);  // "enc"/"touch" payloads
     const uint8_t* (*frameBuffer)(uint16_t* len);   // "fb?" dump source
   };
   void begin(const Hooks& hooks);   // call once in setup() after Serial.begin

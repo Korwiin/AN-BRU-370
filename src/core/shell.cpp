@@ -109,7 +109,7 @@ static void dispatch(char* line) {
     Serial.println("#pong");
     Serial.println("#ok");
   } else if (strcmp(line, "help") == 0) {
-    Serial.println("#ping|help|state?|enc <n>|enc sp|enc lp|fb?");
+    Serial.println("#ping|help|state?|enc <n>|enc sp|enc lp|touch <x> <y>|fb?");
     Serial.println("#wifi?|wifi log?|wifi on|wifi off|wifi conn [full|soft]");
     Serial.println("#wifi auto on|off|wifi boot|wifi scan|wifi nvs?|wifi restore");
     Serial.println("#ok");
@@ -270,10 +270,10 @@ static void dispatch(char* line) {
     } else {
       Serial.printf("#err unknown wifi subcmd '%s'\n", rest);
     }
-  } else if (strcmp(line, "enc") == 0) {
-    if (s_hooks.injectInput && s_hooks.injectInput(rest)) Serial.println("#ok");
+  } else if (strcmp(line, "enc") == 0 || strcmp(line, "touch") == 0) {
+    if (s_hooks.injectInput && s_hooks.injectInput(line, rest)) Serial.println("#ok");
     else if (!s_hooks.injectInput) Serial.println("#err not supported on this device");
-    else Serial.println("#err usage: enc <±n>|sp|lp");
+    else Serial.println("#err usage: enc <±n>|sp|lp | touch <x> <y>");
   } else if (strcmp(line, "fb?") == 0) {
     uint16_t len = 0;
     const uint8_t* buf = s_hooks.frameBuffer ? s_hooks.frameBuffer(&len) : nullptr;

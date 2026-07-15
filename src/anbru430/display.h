@@ -7,4 +7,5 @@ namespace Display {
   esp_lcd_panel_handle_t panel();
   constexpr uint16_t WIDTH  = 800;
   constexpr uint16_t HEIGHT = 480;
+  void setBacklight(bool on);   // CH422G EXIO2 — binary, no PWM on this board
 }

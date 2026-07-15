@@ -9,6 +9,10 @@
 // After a read, 0 must be written back to 0x814E.
 namespace {
   uint8_t s_addr = 0x5D;
+  volatile uint32_t s_lastTouchMs = 0;
+  bool     s_swallow     = false;
+  uint32_t s_injectUntil = 0;
+  int32_t  s_injX = 0, s_injY = 0;
 
   bool readRegs(uint16_t reg, uint8_t* buf, size_t len) {
     Wire.beginTransmission(s_addr);
@@ -29,6 +33,12 @@ namespace {
   }
 
   void readCb(lv_indev_t*, lv_indev_data_t* data) {
+    if (millis() < s_injectUntil) {          // synthesized tap from the test shell
+      data->point.x = s_injX;
+      data->point.y = s_injY;
+      data->state = LV_INDEV_STATE_PRESSED;
+      return;
+    }
     uint8_t status = 0;
     data->state = LV_INDEV_STATE_RELEASED;
     if (!readRegs(0x814E, &status, 1)) return;
@@ -37,10 +47,15 @@ namespace {
     if (n >= 1) {
       uint8_t p[4];
       if (readRegs(0x8150, p, 4)) {
-        data->point.x = (int32_t)(p[0] | (p[1] << 8));
-        data->point.y = (int32_t)(p[2] | (p[3] << 8));
-        data->state = LV_INDEV_STATE_PRESSED;
+        s_lastTouchMs = millis();
+        if (!s_swallow) {
+          data->point.x = (int32_t)(p[0] | (p[1] << 8));
+          data->point.y = (int32_t)(p[2] | (p[3] << 8));
+          data->state = LV_INDEV_STATE_PRESSED;
+        }
       }
+    } else {
+      s_swallow = false;                       // finger lifted
     }
     writeReg(0x814E, 0);
   }
@@ -61,6 +76,17 @@ bool begin() {
   lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
   lv_indev_set_read_cb(indev, readCb);
   return true;
+}
+
+uint32_t lastTouchMs() { return s_lastTouchMs; }
+
+void swallowUntilRelease() { s_swallow = true; }
+
+void inject(uint16_t x, uint16_t y) {
+  s_injX = x;
+  s_injY = y;
+  s_lastTouchMs = millis();     // counts as activity (keeps/wakes screen in tests)
+  s_injectUntil = millis() + 80;
 }
 
 }  // namespace Touch

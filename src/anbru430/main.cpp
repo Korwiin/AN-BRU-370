@@ -13,6 +13,7 @@
 #include "hid.h"
 #include "macros.h"
 #include "ota.h"
+#include "shell.h"
 
 // --- prefs (same NVS keys as Brew370 so mouse tuning carries over) ---
 static int s_screenW = 1920;
@@ -158,9 +159,29 @@ void setup() {
 
   msg("Connecting WiFi...");
   WifiMgr::beginConnect(true);
+
+#ifdef DEV_BUILD
+  {
+    static auto modeIdFn   = []() -> uint8_t { return 0; };
+    static auto modeNameFn = []() -> const char* { return "SPIKE"; };
+    static auto menuSelFn  = []() -> int { return 0; };
+    static auto wifiBootFn = []() { WifiMgr::beginConnect(true); };
+    static auto injectFn   = [](const char* verb, const char* rest) -> bool {
+      if (strcmp(verb, "touch") != 0) return false;
+      int x = -1, y = -1;
+      if (sscanf(rest, "%d %d", &x, &y) != 2) return false;
+      if (x < 0 || x >= 800 || y < 0 || y >= 480) return false;
+      Touch::inject((uint16_t)x, (uint16_t)y);
+      return true;
+    };
+    Shell::begin(Shell::Hooks{ modeIdFn, modeNameFn, menuSelFn, wifiBootFn,
+                               injectFn, nullptr });
+  }
+#endif
 }
 
 void loop() {
+  Shell::poll();
   LvglPort::loop();
   DcsBios::process();
 
