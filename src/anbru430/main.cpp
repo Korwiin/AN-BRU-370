@@ -30,6 +30,18 @@ static const char* appStateName(AppState s) {
   return ((unsigned)s < sizeof(k_names)/sizeof(k_names[0])) ? k_names[s] : "?";
 }
 
+enum ScState : uint8_t { SC_IDLE, SC_WAITING_SW, SC_WAITING_LIGHT, SC_GAVE_UP };
+static ScState       s_scState     = SC_IDLE;
+static uint8_t       s_scTarget    = 0xFF;
+static unsigned long s_scTPress    = 0;
+static unsigned long s_scTLastSend = 0;
+static bool          s_mcActive    = false;
+static bool          s_mcFlash     = false;
+static unsigned long s_mcFlashTimer = 0;
+static bool          s_rwrActive    = false;
+static bool          s_rwrFlash     = false;
+static unsigned long s_rwrFlashTimer = 0;
+
 // ---- Prefs (same NVS keys as Brew370 where semantics match) ----
 static int s_screenW  = 1920;
 static int s_screenH  = 1080;
@@ -79,6 +91,33 @@ static void enterState(AppState st) {
     case ST_AIRCRAFT:        PageHome::setState(PageHome::AIRCRAFT); break;
     case ST_NOT_READY:                                 // alert modal carries the visuals;
     case ST_SETUP_RUNNING:   PageHome::setState(PageHome::AIRCRAFT); break;
+  }
+}
+
+static void onAlertTap() {
+  switch (Alerts::current()) {
+    case Alerts::MISSILE:
+    case Alerts::CHAFF:
+      DcsBios::sendCommand(DCSBIOS_CMD_CMDS_DISPENSE, 1);
+      delay(100);
+      DcsBios::sendCommand(DCSBIOS_CMD_CMDS_DISPENSE, 0);
+      break;
+    case Alerts::STORES_CONFIG:
+      if (s_scState == SC_IDLE) {
+        s_scTarget    = DcsBios::storesConfigSw() ^ 1;
+        s_scTPress    = millis();
+        s_scTLastSend = millis();
+        DcsBios::sendCommand(DCSBIOS_CMD_STORES_CONFIG_SW, s_scTarget);
+        s_scState     = SC_WAITING_SW;
+      }
+      break;
+    case Alerts::MASTER_CAUTION:
+      DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 1);
+      delay(100);
+      DcsBios::sendCommand(DCSBIOS_CMD_MC_RESET, 0);
+      break;
+    default:
+      break;
   }
 }
 
@@ -176,6 +215,7 @@ void setup() {
     p.end();
     ESP.restart();
   });
+  Alerts::setTapCb(onAlertTap);
 
 #ifdef DEV_BUILD
   {
@@ -237,7 +277,77 @@ void loop() {
     if (!s_sleeping && (touchActivity || dcsActivity)) s_lastActivity = millis();
   }
 
-  // TASK4_ALERTS_INSERT — RWR missile + Master Caution / Stores Config
+  bool dcsLive = DcsBios::isConnected();
+  bool mc  = dcsLive && DcsBios::masterCaution();
+  bool rwr = dcsLive && DcsBios::rwrMslLaunch();
+
+  // RWR MISSILE LAUNCH — 200 ms debounce, 100 ms flash, 1 s missile/chaff alternation
+  static unsigned long s_rwrHighSince = 0;
+  if (rwr && s_rwrHighSince == 0) s_rwrHighSince = millis();
+  if (!rwr)                       s_rwrHighSince = 0;
+  bool rwrConfirmed = rwr && (millis() - s_rwrHighSince >= 200);
+
+  if (rwrConfirmed) {
+    if (s_sleeping) wake();
+    if (s_state == ST_WAITING_DCS) enterState(ST_AIRCRAFT);
+    s_rwrActive = true;
+    if (millis() - s_rwrFlashTimer > 100) {
+      s_rwrFlash = !s_rwrFlash;
+      s_rwrFlashTimer = millis();
+    }
+    if ((millis() / 1000) % 2 == 0) {
+      Alerts::show(Alerts::MISSILE, s_rwrFlash);
+    } else {
+      Alerts::setChaff(DcsBios::chaffStr());
+      Alerts::show(Alerts::CHAFF, s_rwrFlash);
+    }
+    return;
+  }
+  if (s_rwrActive && !rwrConfirmed) {
+    s_rwrActive = false;
+    Alerts::hide();
+  }
+
+  // MASTER CAUTION — 200 ms debounce to reject large-block export transients
+  static unsigned long s_mcHighSince = 0;
+  if (mc && s_mcHighSince == 0) s_mcHighSince = millis();
+  if (!mc)                      s_mcHighSince = 0;
+  bool mcConfirmed = mc && (millis() - s_mcHighSince >= 200);
+
+  if (mcConfirmed) {
+    if (s_sleeping) wake();
+    if (s_state == ST_WAITING_DCS) enterState(ST_AIRCRAFT);
+    s_mcActive = true;
+    if (millis() - s_mcFlashTimer > 200) {
+      s_mcFlash = !s_mcFlash;
+      s_mcFlashTimer = millis();
+    }
+    if (s_scState == SC_WAITING_SW) {
+      if (DcsBios::storesConfigSw() == s_scTarget) {
+        s_scState = SC_WAITING_LIGHT;
+      } else if (millis() - s_scTLastSend >= SC_RETRY_MS) {
+        DcsBios::sendCommand(DCSBIOS_CMD_STORES_CONFIG_SW, s_scTarget);
+        s_scTLastSend = millis();
+      }
+    } else if (s_scState == SC_WAITING_LIGHT) {
+      if (millis() - s_scTPress >= SC_LIGHT_TIMEOUT_MS) s_scState = SC_GAVE_UP;
+    } else if (s_scState == SC_GAVE_UP) {
+      if (!DcsBios::storesConfigLight()) {
+        s_scState  = SC_IDLE;
+        s_scTarget = 0xFF;
+      }
+    }
+    bool showSc = (s_scState == SC_WAITING_SW || s_scState == SC_WAITING_LIGHT ||
+                   (s_scState == SC_IDLE && DcsBios::storesConfigLight()));
+    Alerts::show(showSc ? Alerts::STORES_CONFIG : Alerts::MASTER_CAUTION, s_mcFlash);
+    return;
+  }
+  if (s_mcActive && !mcConfirmed) {
+    s_mcActive = false;
+    s_scState  = SC_IDLE;
+    s_scTarget = 0xFF;
+    Alerts::hide();
+  }
 
   // DCS connection transitions
   {
