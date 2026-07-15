@@ -39,6 +39,7 @@ static lv_obj_t* s_wifiLbl;
 static lv_obj_t* s_dcsLbl;
 static lv_obj_t* s_fuelLbl;
 static lv_obj_t* s_msgLbl;
+static lv_obj_t* s_heapLbl;
 
 static void msg(const char* text) {
   lv_label_set_text(s_msgLbl, text);
@@ -108,6 +109,11 @@ static void buildStatusScreen() {
   lv_label_set_text(s_msgLbl, "");
   lv_obj_set_style_text_color(s_msgLbl, lv_color_hex(0xFFC040), 0);
   lv_obj_align(s_msgLbl, LV_ALIGN_BOTTOM_MID, 0, -110);
+
+  s_heapLbl = lv_label_create(scr);
+  lv_label_set_text(s_heapLbl, "heap ---");
+  lv_obj_set_style_text_color(s_heapLbl, lv_color_hex(0x707880), 0);
+  lv_obj_align(s_heapLbl, LV_ALIGN_TOP_RIGHT, -12, 10);
 
   makeButton(scr, "Check Update", onCheckUpdate, LV_ALIGN_BOTTOM_LEFT, 40, -20);
   makeButton(scr, "USB Flash",    onUsbFlash,    LV_ALIGN_BOTTOM_RIGHT, -40, -20);
@@ -180,5 +186,6 @@ void loop() {
     lv_label_set_text(s_dcsLbl, DcsBios::isConnected() ? "DCS: connected" : "DCS: waiting");
     if (DcsBios::isConnected())
       lv_label_set_text_fmt(s_fuelLbl, "FUEL: %u lbs", (unsigned)DcsBios::fuelLbs());
+    lv_label_set_text_fmt(s_heapLbl, "heap %u", (unsigned)ESP.getFreeHeap());
   }
 }
