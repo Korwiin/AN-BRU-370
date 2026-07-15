@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <lvgl.h>
 #include "esp32-hal-tinyusb.h"  // usb_persist_restart — reboot into ROM download mode
+#include "esp_bt.h"             // esp_bt_controller_get_status — BLE setup diagnostic
 #include "config.h"
 #include "display.h"
 #include "lvgl_port.h"
@@ -121,17 +122,33 @@ void setup() {
   buildStatusScreen();
   Touch::begin();
 
-  HID::begin(s_screenW, s_screenH);   // USB identity from anbru430/config.h
-
-  // First boot has no WiFi credentials → BLE terminal setup (same flow as Brew370)
+  // First boot has no WiFi credentials → BLE terminal setup (same flow as Brew370).
+  // HID::begin (USB) deliberately comes AFTER this block: TinyUSB active during
+  // Bluedroid advertising kills the advertisement on IDF 5.5.4 (bench-diagnosed
+  // 2026-07-14: DEV unit w/o USB advertises, ANBRU w/ USB does not).
   if (!WifiMgr::hasCredentials()) {
     msg("No WiFi. Connect BLE terminal to ANBRU-430 to set credentials.");
-    if (WifiMgr::runBleSetup([]() {}, []() { return false; })) {
+    // Diagnostic readout: BLE controller status (0=off 1=inited 2=enabled),
+    // free internal heap, client-subscribed flag — refreshed once per second.
+    static auto bleDiagCb = []() {
+      static unsigned long last = 0;
+      if (millis() - last >= 1000) {
+        last = millis();
+        lv_label_set_text_fmt(s_msgLbl, "BLE wait: ctrl=%d heap=%u sub=%d",
+                              (int)esp_bt_controller_get_status(),
+                              (unsigned)ESP.getFreeHeap(),
+                              (int)WifiMgr::isBleClientConnected());
+        lv_refr_now(nullptr);
+      }
+    };
+    if (WifiMgr::runBleSetup(bleDiagCb, []() { return false; })) {
       msg("Saved. Rebooting...");
       delay(800);
       ESP.restart();
     }
   }
+
+  HID::begin(s_screenW, s_screenH);   // USB identity from anbru430/config.h
 
   msg("Connecting WiFi...");
   WifiMgr::beginConnect(true);
