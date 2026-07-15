@@ -41,6 +41,10 @@ static unsigned long s_mcFlashTimer = 0;
 static bool          s_rwrActive    = false;
 static bool          s_rwrFlash     = false;
 static unsigned long s_rwrFlashTimer = 0;
+static uint8_t       s_setupStep       = 0;
+static unsigned long s_setupSent       = 0;
+static uint8_t       s_setupRetryCount = 0;
+static bool          s_ecmPresent      = false;
 
 // ---- Prefs (same NVS keys as Brew370 where semantics match) ----
 static int s_screenW  = 1920;
@@ -216,6 +220,15 @@ void setup() {
     ESP.restart();
   });
   Alerts::setTapCb(onAlertTap);
+  Alerts::setNotReadyCbs(
+      []() {  // RUN SETUP
+        s_ecmPresent = DcsBios::ecmStandby();
+        s_setupStep  = 0;
+        enterState(ST_SETUP_RUNNING);
+      },
+      []() {  // SET MWS ON
+        DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW, 1);
+      });
 
 #ifdef DEV_BUILD
   {
@@ -358,6 +371,7 @@ void loop() {
     }
     if (!nowDcs && s_wasDcs) {
       if (s_state == ST_AIRCRAFT || s_state == ST_NOT_READY || s_state == ST_SETUP_RUNNING) {
+        s_setupStep = 0;
         enterState(ST_WAITING_DCS);
         Alerts::hide();
       }
@@ -365,7 +379,102 @@ void loop() {
     s_wasDcs = nowDcs;
   }
 
-  // TASK5_SETUP_INSERT — NOT READY + setup sequence
+  // MWS flag — continuous check (new-plane detection)
+  if (DcsBios::isConnected()) {
+    if (!DcsBios::mwsOn() && s_state == ST_AIRCRAFT) enterState(ST_NOT_READY);
+    if ( DcsBios::mwsOn() && s_state == ST_NOT_READY) {
+      enterState(ST_AIRCRAFT);
+      Alerts::hide();
+    }
+  }
+
+  if (s_state == ST_NOT_READY) {
+    Alerts::show(Alerts::NOT_READY_ALERT, (millis() / 750) % 2 == 0);
+
+  } else if (s_state == ST_SETUP_RUNNING) {
+    if (s_setupStep == 0) {
+      s_setupStep       = 1;
+      s_setupRetryCount = 0;
+      s_setupSent       = millis();
+      DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L, 1);
+    }
+
+    bool confirmed = false;
+    switch (s_setupStep) {
+      case 1: confirmed = DcsBios::hdptLeft();           break;
+      case 2: confirmed = DcsBios::hdptRight();          break;
+      case 3: confirmed = DcsBios::cmdsModeKnob() == 3;  break;
+      case 4: confirmed = DcsBios::rwrPowerLight();      break;
+      case 5: confirmed = DcsBios::mwsOn();              break;
+      case 6: confirmed = DcsBios::ecmBtns2to5Armed();   break;
+      case 7: confirmed = DcsBios::ecmPowerOpr();        break;
+      case 8: confirmed = DcsBios::jmrSourceOn();        break;
+      case 9: confirmed = DcsBios::ecmXmitAft();         break;
+      default: break;
+    }
+
+    if (!confirmed && millis() - s_setupSent >= SETUP_RETRY_MS) {
+      s_setupSent = millis();
+      if (++s_setupRetryCount >= SETUP_MAX_RETRIES) {
+        s_setupStep = 0;
+        enterState(ST_NOT_READY);
+      } else {
+        switch (s_setupStep) {
+          case 1: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_L,     1); break;
+          case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,     1); break;
+          case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB, 3); break;
+          case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,   1); break;
+          case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,        1); break;
+          case 6:
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_2_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_3_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_4_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_5_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_6_BTN, 1);
+            break;
+          case 7: DcsBios::sendCommand(DCSBIOS_CMD_ECM_PW_SW,   2); break;
+          case 8: DcsBios::sendCommand(DCSBIOS_CMD_JMR_SW,      1); break;
+          case 9: DcsBios::sendCommand(DCSBIOS_CMD_ECM_XMIT_SW, 2); break;
+          default: break;
+        }
+      }
+    }
+
+    if (confirmed) {
+      if (s_setupStep >= (s_ecmPresent ? 9 : 5)) {
+        s_setupStep = 0;
+        enterState(ST_AIRCRAFT);
+        Alerts::hide();
+      } else {
+        s_setupStep++;
+        s_setupRetryCount = 0;
+        s_setupSent       = millis();
+        switch (s_setupStep) {
+          case 2: DcsBios::sendCommand(DCSBIOS_CMD_HDPT_SW_R,     1); break;
+          case 3: DcsBios::sendCommand(DCSBIOS_CMD_CMDS_MODE_KNB, 3); break;
+          case 4: DcsBios::sendCommand(DCSBIOS_CMD_RWR_PWR_BTN,   1); break;
+          case 5: DcsBios::sendCommand(DCSBIOS_CMD_MWS_SW,        1); break;
+          case 6:
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_2_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_3_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_4_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_5_BTN, 1);
+            DcsBios::sendCommand(DCSBIOS_CMD_ECM_6_BTN, 1);
+            break;
+          case 7: DcsBios::sendCommand(DCSBIOS_CMD_ECM_PW_SW,   2); break;
+          case 8: DcsBios::sendCommand(DCSBIOS_CMD_JMR_SW,      1); break;
+          case 9: DcsBios::sendCommand(DCSBIOS_CMD_ECM_XMIT_SW, 2); break;
+          default: break;
+        }
+      }
+    }
+
+    if (s_state == ST_SETUP_RUNNING) {
+      uint8_t displayStep = (s_setupStep == 0) ? 1 : s_setupStep;
+      Alerts::setSetupProgress(displayStep, s_ecmPresent ? 9 : 5,
+                               (millis() / 250) % 2 == 0);
+    }
+  }
 
   // Periodic page refresh
   {
