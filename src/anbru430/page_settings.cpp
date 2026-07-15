@@ -97,6 +97,7 @@ void build(lv_obj_t* parent) {
   UI::makeButton(s_root, "Mouse Tune", [](lv_event_t*) { SettingsMouse::open(); },  nullptr);
   UI::makeButton(s_root, "Brightness", [](lv_event_t*) {
     s_prevDim = s_dimPtr ? *s_dimPtr : 0;
+    UI::setDimLevel(s_prevDim);
     lv_slider_set_value(s_slider, 80 - s_prevDim, LV_ANIM_OFF);
     lv_label_set_text_fmt(s_pctLbl, "%d%%", 100 - s_prevDim);
     SettingsInt::showSub(s_subBright);
@@ -171,7 +172,10 @@ void build(lv_obj_t* parent) {
   SettingsInt::showRoot();
 }
 
-void reset() { SettingsInt::showRoot(); }
+void reset() {
+  if (s_dimPtr) UI::setDimLevel(*s_dimPtr);
+  SettingsInt::showRoot();
+}
 void setDimPtr(int* dim)        { s_dimPtr = dim; }
 void setSleepSecsPtr(int* secs) { s_sleepPtr = secs; }
 
