@@ -5,7 +5,7 @@
 // ── Ring buffer ──────────────────────────────────────────────────────────────
 // Single-producer (Core 0 AsyncUDP callback) / single-consumer (Core 1 loop).
 // portMUX spinlock protects the push path only; pop advances s_tail on Core 1.
-static constexpr uint8_t  RING_SLOTS    = 4;
+static constexpr uint8_t  RING_SLOTS    = 12;
 static constexpr uint16_t RING_PKT_MAX  = 512;
 
 struct RingSlot { uint8_t data[RING_PKT_MAX]; uint16_t len; IPAddress remoteIP; };
