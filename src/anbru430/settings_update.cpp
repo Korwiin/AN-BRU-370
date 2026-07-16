@@ -3,7 +3,7 @@
 #include "config.h"
 #include "ota.h"
 #include "wifi_mgr.h"
-#include "lvgl_port.h"
+#include "display.h"
 #include <Arduino.h>
 #include "esp32-hal-tinyusb.h"
 
@@ -15,7 +15,12 @@ namespace {
   int s_lastPct = -100;
   lv_obj_t* s_updLbl = nullptr;
   lv_obj_t* s_updBar = nullptr;
-  volatile bool s_cancelFlag = false;
+
+  lv_obj_t*   s_flashModal     = nullptr;
+  lv_obj_t*   s_flashLbl       = nullptr;
+  lv_obj_t*   s_flashCancelBtn = nullptr;
+  lv_timer_t* s_flashTimer     = nullptr;
+  int         s_flashSecs      = 0;
 
   // OTA download contends with the RGB-DMA framebuffer for PSRAM bandwidth —
   // redraw only a label + bar, at >=5% steps, on an otherwise static black screen.
@@ -75,6 +80,26 @@ namespace {
     lv_obj_remove_flag(s_installBtn, LV_OBJ_FLAG_HIDDEN);
   }
 
+  void flashCancel(lv_event_t*) {
+    if (s_flashTimer) { lv_timer_delete(s_flashTimer); s_flashTimer = nullptr; }
+    if (s_flashModal) { lv_obj_delete(s_flashModal); s_flashModal = nullptr; }
+  }
+
+  void flashTick(lv_timer_t*) {
+    if (--s_flashSecs <= 0) {
+      lv_timer_delete(s_flashTimer);
+      s_flashTimer = nullptr;
+      lv_obj_delete(s_flashCancelBtn);
+      s_flashCancelBtn = nullptr;
+      lv_label_set_text(s_flashLbl, "USB FLASH MODE\nFlash from PC, then press RST");
+      lv_refr_now(nullptr);
+      delay(200);
+      usb_persist_restart(RESTART_BOOTLOADER);
+      return;
+    }
+    lv_label_set_text_fmt(s_flashLbl, "USB flash mode in %d...", s_flashSecs);
+  }
+
   void doUsbFlash(lv_event_t*) {
 #ifdef DEV_BUILD
     // With HWCDC live on USB-Serial/JTAG, usb_persist_restart's PHY handoff
@@ -82,31 +107,17 @@ namespace {
     // builds flash button-free anyway.
     lv_label_set_text(s_msg, "USB Flash unavailable in dev build");
 #else
-    s_cancelFlag = false;
-    lv_obj_t* m = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(m, 800, 480);
-    lv_obj_set_pos(m, 0, 0);
-    UI::stripPanel(m);
-    lv_obj_t* lbl = UI::makeLabel(m, "", &lv_font_montserrat_28, UI::colWarn());
-    lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, -40);
-    lv_obj_t* c = UI::makeButton(m, "Cancel",
-        [](lv_event_t*) { s_cancelFlag = true; }, nullptr);
-    lv_obj_align(c, LV_ALIGN_CENTER, 0, 70);
-    for (int secs = 5; secs > 0; secs--) {
-      lv_label_set_text_fmt(lbl, "USB flash mode in %d...", secs);
-      unsigned long t0 = millis();
-      while (millis() - t0 < 1000UL) {
-        LvglPort::loop();
-        if (s_cancelFlag) { lv_obj_delete(m); return; }
-        delay(10);
-      }
-    }
-    lv_obj_delete(c);
-    lv_label_set_text(lbl, "USB FLASH MODE\nFlash from PC, then press RST");
-    lv_refr_now(nullptr);
-    delay(200);
-    usb_persist_restart(RESTART_BOOTLOADER);
+    s_flashSecs = 5;
+    s_flashModal = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(s_flashModal, Display::WIDTH, Display::HEIGHT);
+    lv_obj_set_pos(s_flashModal, 0, 0);
+    UI::stripPanel(s_flashModal);
+    s_flashLbl = UI::makeLabel(s_flashModal, "USB flash mode in 5...", &lv_font_montserrat_28, UI::colWarn());
+    lv_obj_set_style_text_align(s_flashLbl, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(s_flashLbl, LV_ALIGN_CENTER, 0, -40);
+    s_flashCancelBtn = UI::makeButton(s_flashModal, "Cancel", flashCancel, nullptr);
+    lv_obj_align(s_flashCancelBtn, LV_ALIGN_CENTER, 0, 70);
+    s_flashTimer = lv_timer_create(flashTick, 1000, nullptr);
 #endif
   }
 }

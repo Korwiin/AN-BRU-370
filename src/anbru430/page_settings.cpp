@@ -1,6 +1,6 @@
 #include "ui.h"
 #include "settings_internal.h"
-#include "lvgl_port.h"
+#include "display.h"
 #include <Arduino.h>
 #include <Preferences.h>
 
@@ -15,7 +15,11 @@ namespace {
   int* s_sleepPtr = nullptr;
   int  s_prevDim   = 0;
   int  s_editSleep = 45;
-  volatile bool s_rebootCancel = false;
+
+  lv_obj_t*   s_rebootModal = nullptr;
+  lv_obj_t*   s_rebootLbl   = nullptr;
+  lv_timer_t* s_rebootTimer = nullptr;
+  int         s_rebootSecs  = 0;
 
   void sleepShow() {
     if (s_editSleep == 0) lv_label_set_text(s_sleepLbl, "Off");
@@ -34,27 +38,32 @@ namespace {
     sleepShow();
   }
 
-  void doReboot(lv_event_t*) {
-    s_rebootCancel = false;
-    lv_obj_t* m = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(m, 800, 480);
-    lv_obj_set_pos(m, 0, 0);
-    UI::stripPanel(m);
-    lv_obj_t* lbl = UI::makeLabel(m, "", &lv_font_montserrat_28, UI::colWarn());
-    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, -40);
-    lv_obj_t* c = UI::makeButton(m, "Cancel",
-        [](lv_event_t*) { s_rebootCancel = true; }, nullptr);
-    lv_obj_align(c, LV_ALIGN_CENTER, 0, 60);
-    for (int secs = 5; secs > 0; secs--) {
-      lv_label_set_text_fmt(lbl, "Rebooting in %d...", secs);
-      unsigned long t0 = millis();
-      while (millis() - t0 < 1000UL) {
-        LvglPort::loop();
-        if (s_rebootCancel) { lv_obj_delete(m); return; }
-        delay(10);
-      }
+  void rebootCancel(lv_event_t*) {
+    if (s_rebootTimer) { lv_timer_delete(s_rebootTimer); s_rebootTimer = nullptr; }
+    if (s_rebootModal) { lv_obj_delete(s_rebootModal); s_rebootModal = nullptr; }
+  }
+
+  void rebootTick(lv_timer_t*) {
+    if (--s_rebootSecs <= 0) {
+      lv_timer_delete(s_rebootTimer);
+      s_rebootTimer = nullptr;
+      ESP.restart();
+      return;
     }
-    ESP.restart();
+    lv_label_set_text_fmt(s_rebootLbl, "Rebooting in %d...", s_rebootSecs);
+  }
+
+  void doReboot(lv_event_t*) {
+    s_rebootSecs = 5;
+    s_rebootModal = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(s_rebootModal, Display::WIDTH, Display::HEIGHT);
+    lv_obj_set_pos(s_rebootModal, 0, 0);
+    UI::stripPanel(s_rebootModal);
+    s_rebootLbl = UI::makeLabel(s_rebootModal, "Rebooting in 5...", &lv_font_montserrat_28, UI::colWarn());
+    lv_obj_align(s_rebootLbl, LV_ALIGN_CENTER, 0, -40);
+    lv_obj_t* c = UI::makeButton(s_rebootModal, "Cancel", rebootCancel, nullptr);
+    lv_obj_align(c, LV_ALIGN_CENTER, 0, 60);
+    s_rebootTimer = lv_timer_create(rebootTick, 1000, nullptr);
   }
 }
 
