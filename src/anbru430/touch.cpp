@@ -82,6 +82,8 @@ uint32_t lastTouchMs() { return s_lastTouchMs; }
 
 void swallowUntilRelease() { s_swallow = true; }
 
+void clearSwallow() { s_swallow = false; }
+
 void inject(uint16_t x, uint16_t y) {
   s_injX = x;
   s_injY = y;

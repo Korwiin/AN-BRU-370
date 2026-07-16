@@ -76,9 +76,16 @@ static bool s_sleeping = false;
 
 static void wake() {
   Display::setBacklight(true);
-  Touch::swallowUntilRelease();   // if no finger is down, next empty scan clears it
   s_sleeping = false;
   s_lastActivity = millis();
+}
+
+// DCS/alert-driven wake: no finger is down, so readCb will never see the
+// release that would otherwise clear the sleep-entry swallow — clear it here
+// so the user's first real tap on the alert modal isn't eaten.
+static void wakeFromAlert() {
+  wake();
+  Touch::clearSwallow();
 }
 
 // ---- WiFi connect flow (non-blocking; loop-driven) ----
@@ -301,7 +308,7 @@ void loop() {
   bool rwrConfirmed = rwr && (millis() - s_rwrHighSince >= 200);
 
   if (rwrConfirmed) {
-    if (s_sleeping) wake();
+    if (s_sleeping) wakeFromAlert();
     if (s_state == ST_WAITING_DCS) enterState(ST_AIRCRAFT);
     s_rwrActive = true;
     if (millis() - s_rwrFlashTimer > 100) {
@@ -328,7 +335,7 @@ void loop() {
   bool mcConfirmed = mc && (millis() - s_mcHighSince >= 200);
 
   if (mcConfirmed) {
-    if (s_sleeping) wake();
+    if (s_sleeping) wakeFromAlert();
     if (s_state == ST_WAITING_DCS) enterState(ST_AIRCRAFT);
     s_mcActive = true;
     if (millis() - s_mcFlashTimer > 200) {
@@ -490,6 +497,7 @@ void loop() {
   if (!s_sleeping && s_sleepSecs > 0 &&
       millis() - s_lastActivity > (unsigned long)s_sleepSecs * 1000UL) {
     Display::setBacklight(false);
+    Touch::swallowUntilRelease();   // arm before the wake press ever reaches LVGL
     s_sleeping = true;
   }
 }
