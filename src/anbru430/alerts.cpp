@@ -12,6 +12,12 @@ namespace {
   void (*s_runSetupCb)() = nullptr;
   void (*s_mwsCb)()      = nullptr;
   char s_chaff[8] = "    ";
+  char s_lastChaff[8] = "";  // chaff text last actually applied (CHAFF redraw gate)
+
+  // setSetupProgress() idempotency gate — last-applied (step, maxStep, blinkOn).
+  uint8_t s_setupStep    = 0xFF;
+  uint8_t s_setupMaxStep = 0xFF;
+  bool    s_setupBlinkOn = false;
 
   void ensureBuilt() {
     if (s_modal) return;
@@ -61,7 +67,9 @@ namespace Alerts {
 
 void show(Kind k, bool flashOn) {
   ensureBuilt();
-  if (k == s_kind && flashOn == s_flash && k != CHAFF) return;  // no visual change
+  bool same = (k == s_kind && flashOn == s_flash);
+  if (same && k != CHAFF) return;  // no visual change
+  if (same && k == CHAFF && strcmp(s_chaff, s_lastChaff) == 0) return;  // chaff text unchanged
   s_kind = k;
   s_flash = flashOn;
   switch (k) {
@@ -78,6 +86,7 @@ void show(Kind k, bool flashOn) {
       char buf[16];
       snprintf(buf, sizeof(buf), "CHAFF %s", s_chaff);
       apply(buf, "Tap to dispense", UI::colAlert(), flashOn, false);
+      strlcpy(s_lastChaff, s_chaff, sizeof(s_lastChaff));
       break;
     }
     case NOT_READY_ALERT:
@@ -92,7 +101,12 @@ void setChaff(const char* c) { strlcpy(s_chaff, c, sizeof(s_chaff)); }
 
 void setSetupProgress(uint8_t step, uint8_t maxStep, bool blinkOn) {
   ensureBuilt();
+  if (s_kind == SETUP_PROGRESS && step == s_setupStep &&
+      maxStep == s_setupMaxStep && blinkOn == s_setupBlinkOn) return;  // no visual change
   s_kind = SETUP_PROGRESS;
+  s_setupStep = step;
+  s_setupMaxStep = maxStep;
+  s_setupBlinkOn = blinkOn;
   lv_obj_set_style_bg_color(s_modal, lv_color_black(), 0);
   lv_obj_set_style_text_color(s_title, blinkOn ? UI::colAccent() : UI::colPanel(), 0);
   lv_obj_set_style_text_color(s_sub, UI::colText(), 0);
