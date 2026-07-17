@@ -15,6 +15,23 @@ Extends `/Volumes/home/Projects/Arduino/CLAUDE.md` and `~/.claude/CLAUDE.md`.
 - Flash layout: `boards/partitions_4mb.csv` — do NOT swap; default partition table causes boot loops on this board.
 - Board pinout: `Board Diagrams/ESP32-S3_DWEII_Pinout.jpg`
 
+## Second Target — ANBRU-430
+
+**Waveshare ESP32-S3-Touch-LCD-4.3B-BOX** (N16R8: 16 MB flash, 8 MB octal PSRAM,
+800×480 RGB panel, GT911 touch, CH422G expander, one native USB-C).
+
+- Envs: `anbru430` (production, USB HID, no CDC) and `anbru430_dev` (DEV_BUILD:
+  HID stubbed, CDC test shell, button-free flashing). Never ship a dev build.
+- `board_build.arduino.memory_type = qio_opi` and `boards/partitions_16mb.csv`
+  are mandatory. Keep `-DLV_USE_STDLIB_MALLOC=1` (LVGL pool starved mbedTLS).
+- Identity: PID `0x430A`, product/BLE/hostname `ANBRU-430`, own version line in
+  `include/anbru430/config.h` (`FIRMWARE_VERSION` + `FIRMWARE_VERSION_INT` together),
+  OTA channel `ota/manifest-anbru430.json` + tags `anbru430-vX.YY`.
+- BLE credential setup must run before `HID::begin()` — TinyUSB kills Bluedroid
+  advertising on IDF 5.5.4. Runtime BLE entry = NVS `blereq` flag + reboot.
+- CH422G backlight is binary (no PWM): Brightness = LVGL dim overlay, power
+  saving = LCD Sleep only.
+
 ## Pin Map
 
 See `include/oled/pins.h` — do not hardcode GPIO numbers in sketch files.
