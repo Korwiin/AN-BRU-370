@@ -53,8 +53,13 @@ namespace {
     s_lastPct = -100;
     OTA::perform(s_result.url, progCb);   // restarts the device on success
     lv_obj_delete(m);
-    lv_label_set_text_fmt(s_msg, "Update failed: %s", OTA::performError());
-    lv_obj_remove_flag(s_installBtn, LV_OBJ_FLAG_HIDDEN);  // allow retry
+    if (WifiMgr::isConnected()) {
+      lv_label_set_text_fmt(s_msg, "Update failed: %s", OTA::performError());
+      lv_obj_remove_flag(s_installBtn, LV_OBJ_FLAG_HIDDEN);  // allow retry
+    } else {
+      lv_label_set_text_fmt(s_msg, "Update failed: %s (no WiFi)", OTA::performError());
+      // Install stays hidden — user must re-run Check Update once WiFi is back.
+    }
   }
 
   void doCheck(lv_event_t*) {

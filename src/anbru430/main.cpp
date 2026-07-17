@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <Preferences.h>
-#include <WiFi.h>
 #include <lvgl.h>
 #include "esp32-hal-tinyusb.h"  // usb_persist_restart (settings_update.cpp uses it too)
 #include "config.h"

@@ -60,6 +60,7 @@ namespace {
     if (buttons) lv_obj_remove_flag(s_btnRow, LV_OBJ_FLAG_HIDDEN);
     else         lv_obj_add_flag(s_btnRow, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_modal);  // outrank later lv_layer_top() siblings (confirm dialogs, countdowns)
   }
 }
 
@@ -114,6 +115,7 @@ void setSetupProgress(uint8_t step, uint8_t maxStep, bool blinkOn) {
   lv_label_set_text(s_sub, "Configuring aircraft...");
   lv_obj_add_flag(s_btnRow, LV_OBJ_FLAG_HIDDEN);
   lv_obj_remove_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(s_modal);  // outrank later lv_layer_top() siblings (confirm dialogs, countdowns)
 }
 
 void hide() {

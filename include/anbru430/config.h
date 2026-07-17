@@ -7,6 +7,7 @@
 
 #define DEVICE_HOSTNAME  "ANBRU-430"
 #define USB_PRODUCT_NAME "ANBRU-430"
+#undef  USB_PID  // pins_arduino.h (esp32-s3-devkitc-1 variant) defines 0x1001 first
 #define USB_PID          0x430A
 #define BLE_DEVICE_NAME  "ANBRU-430"   // BLE setup advertising name
 

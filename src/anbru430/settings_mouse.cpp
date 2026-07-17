@@ -31,7 +31,7 @@ namespace {
   }
 
   void openCal(int ci) {
-    if (ci == 2) {  // Text Field needs the map + pin-tool pre-sequence (OLED parity)
+    if (ci == 2 && HID::isReady()) {  // Text Field needs the map + pin-tool pre-sequence (OLED parity)
       HID::Keyboard.releaseAll();
       HID::pressKey(KEY_F10);
       delay(30);
