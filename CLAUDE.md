@@ -23,7 +23,16 @@ Extends `/Volumes/home/Projects/Arduino/CLAUDE.md` and `~/.claude/CLAUDE.md`.
 - Envs: `anbru430` (production, USB HID, no CDC) and `anbru430_dev` (DEV_BUILD:
   HID stubbed, CDC test shell, button-free flashing). Never ship a dev build.
 - `board_build.arduino.memory_type = qio_opi` and `boards/partitions_16mb.csv`
-  are mandatory. Keep `-DLV_USE_STDLIB_MALLOC=1` (LVGL pool starved mbedTLS).
+  are mandatory. LVGL heap must live in PSRAM, never internal RAM — internal-heap
+  LVGL (whether a builtin TLSF pool or stdlib CLIB malloc) starves mbedTLS and
+  breaks every OTA HTTPS check. Mechanism: `-DLV_USE_STDLIB_MALLOC=LV_STDLIB_CUSTOM`
+  + `src/anbru430/lv_mem_psram.c` implementing the LVGL custom-stdlib contract
+  (`lv_mem_init/deinit`, `lv_malloc_core`, `lv_realloc_core`, `lv_free_core`,
+  `lv_mem_monitor_core`, `lv_mem_test_core`) backed by `heap_caps_malloc/realloc/free(...,
+  MALLOC_CAP_SPIRAM)`. Two prior incidents: 3a shipped a static pool in internal
+  RAM, and v0.05 shipped stdlib CLIB malloc + 20-line bounce buffers — both left
+  internal heap around 55 KB free, well under what mbedTLS needs, so OTA checks
+  failed instantly (`a1:-1/0s`).
 - Identity: PID `0x430A`, product/BLE/hostname `ANBRU-430`, own version line in
   `include/anbru430/config.h` (`FIRMWARE_VERSION` + `FIRMWARE_VERSION_INT` together),
   OTA channel `ota/manifest-anbru430.json` + tags `anbru430-vX.YY`.
