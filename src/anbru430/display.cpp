@@ -41,7 +41,7 @@ bool begin() {
   cfg.data_width = 16;
   cfg.bits_per_pixel = 16;
   cfg.num_fbs = 2;                          // double FB in PSRAM
-  cfg.bounce_buffer_size_px = WIDTH * 10;   // anti-artifact bounce buffer
+  cfg.bounce_buffer_size_px = WIDTH * 20;   // more refill slack per chunk — mitigates left-edge flicker from PSRAM/cache contention
   cfg.psram_trans_align = 64;
   cfg.hsync_gpio_num = Pins::LCD_HSYNC;
   cfg.vsync_gpio_num = Pins::LCD_VSYNC;

@@ -12,25 +12,12 @@ namespace {
   lv_obj_t* s_msg        = nullptr;
   lv_obj_t* s_installBtn = nullptr;
   OTA::CheckResult s_result;
-  int s_lastPct = -100;
-  lv_obj_t* s_updLbl = nullptr;
-  lv_obj_t* s_updBar = nullptr;
 
   lv_obj_t*   s_flashModal     = nullptr;
   lv_obj_t*   s_flashLbl       = nullptr;
   lv_obj_t*   s_flashCancelBtn = nullptr;
   lv_timer_t* s_flashTimer     = nullptr;
   int         s_flashSecs      = 0;
-
-  // OTA download contends with the RGB-DMA framebuffer for PSRAM bandwidth —
-  // redraw only a label + bar, at >=5% steps, on an otherwise static black screen.
-  void progCb(int p) {
-    if (p - s_lastPct < 5 && p != 100) return;
-    s_lastPct = p;
-    lv_label_set_text_fmt(s_updLbl, "Downloading  %d%%", p);
-    lv_bar_set_value(s_updBar, p, LV_ANIM_OFF);
-    lv_refr_now(nullptr);
-  }
 
   void doInstall(lv_event_t*) {
     lv_obj_t* m = lv_obj_create(lv_layer_top());
@@ -42,16 +29,15 @@ namespace {
                                 &lv_font_montserrat_28, UI::colWarn());
     lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(t, LV_ALIGN_CENTER, 0, -90);
-    s_updLbl = UI::makeLabel(m, "Starting...", &lv_font_montserrat_20, UI::colText());
-    lv_obj_align(s_updLbl, LV_ALIGN_CENTER, 0, 0);
-    s_updBar = lv_bar_create(m);
-    lv_obj_set_size(s_updBar, 600, 20);
-    lv_obj_align(s_updBar, LV_ALIGN_CENTER, 0, 50);
-    lv_bar_set_range(s_updBar, 0, 100);
+    lv_obj_t* d = UI::makeLabel(m, "Downloading... this takes about a minute.",
+                                &lv_font_montserrat_20, UI::colText());
+    lv_obj_align(d, LV_ALIGN_CENTER, 0, 0);
     lv_refr_now(nullptr);
 
-    s_lastPct = -100;
-    OTA::perform(s_result.url, progCb);   // restarts the device on success
+    // Zero redraws during the flash write: esp_ota_write periodically disables
+    // the external-memory cache (IDF RGB-LCD limitation), and any LVGL redraw
+    // in that window glitches the RGB scanout. Screen stays static until done.
+    OTA::perform(s_result.url, nullptr);   // restarts the device on success
     lv_obj_delete(m);
     if (WifiMgr::isConnected()) {
       lv_label_set_text_fmt(s_msg, "Update failed: %s", OTA::performError());
