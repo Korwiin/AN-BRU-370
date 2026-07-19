@@ -6,6 +6,7 @@
 #include "display.h"
 #include <Arduino.h>
 #include "esp32-hal-tinyusb.h"
+#include "esp_lcd_panel_rgb.h"
 
 namespace {
   lv_obj_t* s_sub        = nullptr;
@@ -21,7 +22,7 @@ namespace {
 
   void doInstall(lv_event_t*) {
     lv_obj_t* m = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(m, 800, 480);
+    lv_obj_set_size(m, Display::WIDTH, Display::HEIGHT);
     lv_obj_set_pos(m, 0, 0);
     UI::stripPanel(m);
     lv_obj_set_style_bg_color(m, lv_color_black(), 0);
@@ -37,14 +38,18 @@ namespace {
     // Zero redraws during the flash write: esp_ota_write periodically disables
     // the external-memory cache (IDF RGB-LCD limitation), and any LVGL redraw
     // in that window glitches the RGB scanout. Screen stays static until done.
-    OTA::perform(s_result.url, nullptr);   // restarts the device on success
-    lv_obj_delete(m);
-    if (WifiMgr::isConnected()) {
-      lv_label_set_text_fmt(s_msg, "Update failed: %s", OTA::performError());
-      lv_obj_remove_flag(s_installBtn, LV_OBJ_FLAG_HIDDEN);  // allow retry
-    } else {
-      lv_label_set_text_fmt(s_msg, "Update failed: %s (no WiFi)", OTA::performError());
-      // Install stays hidden — user must re-run Check Update once WiFi is back.
+    if (!OTA::perform(s_result.url, nullptr)) {   // restarts the device on success
+      // The cache-disable windows above can leave the RGB scanout permanently
+      // shifted; restart the panel before resuming the live UI.
+      esp_lcd_rgb_panel_restart(Display::panel());
+      lv_obj_delete(m);
+      if (WifiMgr::isConnected()) {
+        lv_label_set_text_fmt(s_msg, "Update failed: %s", OTA::performError());
+        lv_obj_remove_flag(s_installBtn, LV_OBJ_FLAG_HIDDEN);  // allow retry
+      } else {
+        lv_label_set_text_fmt(s_msg, "Update failed: %s (no WiFi)", OTA::performError());
+        // Install stays hidden — user must re-run Check Update once WiFi is back.
+      }
     }
   }
 

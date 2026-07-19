@@ -55,6 +55,8 @@ void lv_free_core(void * p)
 
 void lv_mem_monitor_core(lv_mem_monitor_t * mon_p)
 {
+    /*Whole-PSRAM stats (includes esp_lcd framebuffers and every other SPIRAM
+     *user, not just LVGL); max_used is current allocated, not a high-water mark*/
     multi_heap_info_t info;
     heap_caps_get_info(&info, MALLOC_CAP_SPIRAM);
 

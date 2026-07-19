@@ -27,8 +27,9 @@ Extends `/Volumes/home/Projects/Arduino/CLAUDE.md` and `~/.claude/CLAUDE.md`.
   LVGL (whether a builtin TLSF pool or stdlib CLIB malloc) starves mbedTLS and
   breaks every OTA HTTPS check. Mechanism: `-DLV_USE_STDLIB_MALLOC=LV_STDLIB_CUSTOM`
   + `src/anbru430/lv_mem_psram.c` implementing the LVGL custom-stdlib contract
-  (`lv_mem_init/deinit`, `lv_malloc_core`, `lv_realloc_core`, `lv_free_core`,
-  `lv_mem_monitor_core`, `lv_mem_test_core`) backed by `heap_caps_malloc/realloc/free(...,
+  (`lv_mem_init/deinit`, `lv_mem_add_pool/remove_pool`, `lv_malloc_core`,
+  `lv_realloc_core`, `lv_free_core`, `lv_mem_monitor_core`, `lv_mem_test_core`)
+  backed by `heap_caps_malloc/realloc/free(...,
   MALLOC_CAP_SPIRAM)`. Two prior incidents: 3a shipped a static pool in internal
   RAM, and v0.05 shipped stdlib CLIB malloc + 20-line bounce buffers — both left
   internal heap around 55 KB free, well under what mbedTLS needs, so OTA checks
