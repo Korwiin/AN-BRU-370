@@ -17,7 +17,7 @@ void build(lv_obj_t* parent) {
   lv_obj_set_flex_flow(parent, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_all(parent, 24, 0);
   lv_obj_set_style_pad_gap(parent, 14, 0);
-  UI::makeLabel(parent, "ANBRU-430   fw v" FIRMWARE_VERSION,
+  UI::makeLabel(parent, "AN/BRU-430   fw v" FIRMWARE_VERSION,
                 &lv_font_montserrat_28, UI::colAccent());
   s_wifi = UI::makeLabel(parent, "WiFi: ...", &lv_font_montserrat_20, UI::colText());
   s_dcs  = UI::makeLabel(parent, "DCS: ...",  &lv_font_montserrat_20, UI::colText());
@@ -36,7 +36,7 @@ void refresh() {
   }
   lv_label_set_text_fmt(s_dcs, "DCS: %s",
                         DcsBios::isConnected() ? "connected" : "waiting");
-  lv_label_set_text_fmt(s_mem, "Heap: %u   PSRAM: %u",
+  lv_label_set_text_fmt(s_mem, "Heap Free: %u   PSRAM: %u",
                         (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
   lv_label_set_text_fmt(s_up, "Uptime: %lu min", millis() / 60000UL);
 }
