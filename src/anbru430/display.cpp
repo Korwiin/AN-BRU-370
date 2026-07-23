@@ -28,7 +28,7 @@ bool begin() {
 
   esp_lcd_rgb_panel_config_t cfg = {};
   cfg.clk_src = LCD_CLK_SRC_DEFAULT;
-  cfg.timings.pclk_hz = 16000000;
+  cfg.timings.pclk_hz = 14000000;  // E2: was 16MHz — more bounce-buffer refill slack
   cfg.timings.h_res = WIDTH;
   cfg.timings.v_res = HEIGHT;
   cfg.timings.hsync_pulse_width = 4;

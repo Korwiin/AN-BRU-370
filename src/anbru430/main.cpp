@@ -300,7 +300,7 @@ void loop() {
   bool mc  = dcsLive && DcsBios::masterCaution();
   bool rwr = dcsLive && DcsBios::rwrMslLaunch();
 
-  // RWR MISSILE LAUNCH — 200 ms debounce, 100 ms flash, 1 s missile/chaff alternation
+  // RWR MISSILE LAUNCH — 200 ms debounce, 150 ms flash, 1 s missile/chaff alternation
   static unsigned long s_rwrHighSince = 0;
   if (rwr && s_rwrHighSince == 0) s_rwrHighSince = millis();
   if (!rwr)                       s_rwrHighSince = 0;
@@ -310,7 +310,7 @@ void loop() {
     if (s_sleeping) wakeFromAlert();
     if (s_state == ST_WAITING_DCS) enterState(ST_AIRCRAFT);
     s_rwrActive = true;
-    if (millis() - s_rwrFlashTimer > 100) {
+    if (millis() - s_rwrFlashTimer > 150) {
       s_rwrFlash = !s_rwrFlash;
       s_rwrFlashTimer = millis();
     }
@@ -337,7 +337,7 @@ void loop() {
     if (s_sleeping) wakeFromAlert();
     if (s_state == ST_WAITING_DCS) enterState(ST_AIRCRAFT);
     s_mcActive = true;
-    if (millis() - s_mcFlashTimer > 200) {
+    if (millis() - s_mcFlashTimer > 350) {  // was 200 — full-modal repaint, slowed to ease PSRAM/bus load
       s_mcFlash = !s_mcFlash;
       s_mcFlashTimer = millis();
     }

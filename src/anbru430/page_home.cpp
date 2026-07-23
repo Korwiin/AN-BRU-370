@@ -5,6 +5,7 @@ namespace {
   lv_obj_t* s_grp[PageHome::STATE_COUNT];
   lv_obj_t* s_ssidLbl  = nullptr;
   lv_obj_t* s_fuelVal  = nullptr;
+  uint32_t  s_lastFuelLbs = 0xFFFFFFFFu;  // setFuel() change-gate
   void (*s_retryCb)()  = nullptr;
   void (*s_bleCb)()    = nullptr;
 
@@ -69,6 +70,8 @@ void setSsid(const char* ssid) {
 }
 
 void setFuel(uint32_t lbs) {
+  if (lbs == s_lastFuelLbs) return;  // no visual change
+  s_lastFuelLbs = lbs;
   lv_label_set_text_fmt(s_fuelVal, "%u lbs", (unsigned)lbs);
 }
 
